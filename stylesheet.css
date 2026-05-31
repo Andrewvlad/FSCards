@@ -1,0 +1,695 @@
+:root {
+    /* Colors */
+    --bg: #0d0d0f;
+    --blackText: #0d0d0f;
+    --surface: #16161a;
+    --card: #1e1e24;
+    --border: #2a2a35;
+    --accent: #f0c040;
+    --text: #f0ede8;
+    --muted: #7a7a8a;
+    --success: #4caf7d;
+    --error: #e05c5c;
+
+    /* Fonts */
+    --primaryFont: 'DM Mono', monospace;
+    --titleFont: 'Playfair Display', serif;
+}
+
+:root[data-theme="light"] {
+    --bg: #f5f3ee;       /* warm paper */
+    --surface: #eceae3;
+    --card: #ffffff;     /* white card; the white diagrams blend into it */
+    --border: #d6d2c8;
+    /*--accent: #946c00;   !* deep amber: readable as text on paper, and under near-white --bg on active fills *!*/
+    --text: #1c1b19;
+}
+
+/* Color classes */
+.skip {color: var(--accent)  !important}
+.good {color: var(--success) !important}
+.bad  {color: var(--error)   !important}
+
+/* Shared pill button style */
+.pill {
+    font-family: var(--primaryFont);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+/* Utility */
+.hidden {display: none !important}
+
+/* Segmented pill group */
+.segmented {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+
+    button.active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: var(--blackText);
+        pointer-events: none;
+    }
+
+    button:not(.active):hover {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+}
+
+* {
+    /* Include borders for all measurements */
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+
+    /* Disable all highlighting/selection */
+    user-select: none;
+}
+
+body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--primaryFont);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+}
+
+/* Noise texture overlay */
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='512' height='512' viewBox='0 0 512 512' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    background-size: 256px 256px;
+    pointer-events: none;
+}
+
+header {
+    width: 100%;
+    padding: 2rem 1rem 1rem;
+    display: flex;
+    gap: 1rem;
+    border-bottom: 1px solid var(--border);
+
+    #headerTitle {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: baseline;
+        gap: 1rem;
+        /* Make the tagline disappear on smaller devices */
+        max-height: calc(1.8rem * 1.2); /* logo font-size * line height */
+        overflow: hidden;
+
+        #logo {
+            font-family: var(--titleFont);
+            font-size: 1.8rem;
+            font-weight: 900;
+            letter-spacing: -0.02em;
+            color: var(--text);
+            flex-shrink: 0;
+
+            span {
+                color: var(--accent);
+            }
+        }
+
+        #tagline {
+            font-family: var(--primaryFont);
+            font-size: 0.7rem;
+            color: var(--muted);
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+    }
+
+    #settingsToggle {
+        margin-left: auto;
+        flex-shrink: 0;
+
+        &:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        &.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--blackText);
+        }
+    }
+}
+
+/* Mode selector */
+#modeBar {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1.5rem 1rem 0;
+    width: 100%;
+    flex-wrap: wrap;
+
+    button {
+        &.active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--blackText);
+            pointer-events: none;
+        }
+
+        &:not(.active):hover {
+            border-color: var(--accent);
+            color: var(--accent);
+            cursor: pointer;
+        }
+    }
+}
+
+/* Settings panel */
+
+#settingsPanel {
+    width: 100%;
+    padding: 1rem 1rem;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 1rem;
+    animation: slideDown 0.2s ease;
+
+    &.hidden {
+        display: none;
+    }
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        translate: 0 -15px;
+    }
+}
+
+.settingsGroup {
+    flex: 1 1 220px;
+}
+
+.settingsLabel {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--primaryFont);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    margin-bottom: 0.75rem;
+
+    .settingsValues {
+        color: var(--accent);
+    }
+}
+
+/* Toggle setting */
+.toggleSetting {
+    display: flex;
+    align-items: center;
+    align-self: flex-end; /* switches sit at the bottom of the settings row; labeled groups stay top-aligned */
+    gap: 0.6rem;
+    font-family: var(--primaryFont);
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    cursor: pointer;
+
+    input {
+        display: none;
+    }
+
+    .toggle {
+        width: 36px;
+        height: 20px;
+        background: var(--border);
+        border-radius: 10px;
+        position: relative;
+        transition: background 0.2s;
+        flex-shrink: 0;
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: var(--muted);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+    }
+
+    input:checked + .toggle {
+        background: var(--accent);
+
+        &::after {
+            left: 18px;
+            background: var(--bg);
+        }
+    }
+}
+
+#applyFilters {
+    border-color: var(--accent);
+    color: var(--accent);
+    white-space: nowrap;
+    margin-left: auto;
+
+    &:hover {
+        background: var(--accent);
+        color: var(--bg);
+    }
+}
+
+/* Stats bar */
+#statsBar {
+    display: flex;
+    gap: 2rem;
+    padding: 1rem 1rem;
+    width: 100%;
+    align-items: center;
+    font-family: var(--primaryFont);
+    font-size: 0.75rem;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+    text-transform: uppercase;
+
+    .stat {
+        display: flex;
+        flex-direction: column;
+        gap: 0.15rem;
+
+        label {
+            font-size: 0.6rem;
+            letter-spacing: 0.12em;
+        }
+
+        p {
+            font-size: 1rem;
+            color: var(--text);
+            font-weight: 500;
+        }
+    }
+
+    #progressContainer {
+        flex: 1;
+
+        #progressBar {
+            min-width: 120px;
+            height: 3px;
+            background: var(--border);
+            border-radius: 2px;
+            margin-top: 0.4rem;
+
+            #progressFill {
+                height: 100%;
+                background: var(--accent);
+                border-radius: 2px;
+                transition: width 0.4s ease;
+            }
+        }
+    }
+}
+
+/* Main arena */
+#arena {
+    flex: 1;
+    width: 100%;
+    max-width: 700px;
+    padding: 3rem 1.5rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+}
+
+/* Flashcard */
+#card {
+    animation: slideUp 0.35s ease;
+    position: relative;
+    width: 100%;
+    padding-top: 85%;
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+    transform: perspective(1200px); /* 3D flip effect. A transform so the script easily override it */
+
+    &.flipped {
+        transform: perspective(1200px) rotateY(180deg);
+    }
+}
+
+/* Animate card entering the page */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        translate: 0 20px;
+    }
+}
+
+.cardFace {
+    position: absolute;
+    inset: 0;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    outline: 1px solid transparent; /* Smoothes out edges when card moving */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    backface-visibility: hidden;
+    overflow: hidden;
+    padding: 1rem 1.2rem;
+
+    &.back {
+        transform: rotateY(180deg);
+    }
+
+    .cardInfo {
+        width: 100%;
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--primaryFont);
+        font-size: 0.6rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--muted);
+    }
+}
+
+/* Prevent dragging of images */
+img {pointer-events: none}
+
+/* Card content area — holds the front prompt or the back diagram */
+.cardContent {
+    flex: 1;
+    min-height: 0;
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Formation diagram */
+.diagram {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    background: #fff;
+    border-radius: 6px;
+}
+
+/* Letter / number prompt */
+.formationLabel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.labelKey {
+    font-family: var(--primaryFont);
+    font-weight: 900;
+    font-size: clamp(3.5rem, 20vw, 8rem);
+    line-height: 1;
+    color: var(--text);
+}
+
+.labelType {
+    font-family: var(--primaryFont);
+    font-size: 0.7rem;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+/* Name prompt */
+.formationName {
+    font-family: var(--titleFont);
+    font-weight: bold;
+    text-align: center;
+    text-transform: capitalize;
+    font-size: clamp(1.8rem, 7vw, 3.5rem);
+    line-height: 1.2;
+    padding: 0 1rem;
+}
+/* Swipe overlays */
+.skipOverlay    {border-color: var(--accent)}
+.correctOverlay {border-color: var(--success)}
+.wrongOverlay   {border-color: var(--error)}
+
+.skipOverlay::after,
+.correctOverlay::after,
+.wrongOverlay::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.25;
+}
+.skipOverlay::after    {background: linear-gradient(135deg, var(--accent),  var(--card))}
+.correctOverlay::after {background: linear-gradient(135deg, var(--success), var(--card))}
+.wrongOverlay::after   {background: linear-gradient(135deg, var(--error),   var(--card))}
+
+/* Keyboard hints */
+#keyboardHints {
+    display: grid;
+    width: 100%;
+    grid-template-columns: 1fr auto 1fr;
+    font-family: var(--primaryFont);
+    font-size: 0.6rem;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+
+    span:last-child {direction: rtl} /* Keeps the arrow on the edge of the card */
+
+    span::first-letter {
+        padding: 0.1rem 0.35rem;
+        margin: 0 1ch;
+        border: 1px solid var(--border);
+        border-radius: 3px;
+        color: var(--muted);
+    }
+}
+
+/* Action buttons */
+#actionBar {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+    justify-content: center;
+
+    button {
+        font-family: var(--primaryFont);
+        font-size: 0.75rem;
+        background: transparent;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.85rem 2rem;
+        border-radius: 4px;
+        border: 1px solid;
+        cursor: pointer;
+        transition: all 0.15s;
+        flex: 1;
+    }
+
+    #flip {
+        border-color: var(--border);
+        color: var(--text);
+        max-width: 220px;
+
+        &:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+    }
+
+    #correct, #wrong {
+        max-width: 180px;
+
+        &:hover {color: var(--text)}
+    }
+
+    #correct {
+        border-color: var(--success);
+        color: var(--success);
+
+        &:hover {background: var(--success)}
+    }
+
+    #wrong {
+        border-color: var(--error);
+        color: var(--error);
+
+        &:hover {background: var(--error)}
+    }
+
+    #restart {
+        border-color: var(--accent);
+        color: var(--accent);
+        max-width: 220px;
+
+        &:hover {
+            background: var(--accent);
+            color: var(--bg);
+        }
+    }
+}
+
+/* Done screen */
+#done {
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 2rem;
+
+    .label {
+        font-family: var(--primaryFont);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.15em;
+        color: var(--muted);
+    }
+
+    #score {
+        font-family: var(--titleFont);
+        font-size: 5rem;
+        font-weight: 900;
+        line-height: 1;
+        color: var(--accent);
+    }
+
+    #message {
+        font-size: 1.1rem;
+        color: var(--muted);
+        max-width: 300px;
+    }
+}
+
+.toast {
+    width: 100%;
+    border: 1px solid var(--accent);
+    color: var(--accent);
+    font-family: var(--primaryFont);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    text-align: center;
+    border-radius: 4px;
+    max-width: 180px;
+    padding: 12px 0;
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    pointer-events: none;
+    animation: slideToastUp 0.5s ease-out, hideToast 1.25s forwards 1s;
+    background: var(--card);
+}
+
+@keyframes slideToastUp {from {translate: 0 15px}}
+@keyframes hideToast {to {opacity: 0}}
+
+/* Status messages */
+#loadingMessage, #errorMessage {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    padding: 4rem;
+    font-family: var(--primaryFont);
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+#loadingMessage {
+    color: var(--muted);
+
+    /* Loading spinner */
+    &::before {
+        content: "";
+        width: 32px; height: 32px;
+        border: 2px solid var(--border);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+}
+
+@keyframes spin {to {transform: rotate(360deg)}}
+
+#errorMessage {color: var(--error)}
+
+/* Floating round buttons, stacked bottom-left: diagram-source logo (top) + report issue (bottom) */
+#cornerButtons {
+    position: fixed;
+    bottom: 1rem;
+    left: 1rem;
+    z-index: 100;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+
+    > a {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: clamp(2.5rem, 6vmin, 4rem);
+        height: clamp(2.5rem, 6vmin, 4rem);
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        background: var(--bg);
+        color: var(--muted);
+        cursor: pointer;
+        opacity: 0.75;
+        transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+        /* report flag: a small centered icon */
+        svg {
+            width: 45%;
+            height: 45%;
+        }
+
+        &:hover {
+            opacity: 1;
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+    }
+
+    /* source logo fills the button — inset and clipped to the round shape */
+    #sourceLink {
+        overflow: hidden;
+        padding: 8px;
+
+        svg {
+            width: 100%;
+            height: 100%;
+        }
+    }
+}

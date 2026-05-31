@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Formation skydiving dive pool flashcards">
+    <meta name="author" content="Andrew Vladelshchikov">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!--Prevent swiped cards from expanding the viewport-->
+    <title>FSCards - Dive Pool Trainer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="stylesheet.css">
+    <script>
+        // Resolve the active theme before first paint: saved choice -> OS preference -> dark
+        let savedTheme;
+        try { savedTheme = localStorage.getItem('fscards-theme'); } catch (e) {} // Storage may be unavailable
+        document.documentElement.dataset.theme =
+            savedTheme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    </script>
+</head>
+<body>
+
+<!--Floating corner buttons (bottom-left, stacked): diagram-source logo on top, report-issue below-->
+<div id="cornerButtons">
+    <!--Diagram source: links to the active image set's source site; href/icon set by updateSourceButton()-->
+    <a id="sourceLink" target="_blank" rel="noopener noreferrer"></a>
+    <!--Report issue: repo's new-issue page, prefilled with current state-->
+    <a id="reportIssue" href="https://github.com/Andrewvlad/FSCards/issues/new" target="_blank" rel="noopener noreferrer" title="Report an issue on GitHub" aria-label="Report an issue on GitHub" onclick="this.href = buildIssueUrl()">
+        <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M5 21V4"/>
+            <path d="M5 4h13l-2.5 4 2.5 4H5"/>
+        </svg>
+    </a>
+</div>
+
+<!--Content-->
+<header>
+    <div id="headerTitle">
+        <div id="logo">FS<span>Cards</span></div>
+        <div id="tagline">Learn the skydiving formation dive pool</div>
+    </div>
+    <button id="settingsToggle" class="pill" onclick="toggleSettings()">⚙ Settings</button>
+</header>
+
+<div id="settingsPanel" class="hidden">
+    <div class="settingsGroup" id="categoryGroup">
+        <div class="settingsLabel"><span>Category</span></div>
+        <div class="segmented" id="categorySegment">
+            <button type="button" data-category="randoms" class="pill" onclick="selectCategory(this)">Randoms</button>
+            <button type="button" data-category="blocks" class="pill" onclick="selectCategory(this)">Blocks</button>
+            <button type="button" data-category="all" class="pill active" onclick="selectCategory(this)">All</button>
+        </div>
+    </div>
+
+    <div class="settingsGroup" id="classGroup">
+        <div class="settingsLabel"><span>Class</span></div>
+        <div class="segmented" id="classSegment"></div>
+    </div>
+
+    <div class="settingsGroup">
+        <div class="settingsLabel"><span>Card Front</span></div>
+        <div class="segmented" id="frontSegment">
+            <button type="button" data-front="diagram" class="pill active" onclick="selectFront(this)">Diagram</button>
+            <button type="button" data-front="label" class="pill" onclick="selectFront(this)">Letter / Number</button>
+            <button type="button" data-front="name" class="pill" onclick="selectFront(this)">Name</button>
+        </div>
+    </div>
+
+    <div class="settingsGroup" id="imageSetGroup">
+        <div class="settingsLabel"><span>Diagram Set</span></div>
+        <div class="segmented" id="imageSetSegment"></div>
+    </div>
+
+    <label class="toggleSetting hidden" id="outdoorSetting">
+        <input type="checkbox" id="outdoorToggle" onchange="selectOutdoor(this)">
+        <span class="toggle"></span>
+        Outdoor (sky) diagrams
+    </label>
+
+    <label class="toggleSetting">
+        <input type="checkbox" id="recycleToggle" onchange="recycle = checked; saveSession()">
+        <span class="toggle"></span>
+        Recycle wrong cards
+    </label>
+
+    <label class="toggleSetting">
+        <input type="checkbox" id="themeToggle" onchange="selectTheme(this)">
+        <span class="toggle"></span>
+        Light mode
+    </label>
+</div>
+
+<div id="modeBar">
+    <button data-mode="4-way" class="pill active">4-Way</button>
+    <button data-mode="8-way" class="pill">8-Way</button>
+    <button data-mode="10-way" class="pill">10-Way</button>
+    <button data-mode="16-way" class="pill">16-Way</button>
+    <button data-mode="4-way-vfs" class="pill">VFS 4-Way</button>
+    <button data-mode="2-way-mfs" class="pill">MFS 2-Way</button>
+</div>
+
+<div id="statsBar">
+    <div class="stat">
+        <label>Card</label>
+        <p id="statCard">—</p>
+    </div>
+    <div class="stat">
+        <label>Correct</label>
+        <p class="good" id="statCorrect">0</p>
+    </div>
+    <div class="stat">
+        <label>Wrong</label>
+        <p class="bad" id="statWrong">0</p>
+    </div>
+    <div class="stat">
+        <label>Streak</label>
+        <p id="statStreak">0</p>
+    </div>
+    <div class="stat" id="progressContainer">
+        <label>Progress</label>
+        <div id="progressBar"><div id="progressFill"></div></div>
+    </div>
+</div>
+
+<div id="arena"></div>
+
+
+<!--Per-discipline data (formation names, classes, and image sets) — loaded before index.js-->
+<script src="assets/diagrams/4-way/index.js"></script>
+<script src="assets/diagrams/8-way/index.js"></script>
+<script src="assets/diagrams/10-way/index.js"></script>
+<script src="assets/diagrams/16-way/index.js"></script>
+<script src="assets/diagrams/4-way-vfs/index.js"></script>
+<script src="assets/diagrams/2-way-mfs/index.js"></script>
+
+<script src="index.js"></script>
+<script>
+    // Initialize stats
+    const correct = document.getElementById('statCorrect');
+    const wrong = document.getElementById('statWrong');
+    const streak = document.getElementById('statStreak');
+    const progress = document.getElementById('statCard');
+    const getIndex = () => +correct.textContent + +wrong.textContent;
+
+    // Initialize state
+    let discipline = '4-way';
+    let category = 'all';
+    let classLevel = 'open';
+    let frontContent = 'diagram';
+    let outdoor = false;
+    let imageSet = 'Rhythm';
+    let fullDeck = [];
+    let deck = [];
+    let flipped = false;
+    let recycle = false;
+    let theme = document.documentElement.dataset.theme;
+</script>
+<!--Save progress-->
+<script>
+    const SAVE_KEY = 'fscards';
+
+    // Save after each grading
+    function saveSession() {
+        try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
+                deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
+                correct: correct.textContent,
+                wrong:   wrong.textContent,
+                streak:  streak.textContent,
+                discipline,
+                category,
+                classLevel,
+                frontContent,
+                outdoor,
+                imageSet,
+                recycle,
+            }));
+        } catch(e) {} // Fail silently if storage full or unavailable
+    }
+
+    function loadSession() {
+        try {
+            const rawData = localStorage.getItem(SAVE_KEY);
+            if (!rawData) return false; // Exit if empty
+
+            const data = JSON.parse(rawData);
+
+            // Restore settings
+            discipline   = data.discipline ?? '4-way';
+            category     = data.category ?? 'all';
+            classLevel   = data.classLevel ?? 'open';
+            frontContent = data.frontContent ?? 'diagram';
+            outdoor      = data.outdoor ?? false;
+            imageSet     = data.imageSet ?? 'Rhythm';
+            recycle      = data.recycle ?? false;
+
+            // Rebuild the full pool (for category switching), then restore the played deck
+            fullDeck = buildDeck({discipline, outdoor, classLevel, imageSet});
+            deck = deckFromKeys(data.deck, {discipline, outdoor, imageSet, classLevel});
+
+            // Populate stats
+            correct.textContent = data.correct;
+            wrong.textContent   = data.wrong;
+            streak.textContent  = data.streak;
+
+            syncSettingsUI();
+
+            showToast('Resumed');
+
+            return true;
+        } catch(e) {return false;}
+    }
+
+    function showToast(message) {
+        const toast = document.createElement('output');
+        toast.role = 'status';
+        toast.className = 'toast';
+        toast.textContent = message;
+        toast.addEventListener('animationend', e => e.animationName === 'hideToast' && toast.remove());
+        document.body.appendChild(toast);
+    }
+
+    // Only clear when game is complete. Progress in a new mode will override
+    function clearSession() {
+        try {
+            localStorage.removeItem(SAVE_KEY);
+        } catch(e) {} // Fail silently if storage unavailable
+    }
+</script>
+<!--Define deck-->
+<script>
+    // Rebuild the full pool (reshuffles) — used when the discipline or class changes
+    function newDeck() {
+        fullDeck = buildDeck({discipline, outdoor, classLevel, imageSet});
+        applyCategory();
+    }
+
+    // Derive the played deck from fullDeck by category (no reshuffle) and restart the run
+    function applyCategory() {
+        deck = fullDeck.filter(matchesCategory);
+
+        correct.textContent = '0';
+        wrong.textContent = '0';
+        streak.textContent = '0';
+
+        saveSession();
+        nextCard();
+    }
+
+    function matchesCategory(card) {
+        if (!categorized(discipline)) return true; // For 10-way Speed
+        switch (category) {
+            case 'blocks':
+            case 'randoms':
+                return isBlockKey(card.key) === (category === 'blocks');
+            case 'all':
+            default:
+                return true;
+        }
+    }
+
+    // Re-point every card's diagram at the current set/outdoor without rebuilding the deck
+    function hotSwapImages() {
+        const images = poolImages({discipline, outdoor, imageSet});
+        for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
+        for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
+
+        const formation = deck[getIndex()];
+        if (formation) {
+            // diagram-front prompt shows the text-free figure; the answer side shows the full diagram
+            document.querySelectorAll('#card .front .diagram').forEach(img => img.src = formation.figure);
+            document.querySelectorAll('#card .back  .diagram').forEach(img => img.src = formation.image);
+        }
+
+        saveSession();
+    }
+</script>
+<script>
+    // Constants that get swapped between
+    const frontActionBar = `<button id="flip" onclick="flipCard()">Reveal Answer</button>`;
+    const backActionBar = `<button id="wrong" onclick="grade(false)">✗ Wrong</button><button id="correct" onclick="grade(true)">✓ Correct</button>`;
+    const restartActionBar = `<button id="restart" onclick="newDeck()">↺ New Session</button>`;
+
+    const frontKeyboardHints = `<span class="skip" onclick="grade(false)">← skip</span><span onclick="flipCard()">⌴ flip</span><span class="skip" onclick="grade(true)">→ skip</span>`;
+    const backKeyboardHints = `<span class="bad" onclick="grade(false)">← wrong</span><span onclick="flipCard()">⌴ flip</span><span class="good" onclick="grade(true)">→ correct</span>`;
+</script>
+<!--Flip card-->
+<script>
+    function flipCard() {
+        const card = document.getElementById('card');
+
+        flipped = !flipped;
+        card.classList.toggle('flipped', flipped);
+
+        // Release in-flight mouse/touch interaction
+        card.dispatchEvent(new MouseEvent('mouseup',  {bubbles: true}));
+        card.dispatchEvent(new TouchEvent('touchend', {bubbles: true}));
+
+        // Update info, action bar, and keyboard hints
+        document.getElementById('actionBar').innerHTML     = flipped ? backActionBar : frontActionBar;
+        document.getElementById('keyboardHints').innerHTML = flipped ? backKeyboardHints : frontKeyboardHints;
+    }
+</script>
+<!--Create card-->
+<script>
+    const arena = document.getElementById('arena');
+
+    // The prompt shown on the front of the card, per the Card Front setting
+    function frontFace(formation) {
+        switch (frontContent) {
+            case 'name':
+                return `<div class="cardContent"><h1 class="formationName">${formation.name}</h1></div>`;
+            case 'diagram':
+                return `<div class="cardContent"><img class="diagram" src="${formation.figure}" alt="${formation.key}"></div>`;
+            case 'label':
+            default:
+                return `<div class="cardContent">
+                            <div class="formationLabel">
+                                <span class="labelKey">${formation.key}</span>
+                            </div>
+                        </div>`;
+        }
+    }
+
+    // Grading does the actual shifting of the index
+    function nextCard() {
+        if (getIndex() >= deck.length) return finish();
+
+        flipped = false;
+        progress.textContent = `${getIndex() + 1} / ${deck.length}`;
+        document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
+
+        const formation = deck[getIndex()];
+
+        arena.innerHTML = `
+            <div id="card">
+                <div class="cardFace front">
+                    <div class="cardInfo">
+                        <div>Do you know this formation?</div>
+                        <div>${progress.textContent}</div>
+                    </div>
+                    ${frontFace(formation)}
+                    <div class="cardInfo"></div>
+                </div>
+                <div class="cardFace back">
+                    <div class="cardInfo">
+                        <div>Answer</div>
+                        <div>${progress.textContent}</div>
+                    </div>
+                    <div class="cardContent">
+                        <img class="diagram" src="${formation.image}" alt="${formation.key}">
+                    </div>
+                    <div class="cardInfo">
+                        <div>${formation.key}</div>
+                        <div>${formation.name}</div>
+                    </div>
+                </div>
+            </div>
+            <p id="keyboardHints">${frontKeyboardHints}</p>
+            <div id="actionBar">${frontActionBar}</div>
+        `;
+
+        attachSwipe();
+    }
+</script>
+<!--Finish game-->
+<script>
+    function finish() {
+        clearSession();
+
+        const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
+
+        const message =
+            pct === 100 ? 'Perfect score!' :
+            pct >= 80   ? 'Impressive!' :
+            pct >= 60   ? 'Nice try!' :
+                          'Keep at it!';
+
+        progress.textContent = '✓';
+        document.getElementById('progressFill').style.width = '100%';
+        arena.innerHTML = `
+            <div id="done">
+                <div class="label">Session Complete</div>
+                <div id="score">${pct}%</div>
+                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong</div>
+                <div id="message">${message}</div>
+                <div id="actionBar">${restartActionBar}</div>
+            </div>
+        `;
+    }
+</script>
+<!--Grade card-->
+<script>
+    let lock = false;
+
+    function grade(direction) {
+        if (lock++) return; // Prevents multiple grades being queued up during timeout
+
+        swipeController?.abort(); // Release all card listeners
+
+        const card = document.getElementById('card');
+
+        setOverlay(direction);
+
+        const flyX = (flipped ^ direction ? 0.75 : -0.75) * window.innerWidth;
+        const rot  = flipped ^ direction ? MAX_ROT : -MAX_ROT;
+        card.style.transition = ''; // Remove "none" transition
+        // Removes perspective transition to prevent warping
+        card.style.transform  = `${flipped ? 'rotateY(180deg)' : ''} translateX(${flyX}px) rotate(${rot}deg)`;
+        setTimeout(() => addGrade(flipped), SWIPE_DURATION);
+
+        function addGrade(value) {
+            if (value) {
+                if (direction) { // Correct
+                    correct.textContent++;
+                    streak.textContent++;
+                } else { // Wrong
+                    if (recycle) deck.push(deck[getIndex()]);
+                    wrong.textContent++;
+                    streak.textContent = '0';
+                }
+            } else { // Skip
+                deck.push(...deck.splice(getIndex(), 1));
+            }
+
+            saveSession();
+            nextCard();
+            lock = false;
+        }
+    }
+</script>
+<!--Switch discipline buttons-->
+<script>
+    const modeButtons = document.querySelectorAll('#modeBar button');
+
+    for (const button of modeButtons) {
+        button.addEventListener('click', () => {
+            if (button.classList.contains('active')) return;
+
+            modeButtons.forEach(otherButton => otherButton.classList.remove('active'));
+            button.classList.add('active');
+
+            discipline = button.dataset.mode;
+            updateDisciplineUI();
+            newDeck();
+        });
+    }
+
+    function updateDisciplineUI() {
+        renderImageSetButtons();
+        renderClassButtons();
+
+        // Only show outside toggle for Rhythm 8-way image set
+        document.getElementById('outdoorSetting').classList
+            .toggle('hidden', !(discipline === '8-way' && imageSet === 'Rhythm'));
+
+        document.getElementById('categoryGroup').classList
+            .toggle('hidden', !categorized(discipline));
+    }
+
+    // Render the class options for the current discipline, keeping the active class
+    // when it still exists and falling back to the full pool otherwise.
+    function renderClassButtons() {
+        const classes = classesFor(discipline);
+        if (classes.length && !classes.some(c => c.key === classLevel))
+            classLevel = (classes.find(c => c.key === 'open') ?? classes[classes.length - 1]).key;
+
+        // Only worth showing when there's an actual choice between classes
+        document.getElementById('classGroup').classList.toggle('hidden', classes.length <= 1);
+
+        document.getElementById('classSegment').innerHTML = classes.map(c =>
+            `<button type="button" data-class="${c.key}" class="pill${c.key === classLevel ? ' active' : ''}" onclick="selectClass(this)">${c.label}</button>`
+        ).join('');
+    }
+
+    function renderImageSetButtons() {
+        const sets = imageSetsFor(discipline);
+
+        // Only worth showing when there's an actual choice between sets
+        document.getElementById('imageSetGroup').classList.toggle('hidden', sets.length <= 1);
+
+        document.getElementById('imageSetSegment').innerHTML = sets.map(set =>
+            `<button type="button" data-imageset="${set}" class="pill${set === imageSet ? ' active' : ''}" onclick="selectImageSet(this)">${set}</button>`
+        ).join('');
+
+        updateSourceButton();
+    }
+
+    const sourceIcon = (vb, d) => `<svg viewBox="${vb}" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="${d}"/></svg>`;
+    const IMAGE_SET_SOURCES = {
+        Rhythm: {url: 'https://rhythmskydiving.com/',      label: 'SDC Rhythm XP',                      icon: sourceIcon('4 -15.4 204.8 169.4', 'M32.0 0.0L71.0 53.0 75.0 61.0 5.0 83.0 4.0 80.0 8.0 76.0 41.0 50.0 29.0 7.0 32.0 0.0ZM71.0 6.0L76.0 6.0 114.0 31.0 117.0 31.0 152.0 7.0 158.0 7.0 115.0 66.0 71.0 6.0ZM166.0 11.0L168.0 14.0 156.0 60.0 191.0 88.0 193.0 93.0 123.0 70.0 166.0 11.0ZM109.0 80.0L109.0 154.0 105.0 149.0 91.0 110.0 88.0 107.0 46.0 106.0 39.0 103.0 109.0 80.0ZM120.0 80.0L190.0 103.0 188.0 105.0 181.0 106.0 140.0 108.0 125.0 148.0 120.0 154.0 120.0 80.0Z')},
+        USPA:   {url: 'https://www.uspa.org/scm',          label: "USPA Skydiver's Competition Manual", icon: sourceIcon('0 0 257 260', 'M112.0 0.0L119.0 0.0 107.0 1.0 90.0 6.0 77.0 12.0 68.0 18.0 53.0 33.0 46.0 45.0 44.0 52.0 48.0 55.0 50.0 53.0 53.0 43.0 57.0 36.0 63.0 28.0 72.0 20.0 93.0 8.0 108.0 4.0 96.0 8.0 85.0 14.0 78.0 19.0 66.0 31.0 61.0 39.0 58.0 47.0 58.0 51.0 62.0 54.0 68.0 37.0 72.0 31.0 83.0 20.0 97.0 11.0 112.0 5.0 96.0 15.0 84.0 27.0 80.0 33.0 74.0 47.0 74.0 51.0 78.0 53.0 80.0 51.0 80.0 46.0 82.0 40.0 90.0 26.0 101.0 15.0 119.0 4.0 107.0 15.0 99.0 26.0 95.0 34.0 91.0 49.0 96.0 53.0 99.0 37.0 106.0 22.0 111.0 15.0 123.0 3.0 124.0 5.0 127.0 1.0 129.0 2.0 136.0 17.0 139.0 31.0 140.0 50.0 141.0 51.0 145.0 49.0 144.0 35.0 139.0 17.0 132.0 3.0 144.0 15.0 149.0 22.0 155.0 34.0 159.0 53.0 163.0 50.0 163.0 44.0 160.0 34.0 152.0 20.0 136.0 4.0 154.0 15.0 165.0 26.0 173.0 40.0 175.0 51.0 177.0 53.0 181.0 51.0 181.0 48.0 179.0 41.0 171.0 27.0 159.0 15.0 143.0 5.0 158.0 11.0 172.0 20.0 183.0 31.0 187.0 37.0 193.0 54.0 197.0 51.0 197.0 47.0 194.0 39.0 189.0 31.0 177.0 19.0 170.0 14.0 159.0 8.0 147.0 4.0 162.0 8.0 183.0 20.0 196.0 33.0 202.0 43.0 205.0 53.0 207.0 55.0 211.0 52.0 209.0 45.0 202.0 33.0 187.0 18.0 178.0 12.0 165.0 6.0 152.0 2.0 136.0 0.0 143.0 0.0 166.0 5.0 178.0 10.0 191.0 18.0 208.0 35.0 218.0 53.0 218.0 59.0 216.0 64.0 168.0 151.0 169.0 153.0 171.0 153.0 171.0 188.0 172.0 189.0 181.0 175.0 186.0 162.0 191.0 140.0 195.0 113.0 226.0 72.0 237.0 54.0 244.0 40.0 247.0 31.0 249.0 29.0 249.0 41.0 246.0 52.0 249.0 55.0 249.0 64.0 246.0 75.0 247.0 76.0 252.0 69.0 253.0 80.0 252.0 81.0 252.0 86.0 249.0 93.0 250.0 96.0 253.0 92.0 253.0 90.0 255.0 89.0 255.0 105.0 253.0 109.0 253.0 111.0 254.0 112.0 255.0 111.0 255.0 125.0 249.0 139.0 250.0 140.0 255.0 134.0 255.0 141.0 251.0 153.0 248.0 157.0 249.0 159.0 252.0 156.0 252.0 163.0 247.0 175.0 248.0 177.0 247.0 184.0 241.0 198.0 233.0 207.0 235.0 208.0 233.0 214.0 222.0 226.0 215.0 230.0 217.0 231.0 215.0 235.0 209.0 240.0 201.0 244.0 190.0 246.0 189.0 247.0 190.0 248.0 193.0 248.0 180.0 255.0 172.0 257.0 154.0 257.0 139.0 253.0 131.0 258.0 125.0 258.0 116.0 253.0 101.0 257.0 83.0 257.0 70.0 253.0 62.0 248.0 65.0 248.0 66.0 247.0 65.0 246.0 54.0 244.0 43.0 238.0 38.0 232.0 38.0 231.0 39.0 232.0 42.0 231.0 32.0 225.0 25.0 218.0 20.0 210.0 20.0 208.0 22.0 207.0 14.0 198.0 8.0 183.0 7.0 178.0 8.0 175.0 3.0 162.0 3.0 156.0 5.0 158.0 6.0 155.0 3.0 150.0 0.0 140.0 0.0 134.0 5.0 140.0 6.0 139.0 1.0 128.0 0.0 123.0 0.0 111.0 1.0 112.0 2.0 111.0 0.0 104.0 0.0 89.0 1.0 89.0 3.0 94.0 5.0 96.0 6.0 95.0 2.0 81.0 2.0 71.0 3.0 69.0 7.0 75.0 8.0 76.0 9.0 75.0 6.0 64.0 6.0 55.0 9.0 52.0 6.0 40.0 6.0 29.0 8.0 31.0 12.0 42.0 24.0 64.0 61.0 115.0 63.0 134.0 70.0 165.0 78.0 182.0 83.0 189.0 84.0 188.0 84.0 154.0 87.0 151.0 38.0 62.0 37.0 53.0 41.0 44.0 47.0 35.0 64.0 18.0 73.0 12.0 89.0 5.0 112.0 0.0ZM128.0 152.0L135.0 156.0 145.0 159.0 165.0 160.0 164.0 161.0 165.0 162.0 165.0 181.0 91.0 181.0 91.0 160.0 110.0 159.0 120.0 156.0 128.0 152.0ZM91.0 186.0L99.0 186.0 99.0 224.0 93.0 208.0 92.0 198.0 91.0 197.0 91.0 186.0ZM104.0 186.0L112.0 186.0 112.0 241.0 109.0 239.0 104.0 232.0 104.0 186.0ZM117.0 186.0L125.0 186.0 125.0 250.0 117.0 245.0 117.0 186.0ZM130.0 186.0L138.0 186.0 138.0 246.0 130.0 251.0 130.0 186.0ZM143.0 186.0L151.0 186.0 151.0 233.0 144.0 241.0 143.0 241.0 143.0 186.0ZM156.0 186.0L164.0 186.0 163.0 205.0 156.0 225.0 156.0 186.0ZM198.0 246.0L202.0 248.0 202.0 252.0 200.0 254.0 197.0 254.0 195.0 252.0 195.0 248.0 198.0 246.0ZM143.0 2.0L152.0 3.0 165.0 7.0 178.0 13.0 187.0 19.0 201.0 33.0 208.0 45.0 210.0 52.0 207.0 54.0 206.0 53.0 203.0 43.0 197.0 33.0 183.0 19.0 162.0 7.0 150.0 3.0 146.0 4.0 159.0 9.0 170.0 15.0 177.0 20.0 188.0 31.0 193.0 39.0 196.0 47.0 196.0 51.0 193.0 53.0 192.0 47.0 188.0 37.0 184.0 31.0 172.0 19.0 158.0 10.0 143.0 4.0 142.0 5.0 144.0 7.0 149.0 9.0 159.0 16.0 170.0 27.0 179.0 44.0 180.0 51.0 177.0 52.0 174.0 40.0 169.0 30.0 154.0 14.0 138.0 4.0 143.0 2.0ZM120.0 4.0L121.0 4.0 107.0 19.0 99.0 34.0 97.0 41.0 96.0 52.0 92.0 49.0 96.0 34.0 104.0 20.0 120.0 4.0ZM134.0 4.0L147.0 15.0 155.0 26.0 159.0 34.0 162.0 44.0 162.0 50.0 159.0 52.0 158.0 41.0 156.0 37.0 156.0 34.0 150.0 22.0 145.0 15.0 134.0 4.0ZM122.0 7.0L116.0 25.0 114.0 50.0 113.0 50.0 111.0 49.0 113.0 30.0 117.0 17.0 122.0 7.0ZM8.0 37.0L19.0 60.0 29.0 77.0 56.0 115.0 60.0 146.0 67.0 172.0 74.0 186.0 85.0 201.0 87.0 214.0 95.0 232.0 100.0 239.0 112.0 250.0 111.0 252.0 96.0 255.0 81.0 254.0 70.0 250.0 81.0 248.0 84.0 246.0 83.0 245.0 64.0 244.0 48.0 238.0 45.0 235.0 51.0 236.0 60.0 234.0 57.0 232.0 52.0 232.0 43.0 229.0 31.0 221.0 26.0 214.0 36.0 218.0 43.0 218.0 44.0 219.0 47.0 218.0 45.0 216.0 39.0 215.0 27.0 208.0 19.0 200.0 12.0 188.0 12.0 186.0 22.0 194.0 33.0 200.0 43.0 203.0 46.0 202.0 33.0 196.0 23.0 189.0 13.0 179.0 6.0 165.0 7.0 164.0 20.0 176.0 30.0 183.0 38.0 187.0 41.0 186.0 27.0 177.0 14.0 164.0 8.0 155.0 4.0 146.0 4.0 144.0 5.0 144.0 32.0 168.0 37.0 171.0 39.0 170.0 32.0 165.0 18.0 151.0 9.0 139.0 3.0 125.0 3.0 122.0 20.0 141.0 34.0 153.0 36.0 152.0 19.0 135.0 9.0 120.0 3.0 106.0 2.0 97.0 18.0 118.0 31.0 131.0 33.0 130.0 21.0 116.0 13.0 104.0 7.0 91.0 5.0 83.0 5.0 76.0 26.0 109.0 40.0 124.0 42.0 123.0 36.0 117.0 21.0 95.0 12.0 76.0 9.0 66.0 9.0 62.0 21.0 81.0 47.0 116.0 48.0 133.0 53.0 157.0 51.0 154.0 50.0 149.0 48.0 148.0 47.0 149.0 47.0 160.0 45.0 157.0 44.0 158.0 44.0 171.0 46.0 175.0 46.0 176.0 45.0 175.0 44.0 176.0 44.0 184.0 47.0 190.0 47.0 191.0 46.0 190.0 45.0 191.0 47.0 199.0 56.0 211.0 53.0 210.0 52.0 212.0 63.0 223.0 68.0 226.0 64.0 225.0 61.0 226.0 70.0 235.0 86.0 244.0 99.0 248.0 104.0 249.0 106.0 248.0 101.0 243.0 84.0 239.0 68.0 230.0 67.0 229.0 89.0 236.0 94.0 237.0 96.0 236.0 92.0 231.0 79.0 228.0 62.0 219.0 58.0 215.0 78.0 225.0 87.0 228.0 91.0 227.0 89.0 224.0 77.0 221.0 65.0 215.0 50.0 200.0 49.0 196.0 66.0 210.0 83.0 219.0 86.0 220.0 87.0 219.0 86.0 213.0 74.0 198.0 63.0 175.0 54.0 140.0 51.0 113.0 33.0 91.0 19.0 70.0 10.0 51.0 8.0 37.0ZM247.0 38.0L247.0 43.0 244.0 54.0 236.0 70.0 225.0 87.0 204.0 113.0 202.0 135.0 192.0 175.0 180.0 200.0 169.0 213.0 168.0 219.0 169.0 220.0 172.0 219.0 184.0 213.0 200.0 202.0 206.0 196.0 206.0 198.0 200.0 207.0 193.0 213.0 183.0 219.0 166.0 224.0 164.0 228.0 165.0 229.0 177.0 225.0 196.0 216.0 193.0 219.0 181.0 226.0 166.0 231.0 163.0 231.0 159.0 236.0 162.0 237.0 188.0 229.0 187.0 230.0 171.0 239.0 154.0 243.0 149.0 248.0 151.0 249.0 169.0 244.0 185.0 235.0 194.0 226.0 191.0 225.0 186.0 227.0 191.0 224.0 203.0 212.0 202.0 210.0 199.0 211.0 204.0 206.0 209.0 197.0 210.0 191.0 209.0 190.0 208.0 191.0 208.0 190.0 211.0 184.0 211.0 178.0 212.0 177.0 210.0 175.0 211.0 158.0 210.0 157.0 208.0 160.0 208.0 149.0 207.0 148.0 205.0 149.0 205.0 152.0 202.0 158.0 207.0 134.0 209.0 114.0 234.0 81.0 246.0 62.0 245.0 71.0 238.0 88.0 226.0 108.0 213.0 124.0 214.0 125.0 229.0 109.0 250.0 77.0 249.0 88.0 241.0 106.0 231.0 120.0 221.0 131.0 223.0 132.0 238.0 117.0 253.0 97.0 252.0 106.0 245.0 122.0 240.0 128.0 239.0 131.0 232.0 140.0 219.0 152.0 221.0 153.0 232.0 144.0 253.0 121.0 252.0 126.0 246.0 139.0 237.0 151.0 223.0 165.0 216.0 170.0 218.0 171.0 227.0 165.0 251.0 143.0 251.0 146.0 246.0 157.0 241.0 164.0 228.0 177.0 214.0 186.0 217.0 187.0 227.0 182.0 248.0 164.0 249.0 165.0 246.0 173.0 237.0 185.0 222.0 196.0 209.0 202.0 212.0 203.0 222.0 200.0 230.0 196.0 243.0 186.0 243.0 188.0 237.0 199.0 227.0 209.0 216.0 215.0 210.0 216.0 208.0 218.0 209.0 219.0 219.0 218.0 229.0 214.0 223.0 222.0 210.0 230.0 203.0 232.0 198.0 232.0 195.0 234.0 204.0 236.0 210.0 235.0 207.0 238.0 191.0 244.0 173.0 245.0 172.0 246.0 174.0 248.0 185.0 250.0 174.0 254.0 159.0 255.0 144.0 252.0 143.0 251.0 156.0 238.0 163.0 227.0 169.0 211.0 170.0 202.0 178.0 191.0 188.0 172.0 192.0 160.0 196.0 141.0 199.0 115.0 228.0 74.0 247.0 38.0ZM127.0 50.0L132.0 51.0 135.0 54.0 131.0 146.0 129.0 145.0 124.0 146.0 123.0 115.0 122.0 114.0 122.0 92.0 121.0 91.0 121.0 69.0 120.0 68.0 120.0 54.0 123.0 51.0 127.0 50.0ZM107.0 51.0L112.0 52.0 115.0 55.0 115.0 63.0 116.0 64.0 116.0 77.0 117.0 78.0 117.0 91.0 118.0 92.0 120.0 133.0 121.0 134.0 121.0 148.0 116.0 150.0 112.0 122.0 111.0 121.0 111.0 115.0 109.0 108.0 108.0 95.0 106.0 88.0 106.0 82.0 104.0 75.0 104.0 69.0 102.0 62.0 102.0 54.0 107.0 51.0ZM146.0 51.0L151.0 52.0 153.0 54.0 153.0 62.0 151.0 69.0 151.0 75.0 149.0 82.0 148.0 95.0 146.0 102.0 145.0 115.0 144.0 116.0 139.0 150.0 134.0 148.0 134.0 135.0 135.0 134.0 135.0 121.0 136.0 120.0 140.0 55.0 143.0 52.0 146.0 51.0ZM88.0 52.0L94.0 53.0 96.0 55.0 97.0 59.0 102.0 84.0 102.0 89.0 104.0 95.0 104.0 100.0 106.0 106.0 106.0 111.0 108.0 117.0 108.0 122.0 110.0 128.0 110.0 133.0 112.0 139.0 112.0 144.0 114.0 150.0 110.0 152.0 108.0 150.0 108.0 147.0 106.0 143.0 102.0 124.0 98.0 113.0 84.0 57.0 85.0 54.0 88.0 52.0ZM163.0 52.0L169.0 53.0 171.0 58.0 146.0 152.0 142.0 151.0 142.0 145.0 144.0 139.0 144.0 134.0 146.0 128.0 146.0 123.0 148.0 117.0 148.0 112.0 150.0 106.0 150.0 101.0 152.0 95.0 157.0 63.0 159.0 55.0 163.0 52.0ZM72.0 53.0L77.0 54.0 79.0 56.0 81.0 62.0 96.0 118.0 98.0 121.0 98.0 124.0 106.0 149.0 105.0 153.0 102.0 153.0 101.0 151.0 78.0 83.0 68.0 58.0 68.0 56.0 72.0 53.0ZM180.0 53.0L185.0 54.0 187.0 56.0 187.0 58.0 177.0 83.0 154.0 151.0 153.0 153.0 150.0 153.0 149.0 149.0 151.0 145.0 157.0 121.0 162.0 108.0 175.0 59.0 176.0 56.0 180.0 53.0ZM56.0 54.0L60.0 54.0 64.0 59.0 100.0 153.0 96.0 153.0 93.0 148.0 84.0 125.0 55.0 61.0 54.0 56.0 56.0 54.0ZM195.0 54.0L199.0 54.0 201.0 56.0 201.0 59.0 197.0 66.0 184.0 98.0 178.0 109.0 162.0 148.0 159.0 153.0 155.0 153.0 162.0 137.0 163.0 132.0 170.0 116.0 191.0 59.0 195.0 54.0ZM42.0 55.0L48.0 56.0 93.0 153.0 89.0 152.0 77.0 127.0 64.0 104.0 63.0 100.0 61.0 98.0 41.0 59.0 42.0 55.0ZM209.0 55.0L213.0 55.0 214.0 59.0 191.0 104.0 189.0 106.0 189.0 108.0 179.0 125.0 166.0 152.0 162.0 153.0 178.0 119.0 178.0 117.0 202.0 68.0 202.0 66.0 206.0 58.0 209.0 55.0ZM128.0 148.0L135.0 152.0 144.0 155.0 157.0 156.0 158.0 157.0 167.0 156.0 168.0 157.0 168.0 198.0 164.0 216.0 158.0 229.0 151.0 239.0 144.0 246.0 130.0 255.0 123.0 254.0 115.0 249.0 106.0 241.0 99.0 232.0 92.0 218.0 87.0 196.0 87.0 157.0 88.0 156.0 93.0 156.0 94.0 157.0 107.0 156.0 118.0 153.0 128.0 148.0ZM206.0 155.0L205.0 164.0 202.0 173.0 203.0 174.0 205.0 172.0 209.0 163.0 208.0 172.0 202.0 185.0 194.0 196.0 195.0 197.0 209.0 181.0 204.0 193.0 194.0 203.0 177.0 212.0 188.0 197.0 195.0 182.0 199.0 168.0 206.0 155.0ZM49.0 156.0L56.0 168.0 60.0 182.0 67.0 197.0 78.0 212.0 64.0 205.0 50.0 191.0 47.0 185.0 47.0 182.0 59.0 196.0 61.0 195.0 55.0 188.0 47.0 172.0 46.0 164.0 50.0 172.0 52.0 174.0 53.0 173.0 50.0 164.0 49.0 156.0Z')},
+        Axis:   {url: 'https://www.axisflightschool.com/', label: 'AXIS Flight School',                 icon: sourceIcon('0 0 200 87', 'M149.0 0.0L199.0 0.0 159.0 86.0 110.0 86.0 102.0 70.0 131.0 69.0 151.0 27.0 150.0 25.0 45.0 86.0 1.0 86.0 149.0 0.0Z')},
+    };
+
+    // Point the floating source button at the active image set's site (hidden if the set has no known source)
+    function updateSourceButton() {
+        const link = document.getElementById('sourceLink');
+        const source = IMAGE_SET_SOURCES[imageSet];
+        link.classList.toggle('hidden', !source);
+        if (!source) return;
+        link.href = source.url;
+        link.title = 'Diagram source: ' + source.label;
+        link.setAttribute('aria-label', 'Diagram source: ' + source.label);
+        link.innerHTML = source.icon;
+    }
+</script>
+<!--Settings panel-->
+<script>
+    const outdoorToggle = document.getElementById('outdoorToggle');
+    const recycleToggle = document.getElementById('recycleToggle');
+    const themeToggle = document.getElementById('themeToggle');
+
+    function toggleSettings() {
+        document.getElementById('settingsPanel').classList.toggle('hidden');
+        document.getElementById('settingsToggle').classList.toggle('active');
+    }
+
+    // Category just filters the existing deck — no reshuffle
+    function selectCategory(button) {
+        selectSegment('categorySegment', button);
+        category = button.dataset.category;
+        applyCategory();
+    }
+
+    // Class changes which formations are in the pool, so rebuild the deck
+    function selectClass(button) {
+        selectSegment('classSegment', button);
+        classLevel = button.dataset.class;
+        newDeck();
+    }
+
+    // Diagram set swaps the images in place — no deck rebuild
+    function selectImageSet(button) {
+        selectSegment('imageSetSegment', button);
+        imageSet = button.dataset.imageset;
+        updateDisciplineUI(); // the outdoor toggle only applies to Rhythm 8-way
+        hotSwapImages();
+    }
+
+    // Outdoor/sky vs tunnel diagrams — also a hot-swap
+    function selectOutdoor(checkbox) {
+        outdoor = checkbox.checked;
+        hotSwapImages();
+    }
+
+    // Theme overrides the OS preference and persists on its own key (outlives a session reset)
+    function selectTheme(checkbox) {
+        theme = checkbox.checked ? 'light' : 'dark';
+        document.documentElement.dataset.theme = theme;
+        try { localStorage.setItem('fscards-theme', theme); } catch (e) {} // Storage may be unavailable
+    }
+
+    // Card front applies live — re-render the current card without resetting the session
+    function selectFront(button) {
+        selectSegment('frontSegment', button);
+        frontContent = button.dataset.front;
+        if (deck.length && getIndex() < deck.length) nextCard();
+        saveSession();
+    }
+
+    function selectSegment(groupId, button) {
+        document.querySelectorAll(`#${groupId} button`)
+            .forEach(otherButton => otherButton.classList.remove('active'));
+        button.classList.add('active');
+    }
+
+    // Sync every settings control to the current state (used on load/resume)
+    function syncSettingsUI() {
+        document.querySelectorAll('#modeBar button').forEach(button =>
+            button.classList.toggle('active', button.dataset.mode === discipline));
+        document.querySelectorAll('#categorySegment button').forEach(button =>
+            button.classList.toggle('active', button.dataset.category === category));
+        document.querySelectorAll('#frontSegment button').forEach(button =>
+            button.classList.toggle('active', button.dataset.front === frontContent));
+
+        outdoorToggle.checked = outdoor;
+        recycleToggle.checked = recycle;
+        themeToggle.checked = theme === 'light';
+
+        updateDisciplineUI();
+    }
+</script>
+<!--Keybindings-->
+<script>
+    document.addEventListener('keydown', e => {
+        // TODO: disable keybindings on finish screen
+        if (e.code === 'Space') {e.preventDefault(); flipCard();}
+        if (e.code === 'ArrowRight') grade(true);
+        if (e.code === 'ArrowLeft')  grade(false);
+    });
+</script>
+<!--Swipe/drag card-->
+<script>
+    // TODO: Switch thresholds to be relative to window size (alongside Math.min())
+    const THRESHOLD = 80; // How many pixels of translation before swipe can be released
+    const SWIPE_THRESHOLD = 20; // How many pixels of translation before considered a swipe
+    const MAX_ROT = 20; // Max degrees of card rotation
+    const OVERLAY_THRESHOLD = THRESHOLD * 0.8; // When the overlay should appear
+    const SWIPE_DURATION = 300; // Number of milliseconds that the swipe animation will play
+
+    // Win/lose/skip tint on the card — shared by drag tracking and the grade animation
+    function setOverlay(direction) {
+        const front = document.querySelector('.front');
+        const back = document.querySelector('.back');
+        front.classList.toggle('skipOverlay',   !flipped);
+        back.classList.toggle('correctOverlay',  flipped && direction);
+        back.classList.toggle('wrongOverlay',    flipped && !direction);
+    }
+
+    function clearOverlay() {
+        document.querySelector('.front').classList.remove('skipOverlay');
+        document.querySelector('.back').classList.remove('correctOverlay', 'wrongOverlay');
+    }
+
+    let swipeController; // AbortController for current card's listeners
+
+    function attachSwipe() {
+        swipeController = new AbortController();
+        const {signal} = swipeController;
+
+        const card = document.getElementById('card');
+        const front = document.querySelector('.front');
+        const back = document.querySelector('.back');
+
+        let startX, startY, curX = 0;
+        let isDragging = false;
+        let startFlipped;
+
+        // Add listeners
+        card.addEventListener('mousedown',  onStart, {signal});
+        card.addEventListener('touchstart', onStart, {signal});
+
+        // Split to eat click on flip
+        front.addEventListener('click', flipCard, {signal});
+        back.addEventListener('click',  flipCard, {signal});
+
+        const pos = (e, calcOffset = false) => {
+            const p = e.touches?.[0] ?? e;
+            return calcOffset ? [p.clientX - startX, p.clientY - startY] : [p.clientX, p.clientY];
+        };
+
+        function onStart(e) {
+            startFlipped = flipped;
+
+            curX = 0;
+            isDragging = false;
+            [startX, startY] = pos(e);
+
+            // Start tracking movement
+            document.addEventListener('mousemove', onMove, {signal});
+            document.addEventListener('touchmove', onMove, {signal, passive: false}); // False for Safari default
+            document.addEventListener('mouseup',   onEnd, {signal});
+            document.addEventListener('touchend',  onEnd, {signal});
+        }
+
+        function onMove(e) {
+            const [changeX, changeY] = pos(e, true);
+            e.preventDefault(); // Mobile devices slow down significantly if scrolling is allowed
+
+            // Abort if scrolling vertically
+            if (!isDragging && Math.abs(changeY) > SWIPE_THRESHOLD) return cleanup();
+
+            if (Math.abs(changeX) > SWIPE_THRESHOLD) isDragging = true;
+            if (!isDragging) return;
+
+            // Prevent drag click from flipping
+            front.removeEventListener('click', flipCard);
+            back.removeEventListener('click', flipCard);
+
+            card.style.transition = 'none'; // Prevents lag when dragging the element
+
+            const flipMult = flipped ? -1 : 1;
+            curX = changeX;
+            const rot = (changeX / window.innerWidth) * MAX_ROT * 0.5; // 0.5x so it keeps rotating after release
+            // Card follows behind cursor at 0.5x
+            card.style.transform = `${flipped ? 'rotateY(180deg)' : ''} translateX(${changeX * 0.5 * flipMult}px) rotate(${rot * flipMult}deg)`;
+
+            if (changeX > OVERLAY_THRESHOLD) return setOverlay(true);
+            if (changeX < -OVERLAY_THRESHOLD) return setOverlay(false);
+            clearOverlay();
+        }
+
+        function onEnd() {
+            cleanup();
+
+            if (Math.abs(curX) > THRESHOLD && flipped === startFlipped) return grade(curX > 0);
+
+            // Reset color and position
+            clearOverlay();
+            card.style.transform = '';
+        }
+
+        function cleanup() {
+            card.style.transition = ''; // Remove "none" transition
+
+            // Release listeners
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mouseup',   onEnd);
+            document.removeEventListener('touchend',  onEnd);
+
+            // Re-enable only after the card stops moving
+            requestAnimationFrame(() => {
+                front.addEventListener('click', flipCard, {signal});
+                back.addEventListener('click',  flipCard, {signal});
+            });
+        }
+    }
+</script>
+<!--Start-->
+<script>
+    syncSettingsUI();
+    loadSession() ? nextCard() : newDeck();
+</script>
+<!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
+<script>
+    function buildIssueUrl() {
+        const card = deck && deck[getIndex()];
+        const context = [
+            '- Discipline: ' + discipline,
+            '- Diagram set: ' + imageSet,
+            '- Class: ' + classLevel,
+            '- Category: ' + category,
+            '- Card front: ' + frontContent,
+            card ? '- Card: ' + card.key + ' — ' + card.name : null,
+            card ? '- Diagram: ' + card.image : null,
+            '- Page: ' + location.href,
+            '- User agent: ' + navigator.userAgent,
+        ].filter(Boolean);
+        const body = ['**Describe the issue:**', '', '', '---',
+            '_Context (auto-filled — edit or delete):_', ...context].join('\n');
+        return 'https://github.com/Andrewvlad/FSCards/issues/new?' + new URLSearchParams({body}).toString();
+    }
+</script>
+<noscript>To use this tool, please enable JavaScript.</noscript>
+
+</body>
+</html>
