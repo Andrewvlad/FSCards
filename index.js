@@ -8,9 +8,7 @@ function randomizeDeck(deck) {
     return shuffled;
 }
 
-// Per-discipline data — formation names, competition classes, and image sets — is defined
-// alongside the diagrams in assets/diagrams/<discipline>/index.js (loaded before this file).
-// Collect those globals into one registry keyed by discipline.
+// All per-discipline data
 const DATA = {
     '4-way':     _4Way,
     '8-way':     _8Way,
@@ -20,7 +18,6 @@ const DATA = {
     '2-way-mfs': _2WayMfs,
 };
 
-// Blocks/formations are numbered, randoms lettered — so a numeric key is a block.
 const isBlockKey = (key) => !isNaN(key);
 
 // A discipline offers the Randoms/Blocks split only when its pool has both numbered and
@@ -29,11 +26,6 @@ function categorized(discipline) {
     const keys = Object.keys(DATA[discipline].names);
     return keys.some(isBlockKey) && keys.some(key => !isBlockKey(key));
 }
-
-// Text-free "figure-only" variant used as the diagram-front prompt (so the printed name
-// and letter/number don't give away the answer). Every diagram has one under a `figures/`
-// subdir alongside it.
-const figureFor = (path) => path.replace(/\/([^/]+)$/, '/figures/$1');
 
 function poolImages({discipline, outdoor, imageSet}) {
     const data = DATA[discipline];
@@ -46,13 +38,18 @@ function poolImages({discipline, outdoor, imageSet}) {
     return images;
 }
 
-// Diagram sets available for a discipline, in display order (mirrors its subdirectories).
+// Text-free card variant used for the front
+const figureFor = (path) => path.replace(/\/([^/]+)$/, '/figures/$1');
+
 function imageSetsFor(discipline) {
     return Object.keys(DATA[discipline].sets);
 }
 
-// Keys present in a discipline's diagrams but excluded from the default pool — shown only
-// when a class lists them explicitly. 4-way's 'R' (Bundy) is a CISM-only random.
+function videoFor(discipline, key) {
+    return DATA[discipline].videos?.[key];
+}
+
+// 'R' is a CISM-only random.
 const OPT_IN_KEYS = {
     '4-way': ['R'],
 };
@@ -62,12 +59,8 @@ function buildPool({discipline, outdoor, imageSet, classLevel}) {
     const images = poolImages({discipline, outdoor, imageSet});
     const names = DATA[discipline].names;
 
-    // The chosen class narrows the pool; class-less disciplines (10-way, 16-way) yield {}, no narrowing.
     const cls = classesFor(discipline).find(c => c.key === classLevel) ?? {};
 
-    // Numbered keys are blocks/formations, lettered keys randoms; each list defaults to every
-    // such key in the image map. A class may narrow either, and opt-in keys (4-way 'R') are
-    // left out of the default unless the class names them.
     const keys = Object.keys(images);
     const optIn = OPT_IN_KEYS[discipline] ?? [];
     const blocks  = cls.blocks  ?? keys.filter(isBlockKey);
@@ -79,7 +72,8 @@ function buildPool({discipline, outdoor, imageSet, classLevel}) {
             key: String(key),
             name: names[key],
             image: images[key],
-            figure: figureFor(images[key]), // text-free prompt for diagram-front
+            figure: figureFor(images[key]),
+            video: videoFor(discipline, key),
         };
     }
     return pool;
