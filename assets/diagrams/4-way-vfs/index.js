@@ -1,4 +1,3 @@
-// VFS 4-Way dive pool — formation names (pool key -> name) and competition classes.
 const _4WayVfs = {
     names: {
         // Randoms

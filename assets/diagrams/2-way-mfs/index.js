@@ -1,4 +1,3 @@
-// MFS 2-Way dive pool — formation names (pool key -> name) and competition classes.
 const _2WayMfs = {
     names: {
         // Randoms

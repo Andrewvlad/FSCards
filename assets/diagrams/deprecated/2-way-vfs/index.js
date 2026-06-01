@@ -1,0 +1,31 @@
+const _2WayVfs_deprecated_axis2023 = {
+    names: {
+        // Randoms
+        A: "Single Grip",
+        B: "In-Facing Double Grip",
+        C: "Out-Facing Double Grip",
+        D: "Hand-to-Foot",
+        E: "Hands-to-Feet",
+        F: "Double Spock",
+        G: "Belly Star",
+        H: "Back Star",
+        J: "Belly Closed Accordion",
+        K: "Mixed Closed Accordion",
+        L: "Back Open Accordion",
+        M: "Mixed Open Accordion",
+        N: "Back Side Body",
+        O: "Mixed Side Body",
+        P: "Back Cat",
+        Q: "Mixed Cat",
+        R: "Back Stair Step",
+        // Blocks (start formation - end formation)
+        1: "Grip - Grip",
+        2: "Grip - Grip",
+        3: "Grip - Grip",
+        4: "Grip - Grip",
+        5: "Back Open Accordion - Back Open Accordion",
+        6: "Back Open Accordion - Back Open Accordion",
+    },
+    classes: [],
+    sets: { Axis: null },
+};

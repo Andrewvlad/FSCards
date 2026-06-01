@@ -1,4 +1,3 @@
-// 8-Way dive pool — formation names (pool key -> name) and competition classes.
 const _8Way = {
     names: {
         // Randoms
@@ -44,13 +43,14 @@ const _8Way = {
     },
     classes: [
         {key: 'intermediate', label: 'Intermediate', blocks: [1, 3, 4, 5, 6, 7, 8, 10, 13, 14, 16, 17, 18, 19, 21]},
-        {key: 'open', label: 'Advanced / Open'},
+        {key: 'open', label: 'Adv. / Open'},
     ],
     sets: {
         Rhythm: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
         USPA: null,
-        Axis: null,
+        Axis: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
     },
+    indoorSets: { USPA: 'USIS' },
     videos: {
         1: "https://youtu.be/tENKrdeXXVo",
         2: "https://youtu.be/77diZ2mZJcw",

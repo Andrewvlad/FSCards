@@ -1,4 +1,3 @@
-// 16-Way dive pool — formation names (pool key -> name). Single pool, no competition classes.
 const _16Way = {
     names: {
         // Randoms

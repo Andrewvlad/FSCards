@@ -1,4 +1,3 @@
-// 10-Way dive pool — formation names (pool key -> name). Single pool, no competition classes.
 const _10Way = {
     names: {
         // Formations
