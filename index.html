@@ -69,10 +69,10 @@
         <div class="segmented" id="imageSetSegment"></div>
     </div>
 
-    <label class="toggleSetting hidden" id="outdoorSetting">
-        <input type="checkbox" id="outdoorToggle" onchange="selectOutdoor(this)">
+    <label class="toggleSetting hidden" id="indoorSetting">
+        <input type="checkbox" id="indoorToggle" onchange="selectIndoor(this)">
         <span class="toggle"></span>
-        Outdoor (sky) diagrams
+        Indoor diagrams
     </label>
 
     <label class="toggleSetting">
@@ -145,7 +145,7 @@
     let category = 'all';
     let classLevel = 'open';
     let frontContent = 'diagram';
-    let outdoor = false;
+    let indoor = false;
     let imageSet = 'Rhythm';
     let fullDeck = [];
     let deck = [];
@@ -169,7 +169,7 @@
                 category,
                 classLevel,
                 frontContent,
-                outdoor,
+                indoor,
                 imageSet,
                 recycle,
             }));
@@ -188,13 +188,13 @@
             category     = data.category ?? 'all';
             classLevel   = data.classLevel ?? 'open';
             frontContent = data.frontContent ?? 'diagram';
-            outdoor      = data.outdoor ?? false;
+            indoor       = data.indoor ?? false;
             imageSet     = data.imageSet ?? 'Rhythm';
             recycle      = data.recycle ?? false;
 
             // Rebuild the full pool (for category switching), then restore the played deck
-            fullDeck = buildDeck({discipline, outdoor, classLevel, imageSet});
-            deck = deckFromKeys(data.deck, {discipline, outdoor, imageSet, classLevel});
+            fullDeck = buildDeck({discipline, indoor, classLevel, imageSet});
+            deck = deckFromKeys(data.deck, {discipline, indoor, imageSet, classLevel});
             prefetchDeck();
 
             // Populate stats
@@ -230,7 +230,7 @@
 <script>
     // Rebuild the full pool (reshuffles) — used when the discipline or class changes
     function newDeck() {
-        fullDeck = buildDeck({discipline, outdoor, classLevel, imageSet});
+        fullDeck = buildDeck({discipline, indoor, classLevel, imageSet});
         applyCategory();
     }
 
@@ -270,9 +270,9 @@
         else setTimeout(warm);
     }
 
-    // Re-point every card's diagram at the current set/outdoor without rebuilding the deck
+    // Re-point every card's diagram at the current set/indoor without rebuilding the deck
     function hotSwapImages() {
-        const images = poolImages({discipline, outdoor, imageSet});
+        const images = poolImages({discipline, indoor, imageSet});
         for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
         for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
 
@@ -474,8 +474,8 @@
         renderImageSetButtons();
         renderClassButtons();
 
-        // Only show outside toggle for Rhythm 8-way image set
-        document.getElementById('outdoorSetting').classList
+        // Only show the indoor toggle for 8-way sets that have tunnel variants
+        document.getElementById('indoorSetting').classList
             .toggle('hidden', !(discipline === '8-way' && imageSet === 'Rhythm'));
 
         document.getElementById('categoryGroup').classList
@@ -531,7 +531,7 @@
 </script>
 <!--Settings panel-->
 <script>
-    const outdoorToggle = document.getElementById('outdoorToggle');
+    const indoorToggle = document.getElementById('indoorToggle');
     const recycleToggle = document.getElementById('recycleToggle');
     const themeToggle = document.getElementById('themeToggle');
 
@@ -558,13 +558,13 @@
     function selectImageSet(button) {
         selectSegment('imageSetSegment', button);
         imageSet = button.dataset.imageset;
-        updateDisciplineUI(); // the outdoor toggle only applies to Rhythm 8-way
+        updateDisciplineUI(); // the indoor toggle only applies to Rhythm 8-way
         hotSwapImages();
     }
 
-    // Outdoor/sky vs tunnel diagrams — also a hot-swap
-    function selectOutdoor(checkbox) {
-        outdoor = checkbox.checked;
+    // Indoor vs. outdoor diagrams — also a hot-swap
+    function selectIndoor(checkbox) {
+        indoor = checkbox.checked;
         hotSwapImages();
     }
 
@@ -598,7 +598,7 @@
         document.querySelectorAll('#frontSegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.front === frontContent));
 
-        outdoorToggle.checked = outdoor;
+        indoorToggle.checked = indoor;
         recycleToggle.checked = recycle;
         themeToggle.checked = theme === 'light';
 

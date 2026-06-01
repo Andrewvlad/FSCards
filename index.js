@@ -27,14 +27,14 @@ function categorized(discipline) {
     return keys.some(isBlockKey) && keys.some(key => !isBlockKey(key));
 }
 
-function poolImages({discipline, outdoor, imageSet}) {
+function poolImages({discipline, indoor, imageSet}) {
     const data = DATA[discipline];
     const set = imageSet in data.sets ? imageSet : 'USPA';
     const filename = data.sets[set];
     const dir = `assets/diagrams/${discipline}/${set}`;
     const images = {};
     for (const key of Object.keys(data.names))
-        images[key] = `${dir}/${filename ? filename(key, outdoor) : `${key}.webp`}`;
+        images[key] = `${dir}/${filename ? filename(key, indoor) : `${key}.webp`}`;
     return images;
 }
 
@@ -55,8 +55,8 @@ const OPT_IN_KEYS = {
 };
 
 // Build the class-scoped pool (all eligible cards, unshuffled) as key -> card.
-function buildPool({discipline, outdoor, imageSet, classLevel}) {
-    const images = poolImages({discipline, outdoor, imageSet});
+function buildPool({discipline, indoor, imageSet, classLevel}) {
+    const images = poolImages({discipline, indoor, imageSet});
     const names = DATA[discipline].names;
 
     const cls = classesFor(discipline).find(c => c.key === classLevel) ?? {};

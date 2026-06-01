@@ -47,7 +47,7 @@ const _8Way = {
         {key: 'open', label: 'Advanced / Open'},
     ],
     sets: {
-        Rhythm: (key, outdoor) => outdoor && [13, 17, 20].includes(+key) ? `${key}_sky.webp` : `${key}.webp`,
+        Rhythm: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
         USPA: null,
         Axis: null,
     },
