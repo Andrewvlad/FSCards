@@ -195,6 +195,7 @@
             // Rebuild the full pool (for category switching), then restore the played deck
             fullDeck = buildDeck({discipline, outdoor, classLevel, imageSet});
             deck = deckFromKeys(data.deck, {discipline, outdoor, imageSet, classLevel});
+            prefetchDeck();
 
             // Populate stats
             correct.textContent = data.correct;
@@ -236,6 +237,7 @@
     // Derive the played deck from fullDeck by category (no reshuffle) and restart the run
     function applyCategory() {
         deck = fullDeck.filter(matchesCategory);
+        prefetchDeck();
 
         correct.textContent = '0';
         wrong.textContent = '0';
@@ -257,6 +259,17 @@
         }
     }
 
+    function prefetchDeck() {
+        const urls = new Set();
+        for (const card of deck) {
+            urls.add(card.image);
+            if (frontContent === 'diagram') urls.add(card.figure);
+        }
+        const warm = () => urls.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
+        if (window.requestIdleCallback) requestIdleCallback(warm);
+        else setTimeout(warm);
+    }
+
     // Re-point every card's diagram at the current set/outdoor without rebuilding the deck
     function hotSwapImages() {
         const images = poolImages({discipline, outdoor, imageSet});
@@ -271,6 +284,7 @@
             // Pre-decode the backside image
             document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
         }
+        prefetchDeck(); // re-warm the cache for the swapped-in set
 
         saveSession();
     }
