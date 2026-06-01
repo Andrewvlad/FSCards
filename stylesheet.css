@@ -158,7 +158,7 @@ header {
 #modeBar {
     display: flex;
     gap: 0.5rem;
-    padding: 1.5rem 1rem 0;
+    padding: 1rem 1rem 0;
     width: 100%;
     flex-wrap: wrap;
 
@@ -285,7 +285,8 @@ header {
 /* Stats bar */
 #statsBar {
     display: flex;
-    gap: 2rem;
+    column-gap: 2rem; /* horizontal spacing between stats */
+    row-gap: 1rem;    /* 16px vertical gap when the progress meter wraps to its own row */
     padding: 1rem 1rem;
     width: 100%;
     align-items: center;
