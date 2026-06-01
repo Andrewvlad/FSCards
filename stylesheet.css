@@ -167,9 +167,13 @@ header {
     gap: 0.5rem;
     padding: 1rem 1rem 0;
     width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;   /* keep pills on one line; JS collapses to the dropdown when they overflow */
+    overflow: hidden;    /* clip any overflow in the frame before fitModeBar() runs */
 
     button {
+        flex-shrink: 0;
+        white-space: nowrap;
+
         &.active {
             background: var(--accent);
             border-color: var(--accent);
@@ -182,6 +186,42 @@ header {
             color: var(--accent);
             cursor: pointer;
         }
+    }
+
+    /* Collapsed: a pill-styled dropdown replaces the button row, styled like the active discipline pill (gold) */
+    #modeSelect {
+        display: none;
+        appearance: none;
+        field-sizing: content;
+        background-color: var(--accent);
+        border-color: var(--accent);
+        color: var(--blackText);
+        max-width: 100%;
+        padding-right: 2.2rem;
+        /* dark caret to match text */
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%230d0d0f' stroke-width='1.5' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.85rem center;
+
+        &:focus {
+            outline: none;  /* no white focus ring */
+        }
+
+        /* field-sizing so it grows to fit every option */
+        &:open {
+            field-sizing: fixed;
+        }
+
+        /* The OS-rendered option list can't be themed */
+        option {
+            color: CanvasText;
+            background-color: Canvas;
+        }
+    }
+
+    &.collapsed {
+        button {display: none}
+        #modeSelect {display: inline-block}
     }
 }
 

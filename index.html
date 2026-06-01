@@ -95,6 +95,8 @@
     <button data-mode="16-way" class="pill">16-Way</button>
     <button data-mode="4-way-vfs" class="pill">VFS 4-Way</button>
     <button data-mode="2-way-mfs" class="pill">MFS 2-Way</button>
+    <!--Shown only when the modes can't fit on one line-->
+    <select id="modeSelect" class="pill" aria-label="Discipline"></select>
 </div>
 
 <div id="statsBar">
@@ -123,7 +125,8 @@
 <div id="arena"></div>
 
 
-<!--Per-discipline data (formation names, classes, and image sets) — loaded before index.js-->
+<!--Per-discipline info-->
+<script src="assets/diagrams/2-way/index.js"></script>
 <script src="assets/diagrams/4-way/index.js"></script>
 <script src="assets/diagrams/8-way/index.js"></script>
 <script src="assets/diagrams/10-way/index.js"></script>
@@ -456,6 +459,7 @@
 <!--Switch discipline buttons-->
 <script>
     const modeButtons = document.querySelectorAll('#modeBar button');
+    const modeSelect = document.getElementById('modeSelect');
 
     for (const button of modeButtons) {
         button.addEventListener('click', () => {
@@ -465,10 +469,29 @@
             button.classList.add('active');
 
             discipline = button.dataset.mode;
+            modeSelect.value = discipline;
             updateDisciplineUI();
             newDeck();
         });
+
+        // Mirror each mode into the collapsed-state dropdown
+        modeSelect.add(new Option(button.textContent, button.dataset.mode));
     }
+    modeSelect.value = discipline;
+
+    // Selecting from the dropdown routes through the matching pill's click handler
+    modeSelect.addEventListener('change', () =>
+        [...modeButtons].find(button => button.dataset.mode === modeSelect.value)?.click());
+
+    // Swap whenever the modes can't fit on one line
+    const modeBar = document.getElementById('modeBar');
+    function fitModeBar() {
+        modeBar.classList.remove('collapsed'); // measure with the modes expanded
+        modeBar.classList.toggle('collapsed', modeBar.scrollWidth > modeBar.clientWidth + 1);
+    }
+    fitModeBar();
+    new ResizeObserver(fitModeBar).observe(document.body);
+    document.fonts?.ready.then(fitModeBar);
 
     function updateDisciplineUI() {
         renderImageSetButtons();
@@ -593,6 +616,7 @@
     function syncSettingsUI() {
         document.querySelectorAll('#modeBar button').forEach(button =>
             button.classList.toggle('active', button.dataset.mode === discipline));
+        modeSelect.value = discipline;
         document.querySelectorAll('#categorySegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.category === category));
         document.querySelectorAll('#frontSegment button').forEach(button =>
