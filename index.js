@@ -33,9 +33,14 @@ function categorized(discipline) {
     return keys.some(isBlock) && keys.some(key => !isBlock(key));
 }
 
+// USPA fallback
+function activeImageSet(discipline, imageSet) {
+    return imageSet in DATA[discipline].sets ? imageSet : 'USPA';
+}
+
 function poolImages({discipline, indoor, imageSet}) {
     const data = DATA[discipline];
-    const set = imageSet in data.sets ? imageSet : 'USPA';
+    const set = activeImageSet(discipline, imageSet);
     const filename = data.sets[set];
     const dir = `assets/diagrams/${discipline}/${setDisplayName(discipline, set, indoor)}`;
     const images = {};

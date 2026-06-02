@@ -548,12 +548,13 @@
 
     function renderImageSetButtons() {
         const sets = imageSetsFor(discipline);
+        const active = activeImageSet(discipline, imageSet); // the set actually shown (default USPA)
 
         // Only worth showing when there's an actual choice between sets
         document.getElementById('imageSetGroup').classList.toggle('hidden', sets.length <= 1);
 
         document.getElementById('imageSetSegment').innerHTML = sets.map(set =>
-            `<button type="button" data-imageset="${set}" class="pill${set === imageSet ? ' active' : ''}" onclick="selectImageSet(this)">${setDisplayName(discipline, set, indoor)}</button>`
+            `<button type="button" data-imageset="${set}" class="pill${set === active ? ' active' : ''}" onclick="selectImageSet(this)">${setDisplayName(discipline, set, indoor)}</button>`
         ).join('');
 
         updateSourceButton();
@@ -571,7 +572,7 @@
     // Point the floating source button at the active image set's site (hidden if the set has no known source)
     function updateSourceButton() {
         const link = document.getElementById('sourceLink');
-        const source = IMAGE_SET_SOURCES[setDisplayName(discipline, imageSet, indoor)];
+        const source = IMAGE_SET_SOURCES[setDisplayName(discipline, activeImageSet(discipline, imageSet), indoor)];
         link.classList.toggle('hidden', !source);
         if (!source) return;
         link.href = source.url;
