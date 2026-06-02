@@ -107,10 +107,11 @@ body::before {
 
 header {
     width: 100%;
-    padding: 2rem 1rem 1rem;
+    padding: 1rem;
     display: flex;
     gap: 1rem;
     border-bottom: 1px solid var(--border);
+    position: relative;
 
     #headerTitle {
         display: flex;
@@ -118,7 +119,8 @@ header {
         align-items: baseline;
         gap: 1rem;
         /* Make the tagline disappear on smaller devices */
-        max-height: calc(1.8rem * 1.2); /* logo font-size * line height */
+        font-size: 1.8rem;
+        max-height: 1lh;
         overflow: hidden;
 
         #logo {
@@ -159,6 +161,78 @@ header {
             color: var(--blackText);
         }
     }
+}
+
+#viewSwitch {
+    flex-shrink: 0;
+}
+
+#viewSwitch > summary {
+    list-style: none;
+    width: fit-content;
+    cursor: pointer;
+}
+#viewSwitch > summary::-webkit-details-marker {
+    display: none;
+}
+#viewSwitch > summary:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+    border-radius: 3px;
+}
+
+.switchCaret {
+    margin-left: 0.4rem;
+    color: var(--muted);
+    vertical-align: middle;
+    transition: transform 0.2s;
+}
+#viewSwitch[open] .switchCaret {
+    transform: rotate(180deg);
+}
+
+/* Width is set in HTML script */
+.viewMenu {
+    position: absolute;
+    top: 100%;
+    left: 1rem;
+    margin-top: 0.4rem;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    padding: 0.4rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+}
+#viewSwitch:not([open]) .viewMenu {
+    display: none;
+}
+
+.viewMenu a {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 5px;
+    text-decoration: none;
+    color: var(--text);
+}
+.viewMenu a:hover {
+    background: var(--card);
+}
+.viewMenu a strong {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+/* Current view */
+.viewMenu a[aria-current="page"] strong {
+    color: var(--accent);
+}
+.viewMenu a[aria-current="page"] strong::after {
+    content: " ✓";
 }
 
 /* Mode selector */
@@ -730,7 +804,7 @@ img {pointer-events: none}
 
 #errorMessage {color: var(--error)}
 
-/* Floating round buttons, stacked bottom-left: diagram-source logo (top) + report issue (bottom) */
+/* Floating round buttons, stacked bottom-left */
 #cornerButtons {
     position: fixed;
     bottom: 1rem;
@@ -767,7 +841,6 @@ img {pointer-events: none}
         }
     }
 
-    /* source logo fills the button — inset and clipped to the round shape */
     #sourceLink {
         overflow: hidden;
         padding: 8px;
@@ -777,4 +850,60 @@ img {pointer-events: none}
             height: 100%;
         }
     }
+}
+/* --------------- */
+/* Diagram gallery */
+/* --------------- */
+
+/* Native scroll */
+body.gallery {
+    height: auto;
+    min-height: 100dvh;
+    overflow: visible;
+}
+
+/* No stats, so mode needs to carry the border */
+body.gallery #modeBar {
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+}
+
+#gallery {
+    width: 100%;
+    padding: 1.5rem 1rem;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(max(200px, (100% - 3rem) / 4), 1fr));
+    gap: 1rem;
+    align-items: start;
+}
+
+/* Desktop padding */
+@media (min-width: 768px) {
+    #gallery {
+        padding-inline: 10%;
+    }
+}
+
+#gallery img {
+    width: 100%;
+    height: auto;
+    display: block;
+    background: #fff; /* For transparent diagrams (e.g. Rhythm) */
+    border-radius: 6px;
+}
+
+#gallery figure {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* Caption unlabeled images (e.g. CP Freestyle) */
+#gallery figcaption {
+    text-align: center;
+    font-family: var(--primaryFont);
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text);
 }

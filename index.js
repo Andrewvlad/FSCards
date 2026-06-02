@@ -65,6 +65,10 @@ function videoFor(discipline, key) {
     return DATA[discipline].videos?.[key];
 }
 
+function includeCaption(discipline) {
+    return DATA[discipline].includeCaption;
+}
+
 // 'R' is a CISM-only random.
 const OPT_IN_KEYS = {
     '4-way': ['R'],
@@ -116,4 +120,20 @@ function buildDeck(settings) {
 function deckFromKeys(keys, settings) {
     const pool = buildPool(settings);
     return keys.map(k => pool[k]).filter(Boolean);
+}
+
+const SHARED_STORE = 'fscards-shared';
+const SHARED_FIELDS = ['discipline', 'category', 'classLevel', 'indoor', 'tunnel', 'imageSet'];
+
+function saveShared(state) {
+    try {
+        const shared = {};
+        for (const field of SHARED_FIELDS) shared[field] = state[field];
+        localStorage.setItem(SHARED_STORE, JSON.stringify(shared));
+    } catch (e) {} // Storage may be unavailable
+}
+
+function loadShared() {
+    try { return JSON.parse(localStorage.getItem(SHARED_STORE)); }
+    catch (e) { return null; } // Unavailable or malformed
 }

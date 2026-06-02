@@ -38,4 +38,5 @@ const _CpFreestyle = {
         {key: '5', label: 'Class 5'},
     ],
     sets: { USPA: null },
+    includeCaption: true,
 };

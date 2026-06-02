@@ -2,10 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="description" content="Formation skydiving dive pool flashcards">
+    <base href="../">
+    <meta name="description" content="Formation skydiving dive pool diagrams">
     <meta name="author" content="Andrew Vladelshchikov">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!--Prevent swiped cards from expanding the viewport-->
-    <title>FSCards - Flashcards</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSCards - Diagram Gallery</title>
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <script>
@@ -16,7 +17,7 @@
             savedTheme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     </script>
 </head>
-<body>
+<body class="gallery">
 
 <!--Floating corner buttons (bottom-left, stacked): diagram-source logo on top, report-issue below-->
 <div id="cornerButtons">
@@ -36,10 +37,10 @@
     <div id="headerTitle">
         <!--The logo doubles as a view switcher-->
         <details id="viewSwitch">
-            <summary id="logo">FS<span>Cards</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
+            <summary id="logo">FS<span>Gallery</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
             <nav class="viewMenu" aria-label="Switch view">
-                <a href="./" aria-current="page"><strong>Flashcards</strong></a>
-                <a href="gallery/"><strong>Gallery</strong></a>
+                <a href="./"><strong>Flashcards</strong></a>
+                <a href="gallery/" aria-current="page"><strong>Gallery</strong></a>
             </nav>
         </details>
         <div id="tagline">Learn the skydiving formation dive pool</div>
@@ -62,15 +63,6 @@
         <div class="segmented" id="classSegment"></div>
     </div>
 
-    <div class="settingsGroup">
-        <div class="settingsLabel"><span>Card Front</span></div>
-        <div class="segmented" id="frontSegment">
-            <button type="button" data-front="diagram" class="pill active" onclick="selectFront(this)">Diagram</button>
-            <button type="button" data-front="label" class="pill" onclick="selectFront(this)">Letter / Number</button>
-            <button type="button" data-front="name" class="pill" onclick="selectFront(this)">Name</button>
-        </div>
-    </div>
-
     <div class="settingsGroup" id="imageSetGroup">
         <div class="settingsLabel"><span>Diagram Set</span></div>
         <div class="segmented" id="imageSetSegment"></div>
@@ -87,12 +79,6 @@
             <input type="checkbox" id="tunnelToggle" onchange="selectTunnel(this)">
             <span class="toggle"></span>
             12-Foot Tunnel
-        </label>
-
-        <label class="toggleSetting">
-            <input type="checkbox" id="recycleToggle" onchange="recycle = checked; saveSession()">
-            <span class="toggle"></span>
-            Recycle wrong cards
         </label>
 
         <label class="toggleSetting">
@@ -120,30 +106,7 @@
     <select id="modeSelect" class="pill" aria-label="Discipline"></select>
 </div>
 
-<div id="statsBar">
-    <div class="stat">
-        <label>Card</label>
-        <p id="statCard">—</p>
-    </div>
-    <div class="stat">
-        <label>Correct</label>
-        <p class="good" id="statCorrect">0</p>
-    </div>
-    <div class="stat">
-        <label>Wrong</label>
-        <p class="bad" id="statWrong">0</p>
-    </div>
-    <div class="stat">
-        <label>Streak</label>
-        <p id="statStreak">0</p>
-    </div>
-    <div class="stat" id="progressContainer">
-        <label>Progress</label>
-        <div id="progressBar"><div id="progressFill"></div></div>
-    </div>
-</div>
-
-<div id="arena"></div>
+<div id="gallery"></div>
 
 
 <!--Per-discipline info-->
@@ -162,342 +125,68 @@
 
 <script src="index.js"></script>
 <script>
-    // Initialize stats
-    const correct = document.getElementById('statCorrect');
-    const wrong = document.getElementById('statWrong');
-    const streak = document.getElementById('statStreak');
-    const progress = document.getElementById('statCard');
-    const getIndex = () => +correct.textContent + +wrong.textContent;
-
     // Initialize state
     let discipline = '4-way';
     let category = 'all';
     let classLevel = 'open';
-    let frontContent = 'diagram';
     let indoor = false;
     let tunnel = false;
     let imageSet = 'Rhythm';
-    let fullDeck = [];
-    let deck = [];
-    let flipped = false;
-    let recycle = false;
     let theme = document.documentElement.dataset.theme;
 </script>
-<!--Save progress-->
+<!--Save filters-->
 <script>
-    const SAVE_KEY = 'fscards';
-
-    // Save after each grading
     function saveSession() {
-        try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
-                deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
-                correct: correct.textContent,
-                wrong:   wrong.textContent,
-                streak:  streak.textContent,
-                discipline,
-                category,
-                classLevel,
-                frontContent,
-                indoor,
-                tunnel,
-                imageSet,
-                recycle,
-            }));
-        } catch(e) {} // Fail silently if storage full or unavailable
-
-        // Mirror the pool/image filters into the cross-page store the gallery also reads
         saveShared({discipline, category, classLevel, indoor, tunnel, imageSet});
     }
 
     function loadSession() {
-        try {
-            let data = null;
-            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Trainer run
+        const data = loadShared();
+        if (!data) return; // Nothing saved
 
-            const shared = loadShared(); // Filters, also written by the gallery
-
-            // Flashcard-only settings
-            if (data) {
-                frontContent = data.frontContent ?? 'diagram';
-                recycle      = data.recycle ?? false;
-            }
-
-            const src = shared ?? data;
-            if (src) {
-                discipline = src.discipline ?? '4-way';
-                category   = src.category ?? 'all';
-                classLevel = src.classLevel ?? 'open';
-                indoor     = src.indoor ?? false;
-                tunnel     = src.tunnel ?? false;
-                imageSet   = src.imageSet ?? 'Rhythm';
-            }
-
-            syncSettingsUI();
-
-            const samePool = data
-                && data.discipline === discipline
-                && data.classLevel === classLevel
-                && data.tunnel === tunnel
-                && data.category === category;
-            if (!data || !data.deck || (shared && !samePool)) return false;
-
-            // Rebuild the full pool (for category switching), then restore the played deck
-            fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel});
-            deck = deckFromKeys(data.deck, {discipline, indoor, imageSet, classLevel, tunnel});
-            prefetchDeck();
-
-            // Populate stats
-            correct.textContent = data.correct;
-            wrong.textContent   = data.wrong;
-            streak.textContent  = data.streak;
-
-            showToast('Resumed');
-
-            return true;
-        } catch(e) {return false;}
-    }
-
-    function showToast(message) {
-        const toast = document.createElement('output');
-        toast.role = 'status';
-        toast.className = 'toast';
-        toast.textContent = message;
-        toast.addEventListener('animationend', e => e.animationName === 'hideToast' && toast.remove());
-        document.body.appendChild(toast);
-    }
-
-    // Only clear when game is complete. Progress in a new mode will override
-    function clearSession() {
-        try {
-            localStorage.removeItem(SAVE_KEY);
-        } catch(e) {} // Fail silently if storage unavailable
+        discipline = data.discipline ?? '4-way';
+        category   = data.category ?? 'all';
+        classLevel = data.classLevel ?? 'open';
+        indoor     = data.indoor ?? false;
+        tunnel     = data.tunnel ?? false;
+        imageSet   = data.imageSet ?? 'Rhythm';
     }
 </script>
-<!--Define deck-->
+<!--Build the diagram grid-->
 <script>
-    function newDeck() {
-        fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel});
-        applyCategory();
-    }
+    const gallery = document.getElementById('gallery');
 
-    // Derive the played deck from fullDeck by category (no reshuffle) and restart the run
-    function applyCategory() {
-        deck = fullDeck.filter(matchesCategory);
-        prefetchDeck();
+    // Randoms before blocks
+    const byKey = (a, b) =>
+        isBlock(a.key) - isBlock(b.key) || (isBlock(a.key) ? a.key - b.key : a.key.localeCompare(b.key));
 
-        correct.textContent = '0';
-        wrong.textContent = '0';
-        streak.textContent = '0';
-
-        saveSession();
-        nextCard();
-    }
-
-    function matchesCategory(card) {
-        if (!categorized(discipline)) return true; // For 10-way Speed
+    function matchesCategory(formation) {
+        if (!categorized(discipline)) return true;
         switch (category) {
             case 'blocks':
             case 'randoms':
-                return isBlock(card.key) === (category === 'blocks');
+                return isBlock(formation.key) === (category === 'blocks');
             case 'all':
             default:
                 return true;
         }
     }
 
-    function prefetchDeck() {
-        const urls = new Set();
-        for (const card of deck) {
-            urls.add(card.image);
-            if (frontContent === 'diagram') urls.add(card.figure);
-        }
-        const warm = () => urls.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
-        if (window.requestIdleCallback) requestIdleCallback(warm);
-        else setTimeout(warm);
-    }
+    // Lay every formation in the current pool out as a static grid — the named diagram carries all the info
+    function renderGrid() {
+        const pool = buildPool({discipline, indoor, imageSet, classLevel, tunnel});
+        const formations = Object.values(pool).filter(matchesCategory).sort(byKey);
+        const captioned = includeCaption(discipline);
 
-    // Re-point every card's diagram at the current set/indoor without rebuilding the deck
-    function hotSwapImages() {
-        const images = poolImages({discipline, indoor, imageSet});
-        for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
-        for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
-
-        const formation = deck[getIndex()];
-        if (formation) {
-            // diagram-front prompt shows the text-free figure; the answer side shows the full diagram
-            document.querySelectorAll('#card .front .diagram').forEach(img => img.src = formation.figure);
-            document.querySelectorAll('#card .back  .diagram').forEach(img => img.src = formation.image);
-            // Pre-decode the backside image
-            document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
-        }
-        prefetchDeck(); // re-warm the cache for the swapped-in set
-
-        saveSession();
-    }
-</script>
-<script>
-    // Constants that get swapped between
-    const frontActionBar = `<button id="flip" onclick="flipCard()">Reveal Answer</button>`;
-    const backActionBar = `<button id="wrong" onclick="grade(false)">✗ Wrong</button><button id="correct" onclick="grade(true)">✓ Correct</button>`;
-    const restartActionBar = `<button id="restart" onclick="newDeck()">↺ New Session</button>`;
-
-    const youTubeIcon = `<svg viewBox="0 3.5 24 17" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
-
-    const watchBarFor = (formation) => formation.video
-        ? `<a id="watchLink" href="${formation.video}" target="_blank" rel="noopener noreferrer">${youTubeIcon}<span>Watch</span></a>`
-        : '';
-
-    const frontKeyboardHints = `<span class="skip" onclick="grade(false)">← skip</span><span onclick="flipCard()">⌴ flip</span><span class="skip" onclick="grade(true)">→ skip</span>`;
-    const backKeyboardHints = `<span class="bad" onclick="grade(false)">← wrong</span><span onclick="flipCard()">⌴ flip</span><span class="good" onclick="grade(true)">→ correct</span>`;
-</script>
-<!--Flip card-->
-<script>
-    function flipCard() {
-        const card = document.getElementById('card');
-
-        flipped = !flipped;
-        card.classList.toggle('flipped', flipped);
-
-        // Release in-flight mouse/touch interaction
-        card.dispatchEvent(new MouseEvent('mouseup',  {bubbles: true}));
-        card.dispatchEvent(new TouchEvent('touchend', {bubbles: true}));
-
-        // Update action bar and keyboard hints (the watch link is per-card, set once in nextCard)
-        document.getElementById('actionBar').innerHTML     = flipped ? backActionBar : frontActionBar;
-        document.getElementById('keyboardHints').innerHTML = flipped ? backKeyboardHints : frontKeyboardHints;
-    }
-</script>
-<!--Create card-->
-<script>
-    const arena = document.getElementById('arena');
-
-    // The prompt shown on the front of the card, per the Card Front setting
-    function frontFace(formation) {
-        switch (frontContent) {
-            case 'name':
-                return `<div class="cardContent"><h1 class="formationName">${formation.name}</h1></div>`;
-            case 'diagram':
-                return `<div class="cardContent"><img class="diagram" src="${formation.figure}" alt="${formation.key}"></div>`;
-            case 'label':
-            default:
-                return `<div class="cardContent">
-                            <div class="formationLabel">
-                                <span class="labelKey">${formation.key}</span>
-                            </div>
-                        </div>`;
-        }
-    }
-
-    // Grading does the actual shifting of the index
-    function nextCard() {
-        if (getIndex() >= deck.length) return finish();
-
-        flipped = false;
-        progress.textContent = `${getIndex() + 1} / ${deck.length}`;
-        document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
-
-        const formation = deck[getIndex()];
-
-        arena.innerHTML = `
-            <div id="card">
-                <div class="cardFace front">
-                    <div class="cardInfo">
-                        <div>Do you know this formation?</div>
-                        <div>${progress.textContent}</div>
-                    </div>
-                    ${frontFace(formation)}
-                    <div class="cardInfo"></div>
-                </div>
-                <div class="cardFace back">
-                    <div class="cardInfo">
-                        <div>Answer</div>
-                        <div>${progress.textContent}</div>
-                    </div>
-                    <div class="cardContent">
-                        <img class="diagram" src="${formation.image}" alt="${formation.key}">
-                    </div>
-                    <div class="cardInfo">
-                        <div>${formation.key}</div>
-                        <div>${formation.name}</div>
-                    </div>
-                </div>
-            </div>
-            <p id="keyboardHints">${frontKeyboardHints}</p>
-            <div id="actionBar">${frontActionBar}</div>
-            <div id="watchBar">${watchBarFor(formation)}</div>
-        `;
-
-        // Pre-decode the backside image
-        document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
-
-        attachSwipe();
-    }
-</script>
-<!--Finish game-->
-<script>
-    function finish() {
-        clearSession();
-
-        const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
-
-        const message =
-            pct === 100 ? 'Perfect score!' :
-            pct >= 80   ? 'Impressive!' :
-            pct >= 60   ? 'Nice try!' :
-                          'Keep at it!';
-
-        progress.textContent = '✓';
-        document.getElementById('progressFill').style.width = '100%';
-        arena.innerHTML = `
-            <div id="done">
-                <div class="label">Session Complete</div>
-                <div id="score">${pct}%</div>
-                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong</div>
-                <div id="message">${message}</div>
-                <div id="actionBar">${restartActionBar}</div>
-            </div>
-        `;
-    }
-</script>
-<!--Grade card-->
-<script>
-    let lock = false;
-
-    function grade(direction) {
-        if (lock++) return; // Prevents multiple grades being queued up during timeout
-
-        swipeController?.abort(); // Release all card listeners
-
-        const card = document.getElementById('card');
-
-        setOverlay(direction);
-
-        const flyX = (flipped ^ direction ? 0.75 : -0.75) * window.innerWidth;
-        const rot  = flipped ^ direction ? MAX_ROT : -MAX_ROT;
-        card.style.transition = ''; // Remove "none" transition
-        // Removes perspective transition to prevent warping
-        card.style.transform  = `${flipped ? 'rotateY(180deg)' : ''} translateX(${flyX}px) rotate(${rot}deg)`;
-        setTimeout(() => addGrade(flipped), SWIPE_DURATION);
-
-        function addGrade(value) {
-            if (value) {
-                if (direction) { // Correct
-                    correct.textContent++;
-                    streak.textContent++;
-                } else { // Wrong
-                    if (recycle) deck.push(deck[getIndex()]);
-                    wrong.textContent++;
-                    streak.textContent = '0';
-                }
-            } else { // Skip
-                deck.push(...deck.splice(getIndex(), 1));
-            }
-
-            saveSession();
-            nextCard();
-            lock = false;
-        }
+        gallery.innerHTML = formations.map(formation => {
+            const diagram = `<img src="${formation.image}" alt="${formation.name}" loading="lazy">`;
+            const media = formation.video
+                ? `<a href="${formation.video}" target="_blank" rel="noopener noreferrer">${diagram}</a>`
+                : diagram;
+            return captioned
+                ? `<figure>${media}<figcaption>${formation.name}</figcaption></figure>`
+                : media;
+        }).join('');
     }
 </script>
 <!--Switch discipline buttons-->
@@ -515,7 +204,8 @@
             discipline = button.dataset.mode;
             modeSelect.value = discipline;
             updateDisciplineUI();
-            newDeck();
+            renderGrid();
+            saveSession();
         });
 
         // Mirror each mode into the collapsed-state dropdown
@@ -605,7 +295,6 @@
 <script>
     const indoorToggle = document.getElementById('indoorToggle');
     const tunnelToggle = document.getElementById('tunnelToggle');
-    const recycleToggle = document.getElementById('recycleToggle');
     const themeToggle = document.getElementById('themeToggle');
 
     function toggleSettings() {
@@ -616,44 +305,42 @@
     function selectCategory(button) {
         selectSegment('categorySegment', button);
         category = button.dataset.category;
-        applyCategory();
+        renderGrid();
+        saveSession();
     }
 
     function selectClass(button) {
         selectSegment('classSegment', button);
         classLevel = button.dataset.class;
-        newDeck();
+        renderGrid();
+        saveSession();
     }
 
     function selectImageSet(button) {
         selectSegment('imageSetSegment', button);
         imageSet = button.dataset.imageset;
-        updateDisciplineUI();
-        hotSwapImages();
+        updateSourceButton();
+        renderGrid();
+        saveSession();
     }
 
     function selectIndoor(checkbox) {
         indoor = checkbox.checked;
         renderImageSetButtons();
-        hotSwapImages();
+        renderGrid();
+        saveSession();
     }
 
     function selectTunnel(checkbox) {
         tunnel = checkbox.checked;
-        newDeck();
+        renderGrid();
+        saveSession();
     }
 
     function selectTheme(checkbox) {
         theme = checkbox.checked ? 'light' : 'dark';
         document.documentElement.dataset.theme = theme;
         try { localStorage.setItem('fscards-theme', theme); } catch (e) {} // Storage may be unavailable
-    }
-
-    function selectFront(button) {
-        selectSegment('frontSegment', button);
-        frontContent = button.dataset.front;
-        if (deck.length && getIndex() < deck.length) nextCard();
-        saveSession();
     }
 
     function selectSegment(groupId, button) {
@@ -669,25 +356,13 @@
         modeSelect.value = discipline;
         document.querySelectorAll('#categorySegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.category === category));
-        document.querySelectorAll('#frontSegment button').forEach(button =>
-            button.classList.toggle('active', button.dataset.front === frontContent));
 
         indoorToggle.checked = indoor;
         tunnelToggle.checked = tunnel;
-        recycleToggle.checked = recycle;
         themeToggle.checked = theme === 'light';
 
         updateDisciplineUI();
     }
-</script>
-<!--Keybindings-->
-<script>
-    document.addEventListener('keydown', e => {
-        // TODO: disable keybindings on finish screen
-        if (e.code === 'Space') {e.preventDefault(); flipCard();}
-        if (e.code === 'ArrowRight') grade(true);
-        if (e.code === 'ArrowLeft')  grade(false);
-    });
 </script>
 <!--Handle View Navigation-->
 <script>
@@ -706,142 +381,21 @@
         if (viewSwitch.open) viewMenu.style.width = `${logo.getBoundingClientRect().width}px`;
     });
 </script>
-<!--Swipe/drag card-->
-<script>
-    // TODO: Switch thresholds to be relative to window size (alongside Math.min())
-    const THRESHOLD = 80; // How many pixels of translation before swipe can be released
-    const SWIPE_THRESHOLD = 20; // How many pixels of translation before considered a swipe
-    const MAX_ROT = 20; // Max degrees of card rotation
-    const OVERLAY_THRESHOLD = THRESHOLD * 0.8; // When the overlay should appear
-    const SWIPE_DURATION = 300; // Number of milliseconds that the swipe animation will play
-
-    // Win/lose/skip tint on the card — shared by drag tracking and the grade animation
-    function setOverlay(direction) {
-        const front = document.querySelector('.front');
-        const back = document.querySelector('.back');
-        front.classList.toggle('skipOverlay',   !flipped);
-        back.classList.toggle('correctOverlay',  flipped && direction);
-        back.classList.toggle('wrongOverlay',    flipped && !direction);
-    }
-
-    function clearOverlay() {
-        document.querySelector('.front').classList.remove('skipOverlay');
-        document.querySelector('.back').classList.remove('correctOverlay', 'wrongOverlay');
-    }
-
-    let swipeController; // AbortController for current card's listeners
-
-    function attachSwipe() {
-        swipeController = new AbortController();
-        const {signal} = swipeController;
-
-        const card = document.getElementById('card');
-        const front = document.querySelector('.front');
-        const back = document.querySelector('.back');
-
-        let startX, startY, curX = 0;
-        let isDragging = false;
-        let startFlipped;
-
-        // Add listeners
-        card.addEventListener('mousedown',  onStart, {signal});
-        card.addEventListener('touchstart', onStart, {signal});
-
-        // Split to eat click on flip
-        front.addEventListener('click', flipCard, {signal});
-        back.addEventListener('click',  flipCard, {signal});
-
-        const pos = (e, calcOffset = false) => {
-            const p = e.touches?.[0] ?? e;
-            return calcOffset ? [p.clientX - startX, p.clientY - startY] : [p.clientX, p.clientY];
-        };
-
-        function onStart(e) {
-            startFlipped = flipped;
-
-            curX = 0;
-            isDragging = false;
-            [startX, startY] = pos(e);
-
-            // Start tracking movement
-            document.addEventListener('mousemove', onMove, {signal});
-            document.addEventListener('touchmove', onMove, {signal, passive: false}); // False for Safari default
-            document.addEventListener('mouseup',   onEnd, {signal});
-            document.addEventListener('touchend',  onEnd, {signal});
-        }
-
-        function onMove(e) {
-            const [changeX, changeY] = pos(e, true);
-            e.preventDefault(); // Mobile devices slow down significantly if scrolling is allowed
-
-            // Abort if scrolling vertically
-            if (!isDragging && Math.abs(changeY) > SWIPE_THRESHOLD) return cleanup();
-
-            if (Math.abs(changeX) > SWIPE_THRESHOLD) isDragging = true;
-            if (!isDragging) return;
-
-            // Prevent drag click from flipping
-            front.removeEventListener('click', flipCard);
-            back.removeEventListener('click', flipCard);
-
-            card.style.transition = 'none'; // Prevents lag when dragging the element
-
-            const flipMult = flipped ? -1 : 1;
-            curX = changeX;
-            const rot = (changeX / window.innerWidth) * MAX_ROT * 0.5; // 0.5x so it keeps rotating after release
-            // Card follows behind cursor at 0.5x
-            card.style.transform = `${flipped ? 'rotateY(180deg)' : ''} translateX(${changeX * 0.5 * flipMult}px) rotate(${rot * flipMult}deg)`;
-
-            if (changeX > OVERLAY_THRESHOLD) return setOverlay(true);
-            if (changeX < -OVERLAY_THRESHOLD) return setOverlay(false);
-            clearOverlay();
-        }
-
-        function onEnd() {
-            cleanup();
-
-            if (Math.abs(curX) > THRESHOLD && flipped === startFlipped) return grade(curX > 0);
-
-            // Reset color and position
-            clearOverlay();
-            card.style.transform = '';
-        }
-
-        function cleanup() {
-            card.style.transition = ''; // Remove "none" transition
-
-            // Release listeners
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('mouseup',   onEnd);
-            document.removeEventListener('touchend',  onEnd);
-
-            // Re-enable only after the card stops moving
-            requestAnimationFrame(() => {
-                front.addEventListener('click', flipCard, {signal});
-                back.addEventListener('click',  flipCard, {signal});
-            });
-        }
-    }
-</script>
 <!--Start-->
 <script>
+    loadSession();
     syncSettingsUI();
-    loadSession() ? nextCard() : newDeck();
+    renderGrid();
 </script>
 <!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
 <script>
     function buildIssueUrl() {
-        const card = deck && deck[getIndex()];
         const context = [
             '- Discipline: ' + discipline,
-            '- Diagram set: ' + setDisplayName(discipline, imageSet, indoor),
+            '- Diagram set: ' + setDisplayName(discipline, activeImageSet(discipline, imageSet), indoor),
             '- Class: ' + classLevel,
             tunnelFor(discipline) && tunnel ? '- 12-Foot Tunnel: on' : null,
             '- Category: ' + category,
-            '- Card front: ' + frontContent,
-            card ? '- Card: ' + card.key + ' — ' + card.name : null,
-            card ? '- Diagram: ' + card.image : null,
             '- Page: ' + location.href,
             '- User agent: ' + navigator.userAgent,
         ].filter(Boolean);
