@@ -1,4 +1,4 @@
-// Moves have no native key so they are keyed in the order they appear in the doc.
+// Moves have no native key, so they are keyed in the order they appear in the doc
 const _CpFreestyle = {
     names: {
         // Group 1
@@ -39,4 +39,5 @@ const _CpFreestyle = {
     ],
     sets: { USPA: null },
     includeCaption: true,
+    fusions: [14, 16],
 };

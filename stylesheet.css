@@ -397,6 +397,62 @@ header {
     }
 }
 
+/* For toggle info */
+.toggleRow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.infoTip {
+    position: relative;
+    display: inline-flex;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: help;
+
+    &:hover, &:focus-visible {
+        color: var(--accent);
+    }
+}
+
+.infoIcon {
+    width: 15px;
+    height: 15px;
+    display: block;
+}
+
+.tipBubble {
+    position: fixed;
+    width: max-content;
+    max-width: min(240px, calc(100vw - 2rem));
+    padding: 0.55rem 0.7rem;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: var(--primaryFont);
+    font-size: 0.62rem;
+    line-height: 1.45;
+    letter-spacing: 0.03em;
+    text-transform: none;
+    box-shadow: 0 6px 22px rgba(0, 0, 0, 0.35);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease;
+    pointer-events: none;
+    z-index: 100;
+}
+
+.infoTip:hover .tipBubble,
+.infoTip:focus .tipBubble,
+.infoTip:focus-visible .tipBubble {
+    opacity: 1;
+    visibility: visible;
+}
+
 #applyFilters {
     border-color: var(--accent);
     color: var(--accent);

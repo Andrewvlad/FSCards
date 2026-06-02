@@ -91,6 +91,22 @@
             12-Foot Tunnel
         </label>
 
+        <div class="toggleRow hidden" id="fusionsSetting">
+            <label class="toggleSetting">
+                <input type="checkbox" id="fusionsToggle" checked onchange="selectFusions(this)">
+                <span class="toggle"></span>
+                Include Fusions
+            </label>
+            <button type="button" class="infoTip" aria-label="About Fusions and Singles" aria-describedby="fusionsTip">
+                <svg class="infoIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
+                    <circle cx="8" cy="8" r="6.6"/>
+                    <line x1="8" y1="7.2" x2="8" y2="11.4" stroke-linecap="round"/>
+                    <circle cx="8" cy="4.7" r="0.55" fill="currentColor" stroke="none"/>
+                </svg>
+                <span class="tipBubble" id="fusionsTip" role="tooltip">Not all Fusions & Singles have posted diagrams</span>
+            </button>
+        </div>
+
         <label class="toggleSetting">
             <input type="checkbox" id="recycleToggle" onchange="recycle = checked; saveSession()">
             <span class="toggle"></span>
@@ -178,6 +194,7 @@
     let frontContent = 'diagram';
     let indoor = false;
     let tunnel = false;
+    let includeFusions = true;
     let imageSet = 'Rhythm';
     let fullDeck = [];
     let deck = [];
@@ -203,13 +220,14 @@
                 frontContent,
                 indoor,
                 tunnel,
+                includeFusions,
                 imageSet,
                 recycle,
             }));
         } catch(e) {} // Fail silently if storage full or unavailable
 
         // Mirror the pool/image filters into the cross-page store the gallery also reads
-        saveShared({discipline, category, classLevel, indoor, tunnel, imageSet});
+        saveShared({discipline, category, classLevel, indoor, tunnel, includeFusions, imageSet});
     }
 
     function loadSession() {
@@ -232,6 +250,7 @@
                 classLevel = src.classLevel ?? 'open';
                 indoor     = src.indoor ?? false;
                 tunnel     = src.tunnel ?? false;
+                includeFusions = src.includeFusions ?? true;
                 imageSet   = src.imageSet ?? 'Rhythm';
             }
 
@@ -241,12 +260,13 @@
                 && data.discipline === discipline
                 && data.classLevel === classLevel
                 && data.tunnel === tunnel
+                && data.includeFusions === includeFusions
                 && data.category === category;
             if (!data || !data.deck || (shared && !samePool)) return false;
 
             // Rebuild the full pool (for category switching), then restore the played deck
-            fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel});
-            deck = deckFromKeys(data.deck, {discipline, indoor, imageSet, classLevel, tunnel});
+            fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel, includeFusions});
+            deck = deckFromKeys(data.deck, {discipline, indoor, imageSet, classLevel, tunnel, includeFusions});
             prefetchDeck();
 
             // Populate stats
@@ -279,7 +299,7 @@
 <!--Define deck-->
 <script>
     function newDeck() {
-        fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel});
+        fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel, includeFusions});
         applyCategory();
     }
 
@@ -551,6 +571,10 @@
         document.getElementById('tunnelSetting').classList
             .toggle('hidden', !tunnelFor(discipline));
 
+        // Only CP Freestyle has fusions
+        document.getElementById('fusionsSetting').classList
+            .toggle('hidden', !fusionsFor(discipline));
+
         document.getElementById('categoryGroup').classList
             .toggle('hidden', !categorized(discipline));
     }
@@ -614,6 +638,7 @@
 <script>
     const indoorToggle = document.getElementById('indoorToggle');
     const tunnelToggle = document.getElementById('tunnelToggle');
+    const fusionsToggle = document.getElementById('fusionsToggle');
     const recycleToggle = document.getElementById('recycleToggle');
     const themeToggle = document.getElementById('themeToggle');
 
@@ -652,6 +677,11 @@
         newDeck();
     }
 
+    function selectFusions(checkbox) {
+        includeFusions = checkbox.checked;
+        newDeck();
+    }
+
     function selectTheme(checkbox) {
         theme = checkbox.checked ? 'light' : 'dark';
         document.documentElement.dataset.theme = theme;
@@ -683,11 +713,26 @@
 
         indoorToggle.checked = indoor;
         tunnelToggle.checked = tunnel;
+        fusionsToggle.checked = includeFusions;
         recycleToggle.checked = recycle;
         themeToggle.checked = theme === 'light';
 
         updateDisciplineUI();
     }
+
+    // Place info-tooltip bubbles within the viewport (otherwise they overflow off-screen on mobile)
+    function positionTip(tip) {
+        const bubble = tip.querySelector('.tipBubble');
+        const r = tip.getBoundingClientRect();
+        const edge = 16, gap = 8;
+        const w = bubble.offsetWidth, h = bubble.offsetHeight;
+        bubble.style.left = Math.max(edge, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - edge)) + 'px';
+        bubble.style.top = (r.top - h - gap >= edge ? r.top - h - gap : r.bottom + gap) + 'px';
+    }
+    document.querySelectorAll('.infoTip').forEach(tip => {
+        tip.addEventListener('mouseenter', () => positionTip(tip));
+        tip.addEventListener('focus', () => positionTip(tip));
+    });
 </script>
 <!--Keybindings-->
 <script>
@@ -847,6 +892,7 @@
             '- Diagram set: ' + setDisplayName(discipline, imageSet, indoor),
             '- Class: ' + classLevel,
             tunnelFor(discipline) && tunnel ? '- 12-Foot Tunnel: on' : null,
+            fusionsFor(discipline) && !includeFusions ? '- Fusions: excluded' : null,
             '- Category: ' + category,
             '- Card front: ' + frontContent,
             card ? '- Card: ' + card.key + ' — ' + card.name : null,

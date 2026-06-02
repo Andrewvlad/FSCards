@@ -85,7 +85,7 @@ const OPT_IN_KEYS = {
 };
 
 // Build the class-scoped pool (all eligible cards, unshuffled) as key -> card.
-function buildPool({discipline, indoor, imageSet, classLevel, tunnel}) {
+function buildPool({discipline, indoor, imageSet, classLevel, tunnel, includeFusions = true}) {
     const images = poolImages({discipline, indoor, imageSet});
     const names = DATA[discipline].names;
 
@@ -96,10 +96,15 @@ function buildPool({discipline, indoor, imageSet, classLevel, tunnel}) {
     let blocks    = cls.blocks  ?? keys.filter(isBlock);
     const randoms = cls.randoms ?? keys.filter(k => !isBlock(k) && !optIn.includes(k));
 
-    // 12-foot tunnel toggle: keep only the class's blocks that also fit the smaller tunnel
+    // Apply 12-foot tunnel toggle
     const tunnelBlocks = tunnelFor(discipline);
     if (tunnel && tunnelBlocks)
         blocks = blocks.filter(k => tunnelBlocks.includes(Number(k)));
+
+    // Apply Fusions toggle
+    const fusions = fusionsFor(discipline);
+    if (!includeFusions && fusions)
+        blocks = blocks.filter(k => !fusions.includes(Number(k)));
 
     const pool = {};
     for (const key of [...randoms, ...blocks]) {
@@ -122,6 +127,10 @@ function tunnelFor(discipline) {
     return DATA[discipline].tunnel;
 }
 
+function fusionsFor(discipline) {
+    return DATA[discipline].fusions;
+}
+
 function buildDeck(settings) {
     return randomizeDeck(Object.values(buildPool(settings)));
 }
@@ -133,7 +142,7 @@ function deckFromKeys(keys, settings) {
 }
 
 const SHARED_STORE = 'fscards-shared';
-const SHARED_FIELDS = ['discipline', 'category', 'classLevel', 'indoor', 'tunnel', 'imageSet'];
+const SHARED_FIELDS = ['discipline', 'category', 'classLevel', 'indoor', 'tunnel', 'includeFusions', 'imageSet'];
 
 function saveShared(state) {
     try {
