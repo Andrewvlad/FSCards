@@ -580,6 +580,7 @@
         ).join('');
 
         updateSourceButton();
+        updateDiagramMode();
     }
 
     const sourceIcon = (vb, d) => `<svg viewBox="${vb}" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -601,6 +602,12 @@
         link.title = 'Diagram source: ' + source.label;
         link.setAttribute('aria-label', 'Diagram source: ' + source.label);
         link.innerHTML = source.icon;
+    }
+
+    // Show dark-mode diagrams
+    function updateDiagramMode() {
+        document.documentElement.dataset.diagram =
+            diagramInvertsInDark(discipline, imageSet, indoor) ? 'invert' : 'paper';
     }
 </script>
 <!--Settings panel-->

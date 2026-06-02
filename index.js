@@ -54,6 +54,16 @@ function setDisplayName(discipline, imageSet, indoor) {
     return (indoor && DATA[discipline].indoorSets?.[imageSet]) || imageSet;
 }
 
+// Not inversion-friendly
+// TODO: Try out different methods
+const DARK_PAPER_USPA = new Set(['4-way-vfs', 'cp-freestyle']);
+
+function diagramInvertsInDark(discipline, imageSet, indoor) {
+    const data = DATA[discipline];
+    const set = setDisplayName(discipline, imageSet in data.sets ? imageSet : 'USPA', indoor);
+    return (set === 'USPA' || set === 'USIS') && !DARK_PAPER_USPA.has(discipline);
+}
+
 // Text-free card variant used for the front
 const figureFor = (path) => path.replace(/\/([^/]+)$/, '/figures/$1');
 

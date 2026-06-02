@@ -553,6 +553,16 @@ img {pointer-events: none}
     border-radius: 6px;
 }
 
+:root[data-theme="dark"][data-diagram="invert"] .diagram {
+    background: transparent;
+    filter: invert(1);
+}
+
+:root[data-theme="dark"][data-diagram="paper"] .diagram {
+    padding: 0.5rem;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.5); /* Softens the border */
+}
+
 /* Letter / number prompt */
 .formationLabel {
     display: flex;
@@ -890,6 +900,16 @@ body.gallery #modeBar {
     display: block;
     background: #fff; /* For transparent diagrams (e.g. Rhythm) */
     border-radius: 6px;
+}
+
+:root[data-theme="dark"][data-diagram="invert"] #gallery img {
+    background: transparent;
+    filter: invert(1);
+}
+
+:root[data-theme="dark"][data-diagram="paper"] #gallery img {
+    padding: 0.5rem;
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.5); /* Softens the border */
 }
 
 #gallery figure {
