@@ -619,6 +619,52 @@ img {pointer-events: none}
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.5); /* Softens the border */
 }
 
+/* Add captions to images that need them */
+.captionedDiagram {
+    margin: 0;
+    width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+    container-type: inline-size; /* lets the caption size off the diagram width (cqw) */
+}
+
+.captionedDiagram .diagram {
+    width: 100%;
+    height: auto;
+    border-radius: 0;
+}
+
+.captionedDiagram figcaption {
+    background: #fff;
+    color: #111;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+    font-size: 6cqw; /* matches the USPA diagrams' baked labels at any display size */
+    line-height: 1;
+    text-align: center;
+    padding: 0 0.6rem 0.45rem;
+}
+
+/* Front face: keep the caption's footprint but hide the name, so flipping doesn't shift the image */
+.captionedDiagram figcaption.captionHidden {
+    visibility: hidden;
+}
+
+/* Dark mode: the white panel itself is the 'paper' card — shadow on the panel, not on the clipped image */
+:root[data-theme="dark"][data-diagram="paper"] .captionedDiagram {
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="dark"][data-diagram="paper"] .captionedDiagram .diagram {
+    padding: 0;
+    box-shadow: none;
+}
+
 /* Letter / number prompt */
 .formationLabel {
     display: flex;
@@ -968,18 +1014,37 @@ body.gallery #modeBar {
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.5); /* Softens the border */
 }
 
+/* Captioned tiles (e.g. CP Freestyle): diagram + name as one white panel, matching the trainer card */
 #gallery figure {
+    margin: 0;
     display: flex;
     flex-direction: column;
-    gap: 0.6rem;
+    background: #fff;
+    border-radius: 6px;
+    overflow: hidden;
+    container-type: inline-size;
 }
 
-/* Caption unlabeled images (e.g. CP Freestyle) */
+#gallery figure img {
+    border-radius: 0;
+}
+
 #gallery figcaption {
+    background: #fff;
+    color: #111;
+    font-family: 'Open Sans', sans-serif;
+    font-weight: 700;
+    font-size: 6cqw; /* matches the USPA diagrams' baked labels at tile scale */
+    line-height: 1;
     text-align: center;
-    font-family: var(--primaryFont);
-    font-size: 0.8rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text);
+    padding: 0 0.4rem 0.4rem;
+}
+
+:root[data-theme="dark"][data-diagram="paper"] #gallery figure {
+    box-shadow: 0 4px 14px rgb(0 0 0 / 0.5);
+}
+
+:root[data-theme="dark"][data-diagram="paper"] #gallery figure img {
+    padding: 0;
+    box-shadow: none;
 }

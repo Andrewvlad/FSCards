@@ -8,7 +8,7 @@
     <title>FSCards - Flashcards</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@700&family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <script>
         // Resolve the active theme before first paint
@@ -394,13 +394,26 @@
 <script>
     const arena = document.getElementById('arena');
 
+    // A diagram, optionally with a name caption underneath, for disciplines whose diagrams carry no
+    // baked-in name (e.g. CP Freestyle). On the card front the caption is kept but hidden so it still
+    // reserves its space — flipping to the visible-caption back then doesn't resize or shift the image.
+    function diagramFace(src, formation, hideCaption) {
+        if (!includeCaption(discipline)) {
+            return `<img class="diagram" src="${src}" alt="${formation.key}">`;
+        }
+        return `<figure class="captionedDiagram">
+                    <img class="diagram" src="${src}" alt="${formation.key}">
+                    <figcaption${hideCaption ? ' class="captionHidden"' : ''}>${formation.name}</figcaption>
+                </figure>`;
+    }
+
     // The prompt shown on the front of the card, per the Card Front setting
     function frontFace(formation) {
         switch (frontContent) {
             case 'name':
                 return `<div class="cardContent"><h1 class="formationName">${formation.name}</h1></div>`;
             case 'diagram':
-                return `<div class="cardContent"><img class="diagram" src="${formation.figure}" alt="${formation.key}"></div>`;
+                return `<div class="cardContent">${diagramFace(formation.figure, formation, true)}</div>`;
             case 'label':
             default:
                 return `<div class="cardContent">
@@ -437,7 +450,7 @@
                         <div>${progress.textContent}</div>
                     </div>
                     <div class="cardContent">
-                        <img class="diagram" src="${formation.image}" alt="${formation.key}">
+                        ${diagramFace(formation.image, formation, false)}
                     </div>
                     <div class="cardInfo">
                         <div>${formation.key}</div>
