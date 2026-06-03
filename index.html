@@ -46,7 +46,7 @@
         </details>
         <div id="tagline">Learn the skydiving formation dive pool</div>
     </div>
-    <button id="settingsToggle" class="pill" onclick="toggleSettings()">⚙ Settings</button>
+    <button id="settingsToggle" class="pill" onclick="toggleSettings()"><span class="cog">⚙</span>Settings</button>
 </header>
 
 <div id="settingsPanel" class="hidden">
@@ -134,29 +134,35 @@
     <button data-mode="2-way-cf" class="pill">CF 2-Way</button>
     <button data-mode="4-way-cf" class="pill">CF 4-Way</button>
     <button data-mode="cp-freestyle" class="pill">CP Freestyle</button>
-    <!--Shown only when the modes can't fit on one line-->
-    <select id="modeSelect" class="pill" aria-label="Discipline"></select>
+    <!--Replaces buttons to fit width-->
+    <select id="modeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
 </div>
 
 <div id="statsBar">
-    <div class="stat">
-        <label>Card</label>
-        <p id="statCard">—</p>
-    </div>
-    <div class="stat">
-        <label>Correct</label>
-        <p class="good" id="statCorrect">0</p>
-    </div>
-    <div class="stat">
-        <label>Wrong</label>
-        <p class="bad" id="statWrong">0</p>
-    </div>
-    <div class="stat">
-        <label>Streak</label>
-        <p id="statStreak">0</p>
+    <!--Split so that they can overflow hidden on narrow widths-->
+    <div id="statsRow">
+        <!--Hidden, see CSS-->
+        <select id="statsModeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
+        <div class="stat">
+            <label>Card</label>
+            <p id="statCard">—</p>
+        </div>
+        <div class="stat">
+            <label>Correct</label>
+            <p class="good" id="statCorrect">0</p>
+        </div>
+        <div class="stat">
+            <label>Wrong</label>
+            <p class="bad" id="statWrong">0</p>
+        </div>
+        <div class="stat">
+            <label>Streak</label>
+            <p id="statStreak">0</p>
+        </div>
     </div>
     <div class="stat" id="progressContainer">
-        <label>Progress</label>
+        <!--progressCount only shown on very narrow devices-->
+        <label>Progress <span id="progressCount"></span></label>
         <div id="progressBar"><div id="progressFill"></div></div>
     </div>
 </div>
@@ -185,7 +191,13 @@
     const wrong = document.getElementById('statWrong');
     const streak = document.getElementById('statStreak');
     const progress = document.getElementById('statCard');
+    const progressCount = document.getElementById('progressCount');
     const getIndex = () => +correct.textContent + +wrong.textContent;
+
+    function setProgress(text) {
+        progress.textContent = text;
+        progressCount.textContent = `(${text})`;
+    }
 
     // Initialize state
     let discipline = '4-way';
@@ -429,7 +441,7 @@
         if (getIndex() >= deck.length) return finish();
 
         flipped = false;
-        progress.textContent = `${getIndex() + 1} / ${deck.length}`;
+        setProgress(`${getIndex() + 1} / ${deck.length}`);
         document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
 
         const formation = deck[getIndex()];
@@ -469,7 +481,7 @@
             pct >= 60   ? 'Nice try!' :
                           'Keep at it!';
 
-        progress.textContent = '✓';
+        setProgress('✓');
         document.getElementById('progressFill').style.width = '100%';
         arena.innerHTML = `
             <div id="done">
@@ -526,6 +538,9 @@
 <script>
     const modeButtons = document.querySelectorAll('#modeBar button');
     const modeSelect = document.getElementById('modeSelect');
+    // The second dropdown in stats row for mobile when the mode bar is hidden
+    const statsModeSelect = document.getElementById('statsModeSelect');
+    const modeSelects = [modeSelect, statsModeSelect];
 
     for (const button of modeButtons) {
         button.addEventListener('click', () => {
@@ -535,19 +550,19 @@
             button.classList.add('active');
 
             discipline = button.dataset.mode;
-            modeSelect.value = discipline;
+            modeSelects.forEach(select => select.value = discipline);
             updateDisciplineUI();
             newDeck();
         });
 
-        // Mirror each mode into the collapsed-state dropdown
-        modeSelect.add(new Option(button.textContent, button.dataset.mode));
+        // Mirror each mode into dropdowns
+        modeSelects.forEach(select => select.add(new Option(button.textContent, button.dataset.mode)));
     }
-    modeSelect.value = discipline;
+    modeSelects.forEach(select => select.value = discipline);
 
-    // Selecting from the dropdown routes through the matching pill's click handler
-    modeSelect.addEventListener('change', () =>
-        [...modeButtons].find(button => button.dataset.mode === modeSelect.value)?.click());
+    // Routes dropdown selection into button listener
+    modeSelects.forEach(select => select.addEventListener('change', () =>
+        [...modeButtons].find(button => button.dataset.mode === select.value)?.click()));
 
     // Swap whenever the modes can't fit on one line
     const modeBar = document.getElementById('modeBar');
@@ -705,7 +720,7 @@
     function syncSettingsUI() {
         document.querySelectorAll('#modeBar button').forEach(button =>
             button.classList.toggle('active', button.dataset.mode === discipline));
-        modeSelect.value = discipline;
+        modeSelects.forEach(select => select.value = discipline);
         document.querySelectorAll('#categorySegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.category === category));
         document.querySelectorAll('#frontSegment button').forEach(button =>
@@ -887,21 +902,33 @@
 <script>
     function buildIssueUrl() {
         const card = deck && deck[getIndex()];
-        const context = [
+        const body = [
+            '**Describe the issue:**', '', '', '---',
+
+            '_Replication info (auto-populated):_',
+            '- Page: Flashcards',
             '- Discipline: ' + discipline,
-            '- Diagram set: ' + setDisplayName(discipline, imageSet, indoor),
             '- Class: ' + classLevel,
-            tunnelFor(discipline) && tunnel ? '- 12-Foot Tunnel: on' : null,
-            fusionsFor(discipline) && !includeFusions ? '- Fusions: excluded' : null,
-            '- Category: ' + category,
+            '- Diagram set: ' + imageSet,
+            `- 12ft tunnel: ${tunnel}`,
+            `- 8-way tunnel: ${indoor}`,
+            `- Include fusions: ${includeFusions}`,
+            '\n',
+
+            '_State (auto-populated):_',
             '- Card front: ' + frontContent,
-            card ? '- Card: ' + card.key + ' — ' + card.name : null,
+            card ? `- Card: ${card?.key} (${card?.name})` : null,
             card ? '- Diagram: ' + card.image : null,
-            '- Page: ' + location.href,
+            card ? null : '- Game complete',
+            '\n',
+
+            '_Device info (auto-populated):_',
+            `- Light mode: ${themeToggle.checked}`,
+            '- Viewport: ' + innerWidth + '×' + innerHeight,
+            '- Screen: ' + screen.width + '×' + screen.height + ' @' + devicePixelRatio + 'x',
             '- User agent: ' + navigator.userAgent,
-        ].filter(Boolean);
-        const body = ['**Describe the issue:**', '', '', '---',
-            '_Context (auto-filled — edit or delete):_', ...context].join('\n');
+
+        ].filter(Boolean).join('\n');
         return 'https://github.com/Andrewvlad/FSCards/issues/new?' + new URLSearchParams({body}).toString();
     }
 </script>

@@ -47,7 +47,7 @@
         </details>
         <div id="tagline">Learn the skydiving formation dive pool</div>
     </div>
-    <button id="settingsToggle" class="pill" onclick="toggleSettings()">⚙ Settings</button>
+    <button id="settingsToggle" class="pill" onclick="toggleSettings()"><span class="cog">⚙</span>Settings</button>
 </header>
 
 <div id="settingsPanel" class="hidden">
@@ -120,8 +120,8 @@
     <button data-mode="2-way-cf" class="pill">CF 2-Way</button>
     <button data-mode="4-way-cf" class="pill">CF 4-Way</button>
     <button data-mode="cp-freestyle" class="pill">CP Freestyle</button>
-    <!--Shown only when the modes can't fit on one line-->
-    <select id="modeSelect" class="pill" aria-label="Discipline"></select>
+    <!--Replaces buttons to fit width-->
+    <select id="modeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
 </div>
 
 <div id="gallery"></div>
@@ -444,18 +444,26 @@
 <!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
 <script>
     function buildIssueUrl() {
-        const context = [
+        const body = [
+            '**Describe the issue:**', '', '', '---',
+
+            '_Replication info (auto-populated):_',
+            '- Page: Gallery',
             '- Discipline: ' + discipline,
-            '- Diagram set: ' + setDisplayName(discipline, activeImageSet(discipline, imageSet), indoor),
             '- Class: ' + classLevel,
-            tunnelFor(discipline) && tunnel ? '- 12-Foot Tunnel: on' : null,
-            fusionsFor(discipline) && !includeFusions ? '- Fusions: excluded' : null,
-            '- Category: ' + category,
-            '- Page: ' + location.href,
+            '- Diagram set: ' + imageSet,
+            `- 12ft tunnel: ${tunnel}`,
+            `- 8-way tunnel: ${indoor}`,
+            `- Include fusions: ${includeFusions}`,
+            '\n',
+
+            '_Device info (auto-populated):_',
+            `- Light mode: ${themeToggle.checked}`,
+            '- Viewport: ' + innerWidth + '×' + innerHeight,
+            '- Screen: ' + screen.width + '×' + screen.height + ' @' + devicePixelRatio + 'x',
             '- User agent: ' + navigator.userAgent,
-        ].filter(Boolean);
-        const body = ['**Describe the issue:**', '', '', '---',
-            '_Context (auto-filled — edit or delete):_', ...context].join('\n');
+
+        ].join('\n');
         return 'https://github.com/Andrewvlad/FSCards/issues/new?' + new URLSearchParams({body}).toString();
     }
 </script>

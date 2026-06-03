@@ -34,8 +34,8 @@ There are diagrams from every single provider.
 ## Features
 - Auto-saves session, stats, and settings to localStorage
 - Keybindings and gesture controls
-  - `[SPACE]` (or tap) — Flip card
-  - `[←]`/`[→]` (or swipe) — Mark wrong/correct/skip
+  - `[SPACE]` (or tap) - Flip card
+  - `[←]`/`[→]` (or swipe) - Mark wrong/correct/skip
 
 ## Missing Image Sets:
 - Spaceland (unpublished, unofficial, not actively competed)
@@ -49,6 +49,14 @@ There are diagrams from every single provider.
 - Axis experimental dive pools (since they are not active in competition)
 - 6-way FS
   - Only part of Fury's Dueling DZs
+- VFS Ninja
+  - Basically covered with existing image pools
+  - Still a really cool project that you should [check out](https://github.com/ervanalb/vfs.ninja)!
+
+## TODO
+- [x] Full mobile support
+  - [x] Landscape support
+- [ ] Downloadable image sets
 
 ## Overview
 The app runs entirely clientside using HTML/CSS/JS.
