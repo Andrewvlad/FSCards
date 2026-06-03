@@ -437,24 +437,11 @@
         arena.innerHTML = `
             <div id="card">
                 <div class="cardFace front">
-                    <div class="cardInfo">
-                        <div>Do you know this formation?</div>
-                        <div>${progress.textContent}</div>
-                    </div>
                     ${frontFace(formation)}
-                    <div class="cardInfo"></div>
                 </div>
                 <div class="cardFace back">
-                    <div class="cardInfo">
-                        <div>Answer</div>
-                        <div>${progress.textContent}</div>
-                    </div>
                     <div class="cardContent">
                         ${diagramFace(formation.image, formation, false)}
-                    </div>
-                    <div class="cardInfo">
-                        <div>${formation.key}</div>
-                        <div>${formation.name}</div>
                     </div>
                 </div>
             </div>

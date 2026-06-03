@@ -574,17 +574,6 @@ header {
     &.back {
         transform: rotateY(180deg);
     }
-
-    .cardInfo {
-        width: 100%;
-        display: flex;
-        justify-content: space-between;
-        font-family: var(--primaryFont);
-        font-size: 0.6rem;
-        text-transform: uppercase;
-        letter-spacing: 0.15em;
-        color: var(--muted);
-    }
 }
 
 /* Prevent dragging of images */
