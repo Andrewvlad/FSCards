@@ -38,18 +38,24 @@ function activeImageSet(discipline, imageSet) {
     return imageSet in DATA[discipline].sets ? imageSet : 'USPA';
 }
 
-function poolImages({discipline, indoor, imageSet}) {
+function poolImages({discipline, indoor, imageSet, split}) {
     const data = DATA[discipline];
     const set = activeImageSet(discipline, imageSet);
-    const filename = data.sets[set];
-    const dir = `assets/diagrams/${discipline}/${setDisplayName(discipline, set, indoor)}`;
+    const resolve = (setName, key) => {
+        const filename = data.sets[setName];
+        const file = filename ? filename(key, indoor) : `${key}.webp`;
+        return `assets/diagrams/${discipline}/${setDisplayName(discipline, setName, indoor)}/${file}`;
+    };
     const images = {};
-    for (const key of Object.keys(data.names))
-        images[key] = `${dir}/${filename ? filename(key, indoor) : `${key}.webp`}`;
+    for (const key of Object.keys(data.names)) {
+        // Fallback to USPA if too tall
+        const fallback = split && isBlock(key) && SINGLE_PANEL_BLOCKS.has(set);
+        images[key] = resolve(fallback ? 'USPA' : set, key);
+    }
     return images;
 }
 
-// Swaps USPA indoor to USIS
+// Swaps USPA to USIS when indoors
 function setDisplayName(discipline, imageSet, indoor) {
     return (indoor && DATA[discipline].indoorSets?.[imageSet]) || imageSet;
 }
@@ -62,6 +68,16 @@ function diagramInvertsInDark(discipline, imageSet, indoor) {
     const data = DATA[discipline];
     const set = setDisplayName(discipline, imageSet in data.sets ? imageSet : 'USPA', indoor);
     return ['USPA', 'USIS', 'FAI'].includes(set) && !DARK_PAPER_USPA.has(discipline);
+}
+
+// Sets that are unsplittable
+const SINGLE_PANEL_BLOCKS = new Set(['Rhythm']);
+
+// Look up pre-computed divider positions
+function panelCutsFor(src) {
+    const [, , discipline, set, ...file] = src.split('/');
+    const cuts = PANEL_CUTS[discipline]?.[set];
+    return Array.isArray(cuts) ? cuts : cuts?.[file.at(-1).split('.')[0]];
 }
 
 // Text-free card variant used for the front
@@ -85,8 +101,8 @@ const OPT_IN_KEYS = {
 };
 
 // Build the class-scoped pool (all eligible cards, unshuffled) as key -> card.
-function buildPool({discipline, indoor, imageSet, classLevel, tunnel, includeFusions = true}) {
-    const images = poolImages({discipline, indoor, imageSet});
+function buildPool({discipline, indoor, imageSet, classLevel, tunnel, includeFusions = true, split}) {
+    const images = poolImages({discipline, indoor, imageSet, split});
     const names = DATA[discipline].names;
 
     const cls = classesFor(discipline).find(c => c.key === classLevel) ?? {};

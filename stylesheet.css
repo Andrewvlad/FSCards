@@ -575,14 +575,37 @@ figure {
     figcaption.captionHidden {visibility: hidden} /* Hide on card front */
 }
 
-:root[data-theme="dark"][data-diagram="paper"] :is(.captionedDiagram, #gallery figure) {
+/* Split blocks into 3rds horizontally (index.html only emits the markup on wide cards) */
+.splitDiagram {
+    display: flex;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+    border-radius: 6px;
+    overflow: hidden; /* Allows for rounded border */
+
+    img {
+        flex: 1;
+        min-width: 0;
+        min-height: 0;
+        object-fit: cover;
+        border-radius: 0;
+    }
+
+    /* Divider */
+    img + img {border-left: 2px solid #000}
+}
+
+:root[data-theme="dark"][data-diagram="paper"] :is(.captionedDiagram, #gallery figure, .splitDiagram:not([data-diagram="invert"])) {
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.5);
 }
 
-:root[data-theme="dark"][data-diagram="paper"] :is(.captionedDiagram .diagram, #gallery figure img) {
+:root[data-theme="dark"][data-diagram="paper"] :is(.captionedDiagram .diagram, #gallery figure img, .splitDiagram .diagram) {
     padding: 0;
     box-shadow: none;
 }
+
+:root[data-theme="dark"] .splitDiagram[data-diagram="invert"] .diagram {filter: invert(1)}
 
 /* Toast messages */
 .toast {
@@ -978,6 +1001,7 @@ body.gallery #modeBar {
     /* Hide flashcard when settings are open */
     /* TODO: Don't hide but allow for overflow instead of re-sizing to fit */
     #settingsPanel:not(.hidden) ~ #arena {display: none}
+    #settingsPanel:not(.hidden) ~ #arena:has(.splitDiagram) {display: none}
 
     /* Reduce spacing */
     #arena, #gallery {padding: 1rem}

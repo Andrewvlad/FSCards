@@ -183,6 +183,7 @@
 <script src="assets/diagrams/2-way-cf/index.js"></script>
 <script src="assets/diagrams/4-way-cf/index.js"></script>
 <script src="assets/diagrams/cp-freestyle/index.js"></script>
+<script src="assets/diagrams/panel-cuts.js"></script>
 
 <script src="index.js"></script>
 <script>
@@ -213,6 +214,9 @@
     let flipped = false;
     let recycle = false;
     let theme = document.documentElement.dataset.theme;
+
+    // The settings object every deck/image build takes. Split tracks the viewport at call time
+    const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
 </script>
 <!--Save progress-->
 <script>
@@ -220,7 +224,7 @@
 
     // Save after each grading
     function saveSession() {
-        try {
+        if (getIndex() < deck.length) try {
             localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
                 deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
                 correct: correct.textContent,
@@ -277,8 +281,8 @@
             if (!data || !data.deck || (shared && !samePool)) return false;
 
             // Rebuild the full pool (for category switching), then restore the played deck
-            fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel, includeFusions});
-            deck = deckFromKeys(data.deck, {discipline, indoor, imageSet, classLevel, tunnel, includeFusions});
+            fullDeck = buildDeck(poolSettings());
+            deck = deckFromKeys(data.deck, poolSettings());
             prefetchDeck();
 
             // Populate stats
@@ -301,7 +305,7 @@
         document.body.appendChild(toast);
     }
 
-    // Only clear when game is complete. Progress in a new mode will override
+    // Only clear when game complete. Progress in a new mode will override
     function clearSession() {
         try {
             localStorage.removeItem(SAVE_KEY);
@@ -311,7 +315,7 @@
 <!--Define deck-->
 <script>
     function newDeck() {
-        fullDeck = buildDeck({discipline, indoor, classLevel, imageSet, tunnel, includeFusions});
+        fullDeck = buildDeck(poolSettings());
         applyCategory();
     }
 
@@ -353,18 +357,12 @@
 
     // Re-point every card's diagram at the current set/indoor without rebuilding the deck
     function hotSwapImages() {
-        const images = poolImages({discipline, indoor, imageSet});
+        const images = poolImages(poolSettings());
         for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
         for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
 
         const formation = deck[getIndex()];
-        if (formation) {
-            // diagram-front prompt shows the text-free figure; the answer side shows the full diagram
-            document.querySelectorAll('#card .front .diagram').forEach(img => img.src = formation.figure);
-            document.querySelectorAll('#card .back  .diagram').forEach(img => img.src = formation.image);
-            // Pre-decode the backside image
-            document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
-        }
+        if (formation && !lock) renderCardFaces(formation);
         prefetchDeck(); // re-warm the cache for the swapped-in set
 
         saveSession();
@@ -406,11 +404,24 @@
 <script>
     const arena = document.getElementById('arena');
 
-    // A diagram, optionally with a name caption underneath, for disciplines whose diagrams carry no
-    // baked-in name (e.g. CP Freestyle). On the card front the caption is kept but hidden so it still
-    // reserves its space — flipping to the visible-caption back then doesn't resize or shift the image.
+    const SPLIT_RATIO = 2; // Cards at least twice as wide as tall show blocks as side-by-side panels
+    const SEAM_MARGIN = 0.0035;
+
+    // Add captions to images
     function diagramFace(src, formation, hideCaption) {
         if (!includeCaption(discipline)) {
+            // When the card renders wide, show a block's three panels as separate horizontally arranged images
+            const cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
+            if (cuts) {
+                const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
+                const [ar, d1t, d1b, d2t, d2b] = cuts;
+                const windows = [[0, d1t - SEAM_MARGIN], [d1b + SEAM_MARGIN, d2t - SEAM_MARGIN], [d2b + SEAM_MARGIN, 1]];
+                const grows = windows.map(([t, b]) => 1 / (b - t));
+                const panels = windows.map(([t, b], i) =>
+                    `<img class="diagram" src="${src}" alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
+                return `<div class="splitDiagram"${fallback ? ' data-diagram="invert"' : ''} role="img" aria-label="${formation.key}"
+                            style="aspect-ratio: ${(ar * grows.reduce((s, g) => s + g)).toFixed(4)}">${panels}</div>`;
+            }
             return `<img class="diagram" src="${src}" alt="${formation.key}">`;
         }
         return `<figure class="captionedDiagram">
@@ -436,6 +447,32 @@
         }
     }
 
+    // Build the two card faces. Re-render split-block images
+    function renderCardFaces(formation) {
+        document.querySelector('#card .front').innerHTML = frontFace(formation);
+        document.querySelector('#card .back').innerHTML = `
+            <div class="cardContent">
+                ${diagramFace(formation.image, formation, false)}
+            </div>
+        `;
+
+        // Pre-decode the backside image
+        document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
+    }
+
+    // Crossing the threshold changes split markup and, for single-panel sets, image resolution
+    let splitView = false;
+    const cardObserver = new ResizeObserver(([entry]) => {
+        const {width, height} = entry.contentRect;
+        if (!height) return; // Settings panel hides the arena on mobile
+
+        const split = width >= SPLIT_RATIO * height;
+        if (split === splitView) return;
+
+        splitView = split;
+        hotSwapImages();
+    });
+
     // Grading does the actual shifting of the index
     function nextCard() {
         if (getIndex() >= deck.length) return finish();
@@ -448,22 +485,17 @@
 
         arena.innerHTML = `
             <div id="card">
-                <div class="cardFace front">
-                    ${frontFace(formation)}
-                </div>
-                <div class="cardFace back">
-                    <div class="cardContent">
-                        ${diagramFace(formation.image, formation, false)}
-                    </div>
-                </div>
+                <div class="cardFace front"></div>
+                <div class="cardFace back"></div>
             </div>
             <p id="keyboardHints">${frontKeyboardHints}</p>
             <div id="actionBar">${frontActionBar}</div>
             <div id="watchBar">${watchBarFor(formation)}</div>
         `;
-
-        // Pre-decode the backside image
-        document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
+        // Re-observe: the old card went out with the arena markup
+        cardObserver.disconnect();
+        cardObserver.observe(document.getElementById('card'));
+        renderCardFaces(formation);
 
         attachSwipe();
     }
