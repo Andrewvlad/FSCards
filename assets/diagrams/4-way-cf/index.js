@@ -32,5 +32,5 @@ const _4WayCf = {
         14: "Gatton - Diamond",
     },
     classes: [],
-    sets: { USPA: null, Axis: null },
+    sets: { USPA: key => `${key}.svg`, Axis: null },
 };

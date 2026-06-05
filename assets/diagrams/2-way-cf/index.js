@@ -8,5 +8,5 @@ const _2WayCf = {
         F: "F",
     },
     classes: [],
-    sets: { USPA: null, Axis: null },
+    sets: { USPA: key => `${key}.svg`, Axis: null },
 };
