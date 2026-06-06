@@ -61,7 +61,7 @@ const DARK_PAPER_USPA = new Set(['4-way-vfs', 'cp-freestyle']);
 function diagramInvertsInDark(discipline, imageSet, indoor) {
     const data = DATA[discipline];
     const set = setDisplayName(discipline, imageSet in data.sets ? imageSet : 'USPA', indoor);
-    return (set === 'USPA' || set === 'USIS') && !DARK_PAPER_USPA.has(discipline);
+    return ['USPA', 'USIS', 'FAI'].includes(set) && !DARK_PAPER_USPA.has(discipline);
 }
 
 // Text-free card variant used for the front

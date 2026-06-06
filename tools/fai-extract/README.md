@@ -1,44 +1,133 @@
 # fai-extract
 
-Re-cuts the `FAI` image sets under `assets/diagrams/<discipline>/FAI/` from the
-official **2026 FAI ISC FS+VFS Competition Rules** PDF, committed at
-`assets/sources/fai/fai_fs_2026.pdf` (originally fai.org → `2026_ISC_CR FS.pdf`).
-The dive-pool annexes A–F sit on pp17–28:
+Extraction pipelines for the FAI ISC raster dive pools, reading the CR PDFs
+committed under `assets/sources/fai/` (originally fai.org — re-download only to
+pick up a CR revision). Output is **lossless webp at native embedded-raster
+size** — never resampled.
 
-| discipline | blocks | randoms |
-|---|---|---|
-| 4-way | pp17–19 | p20 |
-| 8-way | pp21–23 | p24 |
-| 4-way-vfs | pp25–27 | p28 |
+| script | set | source | pages |
+|---|---|---|---|
+| `extract.py` | `FAI` (4-way, 8-way) | `fai_fs_2026.pdf` (2026 FS CR) | 4-way blocks pp17–19, randoms p20; 8-way blocks pp21–23, randoms p24 |
+| `usis.py` | `USIS` (8-way indoor) | `fai_indoor_2026.pdf` (2026 Indoor FS CR) | blocks pp26–28, randoms p29, starting formations p30 |
 
-These are the only FAI-governed pools — there is no FAI 10-way/16-way/6-way, MFS,
-2-way-FS or VFS 2-way set.
+Run `python3 extract.py && python3 rext.py` (staging `/tmp/faiext/out/<d>/`) or
+`python3 usis.py` (staging `/tmp/usisext/8-way/USIS/`); install by copying over
+`assets/diagrams/<d>/FAI/` / `assets/diagrams/8-way/USIS/`. `rext.py` adds
+**4-way `R`/Bundy** (CISM-only, absent from the FAI pool): block 12's first
+panel *is* the Bundy formation, cut with the "12" key swapped for a drawn "R"
+and the "Bundy" name kept. The R is Liberation Sans Regular (the PDF's text
+face is ArialMT; Liberation Sans is its metric-compatible local stand-in, as in
+the Axis derivation), sized and placed from a sibling random's measured key so
+it sits exactly like the lettered keys around it. R being a random, the block
+iconage goes too — the panel X-marks jumper 2's back to track him across the
+block, while randoms carry no marking (USPA's R equally sheds its back-dot).
+The marked torso is a different drawing, not an overlay (narrower outline), so
+erasing the X strokes leaves a wrong-shaped back; instead, block 12 ending in
+a second Bundy, the end panel's clean torso window is grafted 1-1 — the two
+stamps register within a pixel (dy −1, measured like the key box; elsewhere
+they differ only in subpixel rendering). A seam check on the window's border
+band trips if a CR revision shifts the stamps.
 
-Run `python3 extract.py`; staging lands in `/tmp/faiext/out/<discipline>/`, install
-by copying over `assets/diagrams/<d>/FAI/`. Then `python3 rext.py` adds **4-way
-`R`/Bundy** (CISM-only, absent from the FAI pool): block 12's first cell *is* the
-Bundy formation, so it is cropped above its first divider with the "12" key erased
-and the "Bundy" name kept.
+**The FS CR's VFS annex (pp25–28) is deliberately not extracted**: its art is
+USPA's ("Images Copyright United States Parachute Association"), already
+shipped better in the USPA set — and only p25 embeds it as a raster (pp26–28
+draw the jumpers as vector over an empty grid raster, so reviving them would
+need a render-mode page source, not `pdfimages`).
 
 ## How it works
 
-Annex pages are single page-wide rasters with key+name baked in — no per-cell text
-layer (only the page title/footer are real text). Pages render at 300 DPI and cells
-are found geometrically:
+Every extracted page embeds its complete art as **one native raster** (verified:
+a page render adds only title/footer furniture), composited over white through
+its smask when one is embedded (paired by PDF object number in `pdfimages
+-list`). There is no per-cell text layer — key + name are baked into the art —
+so geometry and text removal are pixel-based:
 
-- **Randoms**: a 4×4 grid. Columns detect reliably; rows are snapped to a square
-  pitch (= the column width) anchored on the detected horizontal lines, preferring
-  the **topmost** scoring candidate — some pages render top-row borders at less
-  than half width, which the raw line detector misses.
-- **Blocks**: 4 columns × N block-rows, each block a 3-cell strip. Adjacent
-  block-rows sometimes share their seam line and are sometimes gapped, so
-  near-duplicate lines are collapsed first, then edges walked in strides of 3.
-- **`figures/`**: geometric erase of the top-left key glyph plus each cell's
-  bottom-most *text band*, discriminated by band **height** ≤ 0.14·H rather than
-  ink spread (short labels like "Inter"/"Box" have low spread); thin full-width
-  border/divider rules are wiped and scanned past so a name above/below a rule is
-  still found. Line art, dividers, and rotation arrows / `360°`–`540°` labels
-  survive.
+- **Cells** crop between the **full extents** of the detected grid-line spans,
+  then shrink only past full-length line residue (grid-line core + pale
+  anti-alias fringe, `shrink`) — **no original white space is ever removed**,
+  and line-hugging art keeps every pixel up to the line itself. `shrink`'s
+  contiguous-run test misses three fringe shapes the outer edges carry, so
+  `edge_fringe` finishes the walk there: partial-height fringe (line beside
+  some panels, white beside others — 8-way 14/21), full-height fringe broken
+  by stray white px (8-way 6/22, a ~234-grey line the split-panel view showed
+  as border bleed), and faint 248–253 fringe above `shrink`'s 245 threshold
+  entirely. A line goes when it is **mostly pale** (< 254 over ≥ 0.25 of its
+  length — art at an edge measures ≤ 0.11, white 0) or blank while directly
+  shielding such a line (a halo detached across a 1px gap, 4-way G/O — the
+  only case where a border's own internal 1px white gap goes with it); a white
+  margin row still stops the walk before any caption or art. Gapped
+  block-row seams keep both lines — the earlier midpoint-merge bled each row's
+  border into its neighbour (stray line at a cell's top/bottom). Only
+  near-duplicates (< 0.1 pitch) merge. Randoms rows snap to a square pitch
+  anchored on detected lines (some pages render the top border at < half
+  width), each predicted edge refining to a detected span where one exists.
+  Neither set ships frame borders: FAI cells have none in-source, and `usis.py`
+  strips USIS's printed ones by the same line+fringe rule (`strip_border`,
+  applied after the erase; internal block dividers stay), matching the
+  borderless USPA/Axis cells.
+- **Dust** baked into the source rasters is removed by `despeckle` (both
+  pipelines, named card and figure alike): lone stray specks (8-way C/K) and
+  *ghosting* — shattered pale remnants of leftover art on the page (8-way 21's
+  free-bear ghost legs, block 9, USIS 17 and the USIS starting-formation
+  variant, plus ~40 cards of single-pixel dirt). Dust is a small non-spanning
+  component (a full-width pale row is a divider's detached AA halo, kept) that
+  either never reaches ink darkness (min luminance ≥ 185 — real art bottoms
+  out near 0) or sits ≥ 12 px from all other ink (every legitimate detached
+  mark — i-dot, degree sign, AA-split limb tip — measures within ~4 px of its
+  parent). Pale components are spared when they tail a text run (y-overlap +
+  x-adjacency to a glyph-sized dark component): the faintly-rendered degree
+  rings of 8-way 21's inter labels never get darker than the ghost crumbs, but
+  only they hug a digit. Painting dilates like the glyph erase, so the speck's
+  own fringe whisper goes too. Figures despeckle *after* their erase (a spared
+  caption-hugging crumb loses its anchor glyphs with the caption and goes);
+  `usis.py` despeckles after the border strip — a speck just inside the
+  printed frame fuses into the border component through its AA fringe and
+  would ride the spanning exemption.
+  **connected component**: a component lying fully inside the corner/bottom zone
+  and under glyph-size caps is wiped, and art dipping beside a caption belongs
+  to a large component and survives. Caption candidates must additionally form
+  the **caption's own text cluster** (`baseline=0.07`): members chain by
+  x-adjacency (≤ 0.14 W spans word gaps, measured ≤ 24px) plus y-overlap — or a
+  small y-gap for tiny ≤ 6px components, the i-dots hovering overlap-free above
+  an all-lowercase word (Bunyip, Marquis, Iroquois) — and the cluster erases
+  only if it has ≥ 3 members (every caption measures ≥ 3) and a member's bottom
+  reaches within 7% of the panel bottom (caption bottoms measure ≤ 4.7%
+  everywhere). Detached art in the band is also small and zone-bound, and
+  without the test the erase swallowed ~50 such components whole across the
+  three sets, invisibly to the partial-component audit: art floating higher
+  fails the baseline reach (leg pieces split off by an AA gap, rotation arrows,
+  the `360°`/`540°` labels — one touches its row at y-gap 0, so tall components
+  never gap-join), and art *at caption height* (8-way 20's mid-panel foot, 76px
+  left of `Inter`) is x-distant and under-sized as a cluster of its own.
+  Components form on the fringe-inclusive mask (< 200) *without* dilation
+  (dilation bridged glyphs to art above and spared them), and painting dilates
+  the erased component so its anti-alias fringe goes too (no ghost outline) —
+  spilling only onto unlabeled fringe, never another component's pixels (a
+  caption descender two px off a USIS frame border must not nibble the border).
+  Block strips keep their internal divider lines; the erase slices exclude the
+  divider **cores by span and their AA fringe by `shrink`** — the fringe rows
+  otherwise form a full-width sub-white component inside the slice that a
+  caption descender fuses with, hiding its glyph from the erase (8-way 15
+  "Zippers" kept both p's; their sub-slice descender tips remain as invisible
+  ≤ 5px wisps on the divider fringe). `usis.py` shares these erasers, slicing
+  panels between the full-width line spans (frame top, dividers, frame bottom),
+  shrunk the same way, with wider caps for the larger-type starting-formation
+  label. (Its earlier rectangle wipes flat-cut any art reaching into the key
+  window or a name band — 32 of 40 cards; the still-older full-width band erase
+  also clobbered the side borders and needed a post-hoc heal pass.)
+- **Self-audit**: after every card, the script checks the crop's outer 2px for
+  full-length line runs *and* mostly-pale fringe lines (under-shrunk border,
+  mirroring both `shrink`'s and `edge_fringe`'s rules), asserts the
+  **partial-component invariant** — every ink component is erased whole (a
+  glyph) or kept whole (art), so an erase zone misfiring into art is caught;
+  cell-spanning components are exempt, since erasing a divider-fused descender
+  legitimately takes part of the merged component — and re-runs the caption
+  erase per panel third expecting no further ink drop (missed caption); `!!`
+  warnings print per key. `usis.py` asserts the same invariant plus an erase
+  re-run, and the line-residue check after its border strip. Visual QA montages
+  land in the staging dirs.
 
-Output is **560px-wide q90 webp**, matching the USIS set (the comparable
-FAI-source raster resolution). Visual QA montages land at `/tmp/faiext/qa_*.png`.
+The FAI and USIS strips' panels are equal thirds within ≤ 0.21% divider drift
+vs exact H/3 (the earlier 0.65–1.5% FAI figure was an artifact of the old
+fixed-margin crop), inside the ≤ 0.4% bound the app's split-panel view was
+verified against — see the split-panels note in CLAUDE.md.

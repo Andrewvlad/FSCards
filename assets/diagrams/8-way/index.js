@@ -49,6 +49,7 @@ const _8Way = {
         Rhythm: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
         USPA: null,
         Axis: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
+        FAI: null,
     },
     indoorSets: { USPA: 'USIS' },
     videos: {

@@ -17,7 +17,7 @@ const _4Way = {
         O: "Satellite",
         P: "Sidebody",
         Q: "Phalanx",
-        R: "Bundy", // CISM-only extra random (shares block 12's formation)
+        R: "Bundy", // CISM-only random (shares block 12's formation)
         // Blocks
         1: "Molar - Molar",
         2: "Sidebody Donut - Side Flake Donut",
@@ -48,12 +48,12 @@ const _4Way = {
         {key: 'intermediate', label: 'Intermediate', blocks: [1, 2, 4, 6, 7, 8, 9, 11, 13, 14, 15, 18, 19, 20, 21, 22]},
         {key: 'open', label: 'Adv. / Open'},
         {key: 'collegiate', label: 'Collegiate', blocks: [1, 2, 4, 6, 7, 9, 13, 21]},
-        // CISM includes the opt-in 'R' random by listing the full random set explicitly
+        // Includes CISM-only R
         {key: 'cism', label: 'CISM', randoms: ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R'], blocks: [1, 2, 14, 16, 17, 18, 19, 22]},
     ],
-    // Optional toggle: restricts the block pool to those that fit a 12-foot tunnel (randoms unchanged)
+    // Blocks for 12-foot tunnels
     tunnel: [3, 5, 6, 7, 9, 11, 14, 15, 16, 17, 18, 21],
-    sets: { Rhythm: null, USPA: null, Axis: null },
+    sets: { Rhythm: null, USPA: null, Axis: null, FAI: null },
     videos: {
         1: "https://youtu.be/QiHgkFsiYFo",
         2: "https://youtu.be/ezHhMcT9V0Y",
