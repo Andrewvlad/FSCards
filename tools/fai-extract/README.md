@@ -8,11 +8,18 @@ size** — never resampled.
 | script | set | source | pages |
 |---|---|---|---|
 | `extract.py` | `FAI` (4-way, 8-way) | `fai_fs_2026.pdf` (2026 FS CR) | 4-way blocks pp17–19, randoms p20; 8-way blocks pp21–23, randoms p24 |
-| `usis.py` | `USIS` (8-way indoor) | `fai_indoor_2026.pdf` (2026 Indoor FS CR) | blocks pp26–28, randoms p29, starting formations p30 |
+| `usis.py` | `USIS` (8-way indoor, ships merged into `FAI`) | `fai_indoor_2026.pdf` (2026 Indoor FS CR) | blocks pp26–28, randoms p29, starting formations p30 |
 
 Run `python3 extract.py && python3 rext.py` (staging `/tmp/faiext/out/<d>/`) or
-`python3 usis.py` (staging `/tmp/usisext/8-way/USIS/`); install by copying over
-`assets/diagrams/<d>/FAI/` / `assets/diagrams/8-way/USIS/`. `rext.py` adds
+`python3 usis.py` (staging `/tmp/usisext/8-way/USIS/`); install extract.py's
+output by copying over `assets/diagrams/<d>/FAI/`. The USIS cut has no
+directory of its own: only its indoor-variant blocks install, renamed
+`assets/diagrams/8-way/FAI/<13|17|20>_indoor.webp` (+ `figures/` siblings),
+plus the two starting-formation reference cards. Every other staged cell is
+byte-identical to extract.py's outdoor FAI cell (same embedded art in both
+CRs, same pipeline) except block 21, which differs only by ~45 px of
+anti-alias jitter — the staged set doubles as a cross-PDF consistency check.
+`rext.py` adds
 **4-way `R`/Bundy** (CISM-only, absent from the FAI pool): block 12's first
 panel *is* the Bundy formation, cut with the "12" key swapped for a drawn "R"
 and the "Bundy" name kept. The R is Liberation Sans Regular (the PDF's text

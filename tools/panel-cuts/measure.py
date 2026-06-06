@@ -24,12 +24,13 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[2]
 
 # Every set with 3-panel block strips. Not listed: Rhythm (blocks are single continuous
-# drawings — poolImages reroutes them to USPA under split). A third element redirects the
-# scan: 4-way-cf USPA ships SVGs, measured via their committed same-extent trace cells
+# drawings — poolImages reroutes them to USPA, or FAI for indoor variants, under split).
+# A third element redirects the scan: 4-way-cf USPA ships SVGs, measured via their
+# committed same-extent trace cells
 TARGETS = [
     ('2-way', 'USPA'), ('2-way', 'Axis'),
     ('4-way', 'USPA'), ('4-way', 'Axis'), ('4-way', 'FAI'),
-    ('8-way', 'USPA'), ('8-way', 'USIS'), ('8-way', 'Axis'), ('8-way', 'FAI'),
+    ('8-way', 'USPA'), ('8-way', 'Axis'), ('8-way', 'FAI'),
     ('16-way', 'USPA'), ('16-way', 'Axis'),
     ('2-way-vfs', 'USPA'),
     ('4-way-vfs', 'USPA'), ('4-way-vfs', 'Axis'),

@@ -47,11 +47,11 @@ const _8Way = {
     ],
     sets: {
         Rhythm: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
-        USPA: null,
+        // USPA does not publish indoor set, so use FAI (USIS) instead
+        USPA: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `FAI/${key}_indoor.webp` : `${key}.webp`,
         Axis: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
-        FAI: null,
+        FAI: (key, indoor) => indoor && [13, 17, 20].includes(+key) ? `${key}_indoor.webp` : `${key}.webp`,
     },
-    indoorSets: { USPA: 'USIS' },
     videos: {
         1: "https://youtu.be/tENKrdeXXVo",
         2: "https://youtu.be/77diZ2mZJcw",

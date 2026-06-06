@@ -13,7 +13,7 @@ it before touching those assets or re-running a pipeline.
 |----------------|----------------------------------------------------------------------------------------------------------------------------------------------|------------------------|
 | `uspa-extract` | the FS-outline `USPA` sets — SCM Ch.9 (4-way, 8-way, 10-way-speed, 16-way, VFS 4-way, MFS) + Ch.7 Collegiate (2-way, VFS 2-way, 6-way-speed) | `assets/sources/uspa/` |
 | `axis-extract` | the `Axis` sets (all nine disciplines)                                                                                                       | `assets/sources/axis/` |
-| `fai-extract`  | the `FAI` set + `USIS`                                                                                                                       | `assets/sources/fai/`  |
+| `fai-extract`  | the `FAI` sets (incl. 8-way's USIS-cut indoor cards)                                                                                         | `assets/sources/fai/`  |
 | `cf-vectorize` | the CF-outline `USPA` SVG sets (CF 2-way, CF 4-way)                                                                                          | `assets/sources/cf/`   |
 
 All four are Python (numpy/Pillow, plus scipy for the raster pipelines and

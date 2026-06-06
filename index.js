@@ -44,20 +44,16 @@ function poolImages({discipline, indoor, imageSet, split}) {
     const resolve = (setName, key) => {
         const filename = data.sets[setName];
         const file = filename ? filename(key, indoor) : `${key}.webp`;
-        return `assets/diagrams/${discipline}/${setDisplayName(discipline, setName, indoor)}/${file}`;
+        // A filename with a path borrows from a sibling set (ex. USPA indoor uses FAI (USIS))
+        return `assets/diagrams/${discipline}/${file.includes('/') ? file : `${setName}/${file}`}`;
     };
     const images = {};
     for (const key of Object.keys(data.names)) {
-        // Fallback to USPA if too tall
-        const fallback = split && isBlock(key) && SINGLE_PANEL_BLOCKS.has(set);
-        images[key] = resolve(fallback ? 'USPA' : set, key);
+        // USPA fallback when the set's blocks are too tall to split
+        const fallback = split && isBlock(key) && SINGLE_PANEL_BLOCKS.has(set) && 'USPA';
+        images[key] = resolve(fallback || set, key);
     }
     return images;
-}
-
-// Swaps USPA to USIS when indoors
-function setDisplayName(discipline, imageSet, indoor) {
-    return (indoor && DATA[discipline].indoorSets?.[imageSet]) || imageSet;
 }
 
 // Not inversion-friendly
@@ -65,10 +61,9 @@ function setDisplayName(discipline, imageSet, indoor) {
 const LIGHT_USPA = new Set(['4-way-vfs', 'cp-freestyle']);
 
 // 'dark' diagrams invert with the theme while 'light' remain white
-function diagramMode(discipline, imageSet, indoor) {
-    const data = DATA[discipline];
-    const set = setDisplayName(discipline, imageSet in data.sets ? imageSet : 'USPA', indoor);
-    return ['USPA', 'USIS', 'FAI'].includes(set) && !LIGHT_USPA.has(discipline) ? 'dark' : 'light';
+function diagramMode(discipline, imageSet) {
+    const set = activeImageSet(discipline, imageSet);
+    return ['USPA', 'FAI'].includes(set) && !LIGHT_USPA.has(discipline) ? 'dark' : 'light';
 }
 
 // Sets that are unsplittable

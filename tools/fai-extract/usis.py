@@ -13,7 +13,12 @@ internal dividers); the figure key/name erase is the connected-component one
 shared with extract.py -- run before the strip, while the borders and dividers
 still span the whole cell and so are never glyph candidates (the old rectangle
 wipes flat-cut any art reaching into the key window or a name band).
-Staging lands in /tmp/usisext/; install by copying over assets/diagrams/8-way/USIS/."""
+Staging lands in /tmp/usisext/; the set ships merged into the FAI set: only the
+indoor-variant blocks install, renamed assets/diagrams/8-way/FAI/<13|17|20>_indoor.webp
+(+ figures/ siblings), plus the two starting-formation cards. Every other staged
+cell is byte-identical to extract.py's outdoor FAI cell (same embedded art in
+both CRs, same pipeline) except block 21, which differs only by ~45 px of
+anti-alias jitter -- the staged set doubles as a cross-PDF consistency check."""
 import os, subprocess, glob
 import numpy as np
 from PIL import Image
