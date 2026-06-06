@@ -453,6 +453,12 @@ header {
     }
 }
 
+/* Open panel grows page by its own height (--panelH), arena keeps closed-state size, page scrolls */
+body:not(.gallery):has(#settingsPanel:not(.hidden)) {
+    height: calc(100dvh + var(--panelH, 0px));
+    overflow-y: auto;
+}
+
 /* Stats bar */
 #statsBar {
     display: flex;
@@ -998,11 +1004,6 @@ body.gallery #modeBar {
 
 /* On mobile devices */
 @media (max-width: 600px), (max-height: 600px) { /* Height = Landscape catch */
-    /* Hide flashcard when settings are open */
-    /* TODO: Don't hide but allow for overflow instead of re-sizing to fit */
-    #settingsPanel:not(.hidden) ~ #arena {display: none}
-    #settingsPanel:not(.hidden) ~ #arena:has(.splitDiagram) {display: none}
-
     /* Reduce spacing */
     #arena, #gallery {padding: 1rem}
     #statsBar, #statsBar #statsRow {column-gap: 1rem}
@@ -1027,6 +1028,7 @@ body.gallery #modeBar {
         height: 100lvh;
         overflow-y: auto;
     }
+    body:not(.gallery):has(#settingsPanel:not(.hidden)) {height: calc(100lvh + var(--panelH, 0px))}
 
     /* Hide elements */
     #keyboardHints {display: none}

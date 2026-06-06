@@ -464,7 +464,7 @@
     let splitView = false;
     const cardObserver = new ResizeObserver(([entry]) => {
         const {width, height} = entry.contentRect;
-        if (!height) return; // Settings panel hides the arena on mobile
+        if (!height) return; // Detached card on results screen reports zero
 
         const split = width >= SPLIT_RATIO * height;
         if (split === splitView) return;
@@ -691,9 +691,16 @@
     const themeToggle = document.getElementById('themeToggle');
 
     function toggleSettings() {
-        document.getElementById('settingsPanel').classList.toggle('hidden');
+        const panel = document.getElementById('settingsPanel');
+        panel.classList.toggle('hidden');
         document.getElementById('settingsToggle').classList.toggle('active');
+        document.body.style.setProperty('--panelH', `${panel.offsetHeight}px`); // Body grows by panel height so arena never resizes
     }
+
+    // Track panel rewraps while open (window resizes, settings re-renders)
+    new ResizeObserver(([entry]) => {
+        document.body.style.setProperty('--panelH', `${entry.borderBoxSize[0].blockSize}px`);
+    }).observe(document.getElementById('settingsPanel'));
 
     function selectCategory(button) {
         selectSegment('categorySegment', button);
