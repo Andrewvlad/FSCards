@@ -69,7 +69,7 @@ def trace(src, dst):
     # the card; for a vector the attr is free — display fills the box, stays crisp.
     iw, ih = (round(v * 1100 / min(w, h)) for v in (w, h))
     # No background rect — the art floats transparent; the app's CSS keeps the
-    # global white img background off the invert-set diagrams.
+    # global white img background off the dark-set diagrams.
     svg = (f'<svg xmlns="http://www.w3.org/2000/svg" width="{iw}" height="{ih}" '
            f'viewBox="0 0 {w * scale} {h * scale}">'
            f'<path fill="#000" fill-rule="evenodd" d="{"".join(parts)}"/></svg>')

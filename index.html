@@ -419,7 +419,7 @@
                 const grows = windows.map(([t, b]) => 1 / (b - t));
                 const panels = windows.map(([t, b], i) =>
                     `<img class="diagram" src="${src}" alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
-                return `<div class="splitDiagram"${fallback ? ' data-diagram="invert"' : ''} role="img" aria-label="${formation.key}"
+                return `<div class="splitDiagram"${fallback ? ' data-diagram="dark"' : ''} role="img" aria-label="${formation.key}"
                             style="aspect-ratio: ${(ar * grows.reduce((s, g) => s + g)).toFixed(4)}">${panels}</div>`;
             }
             return `<img class="diagram" src="${src}" alt="${formation.key}">`;
@@ -679,8 +679,7 @@
 
     // Show dark-mode diagrams
     function updateDiagramMode() {
-        document.documentElement.dataset.diagram =
-            diagramInvertsInDark(discipline, imageSet, indoor) ? 'invert' : 'paper';
+        document.documentElement.dataset.diagram = diagramMode(discipline, imageSet, indoor);
     }
 </script>
 <!--Settings panel-->

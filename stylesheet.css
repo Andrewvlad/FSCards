@@ -527,13 +527,13 @@ header {
 
 /* Transparent line-art SVGs (the CF USPA sets) float on the card; without this the
    global white img background boxes them in (and inverts to a black box in dark) */
-:root[data-diagram="invert"] :is(.diagram, #gallery img) {background: transparent}
+:root[data-diagram="dark"] :is(.diagram, #gallery img) {background: transparent}
 
-:root[data-theme="dark"][data-diagram="invert"] :is(.diagram, #gallery img) {
+:root[data-theme="dark"][data-diagram="dark"] :is(.diagram, #gallery img) {
     filter: invert(1);
 }
 
-:root[data-theme="dark"][data-diagram="paper"] :is(.diagram, #gallery img) {
+:root[data-theme="dark"][data-diagram="light"] :is(.diagram, #gallery img) {
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.5); /* Softens the border */
 }
 
@@ -596,16 +596,16 @@ figure {
     img + img {border-left: 2px solid #000}
 }
 
-:root[data-theme="dark"][data-diagram="paper"] :is(.captionedDiagram, #gallery figure, .splitDiagram:not([data-diagram="invert"])) {
+:root[data-theme="dark"][data-diagram="light"] :is(.captionedDiagram, #gallery figure, .splitDiagram:not([data-diagram="dark"])) {
     box-shadow: 0 4px 14px rgb(0 0 0 / 0.5);
 }
 
-:root[data-theme="dark"][data-diagram="paper"] :is(.captionedDiagram .diagram, #gallery figure img, .splitDiagram .diagram) {
+:root[data-theme="dark"][data-diagram="light"] :is(.captionedDiagram .diagram, #gallery figure img, .splitDiagram .diagram) {
     padding: 0;
     box-shadow: none;
 }
 
-:root[data-theme="dark"] .splitDiagram[data-diagram="invert"] .diagram {filter: invert(1)}
+:root[data-theme="dark"] .splitDiagram[data-diagram="dark"] .diagram {filter: invert(1)}
 
 /* Toast messages */
 .toast {

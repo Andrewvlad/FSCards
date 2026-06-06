@@ -35,7 +35,7 @@ Trace contract (`trace.py`):
   the source at native size is ≲2/255 (denser cards ~4).
 - Cells keep their full extents — no content crop. The SVGs are **background-free**
   (no white rect): the art floats on the app's card/tile, with the stylesheet's
-  `:root[data-diagram="invert"]` rule keeping the global white `img` background off
+  `:root[data-diagram="dark"]` rule keeping the global white `img` background off
   these diagrams in both themes.
 - Intrinsic `width`/`height` attrs are inflated to min side 1100 (FS-set scale):
   CSS `max-width/max-height` never upscales an `img` past its intrinsic size, so

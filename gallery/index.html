@@ -320,8 +320,7 @@
 
     // Show dark-mode diagrams
     function updateDiagramMode() {
-        document.documentElement.dataset.diagram =
-            diagramInvertsInDark(discipline, imageSet, indoor) ? 'invert' : 'paper';
+        document.documentElement.dataset.diagram = diagramMode(discipline, imageSet, indoor);
     }
 </script>
 <!--Settings panel-->

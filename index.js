@@ -62,12 +62,13 @@ function setDisplayName(discipline, imageSet, indoor) {
 
 // Not inversion-friendly
 // TODO: Try out different methods
-const DARK_PAPER_USPA = new Set(['4-way-vfs', 'cp-freestyle']);
+const LIGHT_USPA = new Set(['4-way-vfs', 'cp-freestyle']);
 
-function diagramInvertsInDark(discipline, imageSet, indoor) {
+// 'dark' diagrams invert with the theme while 'light' remain white
+function diagramMode(discipline, imageSet, indoor) {
     const data = DATA[discipline];
     const set = setDisplayName(discipline, imageSet in data.sets ? imageSet : 'USPA', indoor);
-    return ['USPA', 'USIS', 'FAI'].includes(set) && !DARK_PAPER_USPA.has(discipline);
+    return ['USPA', 'USIS', 'FAI'].includes(set) && !LIGHT_USPA.has(discipline) ? 'dark' : 'light';
 }
 
 // Sets that are unsplittable
