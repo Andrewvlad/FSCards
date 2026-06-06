@@ -1,0 +1,112 @@
+name: Update Axis image set PDFs
+
+on:
+    schedule:
+        - cron: '19 5 2 * *' # Second of the month at 05:19 UTC (random off-peak time)
+    workflow_dispatch:
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        outputs:
+            changed: ${{ steps.fetch.outputs.changed }}
+            failed: ${{ steps.fetch.outputs.failed }}
+            artifact_url: ${{ steps.stash.outputs['artifact-url'] }}
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Fetch upstream PDFs and compare
+              id: fetch
+              run: |
+                  changed=()
+                  failed=()
+                  while IFS=$'\t' read -r path url; do
+                      tmp=$(mktemp)
+                      if ! bash tools/fetch_pdf.sh "$url" "$tmp"; then
+                          failed+=("$path")
+                          continue
+                      fi
+                      if ! cmp -s "$tmp" "$path"; then
+                          changed+=("$path")
+                          # Stash the new bytes (flat, by basename) so the pr job commits exactly what was compared
+                          mkdir -p "$RUNNER_TEMP/staged"
+                          cp "$tmp" "$RUNNER_TEMP/staged/$(basename "$path")"
+                      fi
+                  done < <(jq -r 'to_entries[] | [.key, .value] | @tsv' tools/axis_sources.json)
+
+                  {
+                      echo "changed=$(printf '%s\n' "${changed[@]}" | jq -ncR '[inputs | select(length > 0)]')"
+                      echo "failed=$([ ${#failed[@]} -gt 0 ] && echo true || echo false)"
+                  } >> "$GITHUB_OUTPUT"
+                  {
+                      echo "### Source PDF check"
+                      echo "Changed: ${changed[*]:-none}"
+                      echo "Failed: ${failed[*]:-none}"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            # Using artifacts rather than double fetching
+            - name: Stash changed PDFs for the pr job
+              id: stash
+              if: steps.fetch.outputs.changed != '[]'
+              uses: actions/upload-artifact@v7
+              with:
+                  name: changed-pdfs
+                  path: ${{ runner.temp }}/staged
+
+    pr:
+        needs: check
+        if: needs.check.outputs.changed != '[]'
+        runs-on: ubuntu-latest
+        strategy:
+            fail-fast: false
+            matrix:
+                path: ${{ fromJSON(needs.check.outputs.changed) }}
+        steps:
+            - uses: actions/checkout@v5
+
+            # Using artifacts rather than double fetching
+            - name: Restore the changed PDF
+              uses: actions/download-artifact@v7
+              with:
+                  name: changed-pdfs
+                  path: ${{ runner.temp }}/staged
+
+            - name: Place PDF and compose PR
+              id: meta
+              env:
+                  PDF_PATH: ${{ matrix.path }}
+                  ARTIFACT_URL: ${{ needs.check.outputs.artifact_url }}
+              run: |
+                  # The check job already fetched and compared these exact bytes, just place them
+                  cp "$RUNNER_TEMP/staged/$(basename "$PDF_PATH")" "$PDF_PATH"
+
+                  # Discipline slug from the shared JOBS manifest, matching the extract workflow's branches (vfs2.pdf -> 2-way-vfs)
+                  slug=$(python3 -c "import sys; sys.path.insert(0, 'tools/axis-extract'); from slugs import pdf_slug; print(pdf_slug(sys.argv[1]) or '')" "$(basename "$PDF_PATH")")
+                  {
+                      echo "Upstream revision detected for [\`$PDF_PATH\`]($ARTIFACT_URL)"
+                  } > "$RUNNER_TEMP/pr-body.md"
+                  echo "slug=$slug" >> "$GITHUB_OUTPUT"
+
+            - name: Open PR for updated PDF
+              uses: peter-evans/create-pull-request@v8
+              with:
+                  add-paths: ${{ matrix.path }}
+                  commit-message: 'chore: Update Axis ${{ steps.meta.outputs.slug }} PDF'
+                  branch: update-source-pdf/axis/${{ steps.meta.outputs.slug }}
+                  title: 'Update Axis ${{ steps.meta.outputs.slug }} PDF'
+                  body-path: ${{ runner.temp }}/pr-body.md
+                  delete-branch: true
+
+    report-failures:
+        needs: check
+        if: needs.check.outputs.failed == 'true'
+        runs-on: ubuntu-latest
+        steps:
+            - name: Fail on fetch errors
+              run: |
+                  echo 'One or more URLs failed to fetch, see check job summary.'
+                  exit 1
