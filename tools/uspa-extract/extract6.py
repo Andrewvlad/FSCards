@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Extract the 5 USPA 6-Way Speed formation cells from SCM Ch.7 Appendix D (p17).
 Layout: row1 = cells 1-4 across, row2 = cell 5 (col 1). Each cell: number top-left, vector
-formation diagram, name centred at bottom, black border. Output mirrors the 10-way USPA style:
+formation diagram, name centred at bottom, black border. Output mirrors the 10-way-speed USPA style:
 named = number+diagram+name on white (border removed); figure = diagram only (number+name
 erased glyph-precisely via ext_rand's erase_names from the PDF text layer)."""
 import os, sys
@@ -12,7 +12,7 @@ import ext_rand
 ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/scm_ch07.pdf"
 ext_rand.CACHE = "/tmp/fsx_ch7"
 PAGE, DPI = 17, 600
-OUTDIR = "/tmp/fsx_out/ch7/6-way"
+OUTDIR = "/tmp/fsx_out/ch7/6-way-speed"
 INK = 140
 
 def longest_run(b):

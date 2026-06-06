@@ -10,7 +10,7 @@ rules — re-download from there only to pick up an AXIS pool revision):
 | `fs4.pdf` | FS 4-Way (FAI-ISC + USPA) | 4-way A–Q, 1–22 |
 | `fs8.pdf` | FS 8-Way (FAI-ISC — byte-identical cards to the USPA variant) | 8-way A–Q, 1–22 |
 | `fs8_indoor.pdf` | Indoor FS 8-Way (FAI-ISC) | 8-way 13/17/20`_indoor` + `starting-formation` |
-| `fs10.pdf` | FS 10-Way (USPA) | 10-way 1–12 |
+| `fs10.pdf` | FS 10-Way (USPA) | 10-way-speed 1–12 |
 | `fs16.pdf` | FS 16-Way (USPA) | 16-way A–J, 1–12 |
 | `vfs4.pdf` | VFS 4-Way **(FAI-ISC version)** | 4-way-vfs A–Q, 1–22 |
 | `mfs2.pdf` | MFS 2-Way (USPA) | 2-way-mfs A–Q, 1–22 |

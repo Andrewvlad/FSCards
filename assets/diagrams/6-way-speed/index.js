@@ -1,4 +1,4 @@
-const _6Way = {
+const _6WaySpeed = {
     names: {
         // Formations
         1: "Star",

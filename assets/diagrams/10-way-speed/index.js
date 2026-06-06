@@ -1,4 +1,4 @@
-const _10Way = {
+const _10WaySpeed = {
     names: {
         // Formations
         1: "Compressed Donut",

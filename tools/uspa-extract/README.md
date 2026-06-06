@@ -7,10 +7,10 @@ pick up an SCM revision):
 
 | script | source PDF | sets |
 |---|---|---|
-| `driver_ch9.py` | Ch.9 "Formation Skydiving" — `scm_fs.pdf` | 4-way, 8-way, 10-way, 16-way, 4-way-vfs, 2-way-mfs |
+| `driver_ch9.py` | Ch.9 "Formation Skydiving" — `scm_fs.pdf` | 4-way, 8-way, 10-way-speed, 16-way, 4-way-vfs, 2-way-mfs |
 | `driver_ch7.py` | Ch.7 "Collegiate" — `scm_ch07.pdf` | 2-way (blocks + randoms-page split, see below), 2-way-vfs |
 | `p16fix.py` | Ch.7 p16 | 2-way randoms A–D (1×4 table, too short for the grid detector) |
-| `extract6.py --extract` | Ch.7 p17 | 6-way |
+| `extract6.py --extract` | Ch.7 p17 | 6-way-speed |
 
 Printed appendix labels are PDF page − 2. Pages render at 600 DPI; renders/text are
 cached under per-chapter `/tmp/fsx_ch*` prefixes (same page numbers exist in both

@@ -4,7 +4,7 @@
 uspa.org/scm) into a staging dir — native crop size, lossless, glyph-precise figures.
 Printed appendix labels are PDF page minus 2: 2-way blocks pp14-15 / randoms p16,
 6-way Speed p17, VFS-2 blocks p18 / randoms p19. The 2-way randoms come from
-p16fix.py (the 1x4 table is too short for detect_grid) and 6-way from extract6.py."""
+p16fix.py (the 1x4 table is too short for detect_grid) and 6-way-speed from extract6.py."""
 import os, glob
 from PIL import Image
 import ext_rand, ext_block

@@ -10,24 +10,24 @@ function randomizeDeck(deck) {
 
 // All per-discipline data
 const DATA = {
-    '2-way':     _2Way,
-    '4-way':     _4Way,
-    '6-way':     _6Way,
-    '8-way':     _8Way,
-    '10-way':    _10Way,
-    '16-way':    _16Way,
-    '2-way-vfs': _2WayVfs,
-    '4-way-vfs': _4WayVfs,
-    '2-way-mfs': _2WayMfs,
-    '2-way-cf':  _2WayCf,
-    '4-way-cf':  _4WayCf,
+    '2-way':        _2Way,
+    '4-way':        _4Way,
+    '6-way-speed':  _6WaySpeed,
+    '8-way':        _8Way,
+    '10-way-speed': _10WaySpeed,
+    '16-way':       _16Way,
+    '2-way-vfs':    _2WayVfs,
+    '4-way-vfs':    _4WayVfs,
+    '2-way-mfs':    _2WayMfs,
+    '2-way-cf':     _2WayCf,
+    '4-way-cf':     _4WayCf,
     'cp-freestyle': _CpFreestyle,
 };
 
 const isBlock = (key) => !isNaN(key);
 
 // A discipline offers the Randoms/Blocks split only when its pool has both numbered and
-// lettered entries. 10-way (numbered only) has no split, so it ignores the category filter.
+// lettered entries. Speed, 2-Way CF, and CP have no split, so they ignore the category filter.
 function categorized(discipline) {
     const keys = Object.keys(DATA[discipline].names);
     return keys.some(isBlock) && keys.some(key => !isBlock(key));

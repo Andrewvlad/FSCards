@@ -44,16 +44,16 @@ HALO = 2          # px ring of anti-alias residue whited around an erased glyph
 FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
 JOBS = {
-    "4-way":     [("fs4.pdf", None)],
-    "8-way":     [("fs8.pdf", None),
-                  ("fs8_indoor.pdf", {"13_indoor", "17_indoor", "20_indoor", "starting-formation"})],
-    "10-way":    [("fs10.pdf", None)],
-    "16-way":    [("fs16.pdf", None)],
-    "4-way-vfs": [("vfs4.pdf", None)],
-    "2-way-mfs": [("mfs2.pdf", None)],
-    "2-way":     [("fs2.pdf", None)],
-    "2-way-cf":  [("cf2.pdf", None)],
-    "4-way-cf":  [("cf4.pdf", None)],
+    "4-way":        [("fs4.pdf", None)],
+    "8-way":        [("fs8.pdf", None),
+                     ("fs8_indoor.pdf", {"13_indoor", "17_indoor", "20_indoor", "starting-formation"})],
+    "10-way-speed": [("fs10.pdf", None)],
+    "16-way":       [("fs16.pdf", None)],
+    "4-way-vfs":    [("vfs4.pdf", None)],
+    "2-way-mfs":    [("mfs2.pdf", None)],
+    "2-way":        [("fs2.pdf", None)],
+    "2-way-cf":     [("cf2.pdf", None)],
+    "4-way-cf":     [("cf4.pdf", None)],
 }
 
 

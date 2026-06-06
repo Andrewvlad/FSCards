@@ -16,12 +16,12 @@ REPO=os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),".
 
 # discipline repo-dir : (randoms_page, [block_pages])
 JOBS={
- "4-way":     (17,[14,15,16]),
- "8-way":     (21,[18,19,20]),
- "10-way":    (22,[]),
- "16-way":    (25,[23,24]),
- "4-way-vfs": (29,[26,27,28]),
- "2-way-mfs": (34,[31,32,33]),
+ "4-way":        (17,[14,15,16]),
+ "8-way":        (21,[18,19,20]),
+ "10-way-speed": (22,[]),
+ "16-way":       (25,[23,24]),
+ "4-way-vfs":    (29,[26,27,28]),
+ "2-way-mfs":    (34,[31,32,33]),
 }
 
 def save(arr, path):

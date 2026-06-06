@@ -110,9 +110,9 @@
 <div id="modeBar">
     <button data-mode="2-way" class="pill">2-Way</button>
     <button data-mode="4-way" class="pill active">4-Way</button>
-    <button data-mode="6-way" class="pill">6-Way</button>
+    <button data-mode="6-way-speed" class="pill">6-Way Speed</button>
     <button data-mode="8-way" class="pill">8-Way</button>
-    <button data-mode="10-way" class="pill">10-Way</button>
+    <button data-mode="10-way-speed" class="pill">10-Way Speed</button>
     <button data-mode="16-way" class="pill">16-Way</button>
     <button data-mode="2-way-vfs" class="pill">VFS 2-Way</button>
     <button data-mode="4-way-vfs" class="pill">VFS 4-Way</button>
@@ -130,9 +130,9 @@
 <!--Per-discipline info-->
 <script src="assets/diagrams/2-way/index.js"></script>
 <script src="assets/diagrams/4-way/index.js"></script>
-<script src="assets/diagrams/6-way/index.js"></script>
+<script src="assets/diagrams/6-way-speed/index.js"></script>
 <script src="assets/diagrams/8-way/index.js"></script>
-<script src="assets/diagrams/10-way/index.js"></script>
+<script src="assets/diagrams/10-way-speed/index.js"></script>
 <script src="assets/diagrams/16-way/index.js"></script>
 <script src="assets/diagrams/2-way-vfs/index.js"></script>
 <script src="assets/diagrams/4-way-vfs/index.js"></script>
@@ -163,7 +163,7 @@
         const data = loadShared();
         if (!data) return; // Nothing saved
 
-        discipline = data.discipline ?? '4-way';
+        discipline = data.discipline in DATA ? data.discipline : '4-way'; // Disciplines fall back (in case of rename)
         category   = data.category ?? 'all';
         classLevel = data.classLevel ?? 'open';
         indoor     = data.indoor ?? false;
