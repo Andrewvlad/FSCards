@@ -11,7 +11,7 @@ const _2WayVfs = {
         H: "Mixed Closed Accordion",
         J: "Mixed Side Body",
         K: "Mixed Cat",
-        // Blocks (start formation - end formation)
+        // Blocks
         1: "Grip - Grip",
         2: "Grip - Grip",
         3: "Grip - Grip",
@@ -21,5 +21,5 @@ const _2WayVfs = {
         7: "Turnstile - Turnstile",
     },
     classes: [],
-    sets: { USPA: null },
+    sets: { USPA: null, Axis: null },
 };

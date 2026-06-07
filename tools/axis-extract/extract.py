@@ -18,7 +18,7 @@ only the top-left key and each panel's bottom centred name line, keeping the
 
 Sources (committed under assets/sources/axis/; originally downloaded via
 axisflightschool.com -> Draw Generator -> Dive Pools): fs4, fs8, fs8_indoor (13/17/20 _indoor +
-starting-formation), fs10, fs16, vfs4 (FAI-ISC version — the USPA variant
+starting-formation), fs10, fs16, vfs2, vfs4 (FAI-ISC version — the USPA variant
 bakes a YouTube badge into block 12's inter), mfs2, fs2 (collegiate), cf2
 (each card embedded twice; either copy matches), cf4. 4-way R/Bundy is not in
 any AXIS pool (the AXIS CISM pool's R is Caterpillar, in a different art
@@ -52,6 +52,7 @@ JOBS = {
     "4-way-vfs":    [("vfs4.pdf", None)],
     "2-way-mfs":    [("mfs2.pdf", None)],
     "2-way":        [("fs2.pdf", None)],
+    "2-way-vfs":    [("vfs2.pdf", None)],
     "2-way-cf":     [("cf2.pdf", None)],
     "4-way-cf":     [("cf4.pdf", None)],
 }

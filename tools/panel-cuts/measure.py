@@ -32,7 +32,7 @@ TARGETS = [
     ('4-way', 'USPA'), ('4-way', 'Axis'), ('4-way', 'FAI'),
     ('8-way', 'USPA'), ('8-way', 'Axis'), ('8-way', 'FAI'),
     ('16-way', 'USPA'), ('16-way', 'Axis'),
-    ('2-way-vfs', 'USPA'),
+    ('2-way-vfs', 'USPA'), ('2-way-vfs', 'Axis'),
     ('4-way-vfs', 'USPA'), ('4-way-vfs', 'Axis'),
     ('2-way-mfs', 'USPA'), ('2-way-mfs', 'Axis'),
     ('4-way-cf', 'USPA', 'tools/cf-vectorize/native/4-way-cf'), ('4-way-cf', 'Axis'),

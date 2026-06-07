@@ -22,7 +22,7 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
 | 2-Way       | 4 randoms + 15 blocks  | USPA, Axis              |
 | 4-Way       | 16 randoms + 8 blocks  | Rhythm, USPA, Axis, FAI |
 | 6-Way Speed | 5 formations           | USPA                    |
-| VFS 2-Way   | 10 randoms + 7 blocks  | USPA                    |
+| VFS 2-Way   | 10 randoms + 7 blocks  | USPA, Axis              |
 
 ### CISM
 

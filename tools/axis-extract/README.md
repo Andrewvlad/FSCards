@@ -5,18 +5,19 @@ AXIS Flight School dive-pool PDFs, committed under `assets/sources/axis/`
 (originally axisflightschool.com → Draw Generator → dive pools and competition
 rules — re-download from there only to pick up an AXIS pool revision):
 
-| file | AXIS dive pool | sets / keys |
-|---|---|---|
-| `fs4.pdf` | FS 4-Way (FAI-ISC + USPA) | 4-way A–Q, 1–22 |
-| `fs8.pdf` | FS 8-Way (FAI-ISC — byte-identical cards to the USPA variant) | 8-way A–Q, 1–22 |
-| `fs8_indoor.pdf` | Indoor FS 8-Way (FAI-ISC) | 8-way 13/17/20`_indoor` + `starting-formation` |
-| `fs10.pdf` | FS 10-Way (USPA) | 10-way-speed 1–12 |
-| `fs16.pdf` | FS 16-Way (USPA) | 16-way A–J, 1–12 |
-| `vfs4.pdf` | VFS 4-Way **(FAI-ISC version)** | 4-way-vfs A–Q, 1–22 |
-| `mfs2.pdf` | MFS 2-Way (USPA) | 2-way-mfs A–Q, 1–22 |
-| `fs2.pdf` | FS 2-Way (USPA) Collegiate | 2-way A–D, 1–15 |
-| `cf2.pdf` | CF 2-Way (FAI-ISC) | 2-way-cf A–F |
-| `cf4.pdf` | CF 4-Way (FAI-ISC) | 4-way-cf A–N, 1–14 |
+| file             | AXIS dive pool                                                | sets / keys                                    |
+|------------------|---------------------------------------------------------------|------------------------------------------------|
+| `fs4.pdf`        | FS 4-Way (FAI-ISC + USPA)                                     | 4-way A–Q, 1–22                                |
+| `fs8.pdf`        | FS 8-Way (FAI-ISC — byte-identical cards to the USPA variant) | 8-way A–Q, 1–22                                |
+| `fs8_indoor.pdf` | Indoor FS 8-Way (FAI-ISC)                                     | 8-way 13/17/20`_indoor` + `starting-formation` |
+| `fs10.pdf`       | FS 10-Way (USPA)                                              | 10-way-speed 1–12                              |
+| `fs16.pdf`       | FS 16-Way (USPA)                                              | 16-way A–J, 1–12                               |
+| `vfs2.pdf`       | VFS 2-Way (USPA) Collegiate                                   | 2-way-vfs A–R, 1–6                             |
+| `vfs4.pdf`       | VFS 4-Way **(FAI-ISC version)**                               | 4-way-vfs A–Q, 1–22                            |
+| `mfs2.pdf`       | MFS 2-Way (USPA)                                              | 2-way-mfs A–Q, 1–22                            |
+| `fs2.pdf`        | FS 2-Way (USPA) Collegiate                                    | 2-way A–D, 1–15                                |
+| `cf2.pdf`        | CF 2-Way (FAI-ISC)                                            | 2-way-cf A–F                                   |
+| `cf4.pdf`        | CF 4-Way (FAI-ISC)                                            | 4-way-cf A–N, 1–14                             |
 
 Use the FAI-ISC VFS pool, not the USPA one: the USPA variant bakes a YouTube
 badge *into block 12's inter art* (the FAI card is the revised clean one).
@@ -78,4 +79,5 @@ revision — a revised card may need its mapping checked by eye.
   `H.webp` keeps its overlap — the name belongs there.
 - **Source quirks**: `fs8_indoor.pdf`'s randoms page carries 16 randoms plus two
   byte-identical `starting-formation` cards; `cf2.pdf` embeds every card twice
-  (byte-identical pairs).
+  (byte-identical pairs). `vfs2.pdf` bakes a camera-POV dart symbol (explained
+  by its page-3 legend) onto every panel, kept like any annotation.
