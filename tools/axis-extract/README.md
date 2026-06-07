@@ -22,8 +22,14 @@ rules — re-download from there only to pick up an AXIS pool revision):
 Use the FAI-ISC VFS pool, not the USPA one: the USPA variant bakes a YouTube
 badge *into block 12's inter art* (the FAI card is the revised clean one).
 
-Run `python3 extract.py`; staging lands in `/tmp/axis_out/`, install by copying
-over `assets/diagrams/<d>/Axis/`.
+Run `python3 extract.py` (staging lands in `/tmp/axis_out/`, arguments are
+changed source basenames like `fs2.pdf` and limit the run to their
+disciplines, no arguments = every PDF), then `python3 install.py` to sync
+`assets/diagrams/<d>/Axis/` against the staging (installs pixel-changed
+cards, deletes keys that left the pool, skips re-encode byte noise, pins
+hand mends). The `extract-axis-images` workflow runs this chain plus
+`tools/panel-cuts/measure.py` on every AXIS source-PDF change on main and
+opens a PR for eyeball review.
 
 ## How it works
 
@@ -33,10 +39,16 @@ key, name, INTER, rotation labels and © AXIS tag are all baked into that raster
 only the thin cell border around it is PDF-drawn. So the embedded image **is**
 the full native-resolution card content "just inside the border" — extracted
 losslessly with `pdfimages`, never resampled (the old 856px set was a ~2.85×
-bilinear page-render upscale of these same rasters). Cards carry no text layer,
-so embeds are mapped to pool keys by MSE-matching against the currently
-installed (verified-correct) set; mind that when re-running after an AXIS pool
-revision — a revised card may need its mapping checked by eye.
+bilinear page-render upscale of these same rasters). Cards carry no text
+layer, but every card bakes its pool key top-left in one consistent generator
+font, so embeds are keyed by matching that glyph crop against templates
+harvested from the installed verified sets (4-way's derived `R` and the
+unkeyed `starting-formation` excluded as templates). The pipeline is
+embed-driven: a pool revision's new keys stage themselves, art revisions land
+under their stable key, and keys missing from the staging are pool drops that
+`install.py` deletes (refused wholesale when the staging holds under half the
+installed set). A low-margin key match prints a `CHECK` line, verify it by
+eye.
 
 - **Badges**: 8-way and 16-way blocks plus every VFS block but 12 carry a baked
   "video courtesy of …" YouTube badge, pasted over the inter/end divider.

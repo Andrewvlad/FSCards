@@ -1,0 +1,124 @@
+name: Extract Axis image set
+
+on:
+    push:
+        branches: [main]
+        paths: ['assets/sources/axis/*.pdf'] # Only fires when an updated Axis PDF is merged
+    workflow_dispatch:
+        inputs:
+            pdfs:
+                description: 'Space-separated Axis PDFs (e.g. vfs2.pdf) to extract (blank = all)'
+                default: ''
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    extract:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  fetch-depth: 2 # Fetch HEAD + parent for the PDF diff
+
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: '3.12'
+
+            - name: Install Python dependencies
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends poppler-utils fonts-liberation
+                  pip install numpy pillow scipy
+
+            - name: Extract embedded diagrams from updated PDF
+              id: extract
+              env:
+                  PDFS: ${{ github.event.inputs.pdfs }}
+              run: |
+                  # merge commit's HEAD^ is pre-merge main, so the diff is the whole PR.
+                  # Manual dispatch re-cuts the PDFs input (blank = everything)
+                  if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+                      changed=$(git diff --name-only HEAD^ HEAD -- 'assets/sources/axis/*.pdf' | xargs -rn1 basename)
+                  else
+                      changed="$PDFS"
+                  fi
+                  echo "changed PDFs: ${changed:-all}"
+                  python3 tools/axis-extract/extract.py $changed | tee "$RUNNER_TEMP/extract.log"
+                  # Branch suffix = re-cut disciplines, so concurrent runs land on independent branches/PRs
+                  if [ -n "$changed" ]; then
+                      slug=$(grep '^recut-slug:' "$RUNNER_TEMP/extract.log" | cut -d' ' -f2- | tr ' ' '-')
+                  fi
+                  echo "slug=${slug:-all}" >> "$GITHUB_OUTPUT"
+
+            - name: Commit changed diagram(s)
+              id: commit
+              run: |
+                  python3 tools/axis-extract/install.py | tee "$RUNNER_TEMP/install.log"
+                  changed=$(git status --porcelain -- 'assets/diagrams/*/Axis/*')
+                  echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+                  # Changed disciplines (3rd path segment) scope the panel-cut re-measure
+                  echo "disciplines=$(echo "$changed" | cut -c4- | cut -d/ -f3 | sort -u | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+                  {
+                      echo '### Axis re-cut'
+                      tail -1 "$RUNNER_TEMP/install.log"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Measure panel cuts (for tri-panel splitting)
+              id: measure
+              if: steps.commit.outputs.changed == 'true'
+              run: |
+                  python3 tools/panel-cuts/measure.py ${{ steps.commit.outputs.disciplines }}
+                  # Audit sheets exist only when a cut moved, i.e. panel-cuts.js changed
+                  echo "cuts=$(git status --porcelain -- assets/diagrams/panel-cuts.js | grep -q . && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+            # Using artifacts rather than creating orphan branches to host the images
+            - name: Upload audit sheets for review
+              id: audit
+              if: steps.measure.outputs.cuts == 'true'
+              uses: actions/upload-artifact@v7
+              with:
+                  name: panel-cut-audit-sheets
+                  path: tools/panel-cuts/audit-*.png
+
+            - name: Compose PR body
+              if: steps.commit.outputs.changed == 'true'
+              env:
+                  CUTS_CHANGED: ${{ steps.measure.outputs.cuts }}
+                  AUDIT_URL: ${{ steps.audit.outputs['artifact-url'] }}
+              run: |
+                  body="$RUNNER_TEMP/pr-body.md"
+                  flags=$(grep -E 'CHECK|!!|\?\?' "$RUNNER_TEMP/extract.log" || true)
+                  {
+                      echo 'Axis source PDF changed, triggering a re-extraction of the embedded diagrams. Noticeable changes added for review.'
+                      echo
+                      echo '### Extraction summary'
+                      echo '```'
+                      cat "$RUNNER_TEMP/install.log"
+                      echo '```'
+                      # Mapping flags section only when the recut flagged uncertain key matches
+                      if [ -n "$flags" ]; then
+                          echo
+                          echo '### Mapping flags'
+                          echo 'Embeds are keyed by their baked top-left key glyph. `CHECK` lines are low-margin key matches, verify those diagrams by eye against the PDF (see `tools/axis-extract/README.md`).'
+                          echo '```'
+                          echo "$flags"
+                          echo '```'
+                      fi
+                      if [ "$CUTS_CHANGED" = 'true' ]; then
+                          echo
+                          echo "Panel cuts updated, review the [audit sheet]($AUDIT_URL)."
+                      fi
+                  } > "$body"
+
+            - name: Open PR with re-cut sets
+              if: steps.commit.outputs.changed == 'true'
+              uses: peter-evans/create-pull-request@v8
+              with:
+                  add-paths: assets/diagrams/**
+                  commit-message: 'chore: Update Axis ${{ steps.extract.outputs.slug }} image set'
+                  branch: extract-image-set/axis/${{ steps.extract.outputs.slug }}
+                  title: 'Extract updated Axis ${{ steps.extract.outputs.slug }} image set'
+                  body-path: ${{ runner.temp }}/pr-body.md
+                  delete-branch: true

@@ -10,11 +10,15 @@ card content "just inside the border": extract it losslessly, never resample.
 (Rendering pages instead — the old approach — only bilinear-upscales these same
 rasters ~2.85x at 600 DPI and re-includes the border.)
 
-Cards carry no PDF text layer, so embeds are mapped to pool keys by visual
-matching against the currently-installed (verified-correct) repo set, and the
-figures/ erasure is geometric: connected components of solid-black ink, killing
-only the top-left key and each panel's bottom centred name line, keeping the
-(c) AXIS tag, panel dividers, rotation arrows/labels and all art.
+Cards carry no PDF text layer, but every card bakes its pool key top-left in
+one consistent generator font. Embeds are keyed by matching that glyph crop
+against a template library harvested from the installed (verified-correct)
+sets, so the pipeline is embed-driven: a pool revision's new keys stage
+themselves, art revisions land under their stable key, and keys missing from
+the staging are pool drops for install.py to delete. The figures/ erasure is
+geometric: connected components of solid-black ink, killing only the top-left
+key and each panel's bottom centred name line, keeping the (c) AXIS tag, panel
+dividers, rotation arrows/labels and all art.
 
 Sources (committed under assets/sources/axis/; originally downloaded via
 axisflightschool.com -> Draw Generator -> Dive Pools): fs4, fs8, fs8_indoor (13/17/20 _indoor +
@@ -24,10 +28,11 @@ bakes a YouTube badge into block 12's inter), mfs2, fs2 (collegiate), cf2
 any AXIS pool (the AXIS CISM pool's R is Caterpillar, in a different art
 style), so it is re-derived from block 12's entry panel — see derive_R.
 """
-import os, glob, subprocess
+import hashlib, os, glob, shutil, subprocess, sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 from scipy import ndimage
+from slugs import JOBS, pdf_slug
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
 SRC = f"{ROOT}/assets/sources/axis"
@@ -39,28 +44,18 @@ CARD_SIZES = {(300, 300), (300, 900)}  # anything else (header banners, legend p
 INK_BLACK = 110   # max(rgb) below this = solid black ink; grey art is ~179, colours have one high channel
 HALO = 2          # px ring of anti-alias residue whited around an erased glyph
 
-# discipline -> [(pdf, restricted-key-set or None)]; None = source for every key
-# not claimed by a restricted entry.
 FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
-
-JOBS = {
-    "4-way":        [("fs4.pdf", None)],
-    "8-way":        [("fs8.pdf", None),
-                     ("fs8_indoor.pdf", {"13_indoor", "17_indoor", "20_indoor", "starting-formation"})],
-    "10-way-speed": [("fs10.pdf", None)],
-    "16-way":       [("fs16.pdf", None)],
-    "4-way-vfs":    [("vfs4.pdf", None)],
-    "2-way-mfs":    [("mfs2.pdf", None)],
-    "2-way":        [("fs2.pdf", None)],
-    "2-way-vfs":    [("vfs2.pdf", None)],
-    "2-way-cf":     [("cf2.pdf", None)],
-    "4-way-cf":     [("cf4.pdf", None)],
-}
 
 
 def embeds(pdf):
-    """All embedded card images of a PDF, extracted losslessly (cached)."""
-    tag = os.path.join(CACHE, pdf[:-4])
+    """All embedded card images of a PDF, extracted losslessly (cached).
+
+    The cache tag carries the PDF's content hash: a filename-only tag would
+    silently serve the previous PDF's embeds on a re-run after an upstream
+    revision lands."""
+    with open(os.path.join(SRC, pdf), "rb") as f:
+        digest = hashlib.sha1(f.read()).hexdigest()[:8]
+    tag = os.path.join(CACHE, f"{pdf[:-4]}-{digest}")
     if not glob.glob(tag + "-*.png"):
         os.makedirs(CACHE, exist_ok=True)
         subprocess.run(["pdfimages", "-png", os.path.join(SRC, pdf), tag], check=True)
@@ -72,30 +67,71 @@ def embeds(pdf):
     return out
 
 
-def interior(path):
-    """Installed repo card minus its baked border: walk each edge's dark band inward."""
-    a = np.array(Image.open(path).convert("L"))
-    H, W = a.shape
-    def inner(i, step, axis):
-        line = lambda j: a[j, 20:-20] if axis == 0 else a[20:-20, j]
-        while (line(i) < 245).mean() > 0.8: i += step
-        return i
-    return a[inner(0, 1, 0):inner(H - 1, -1, 0) + 1, inner(0, 1, 1):inner(W - 1, -1, 1) + 1]
+def keyglyph(arr):
+    """Binary crop of the baked top-left key, or None when the card has none.
+
+    Solid-black comps confined to the first panel's top-left corner, tall
+    enough to be key glyphs: art specks and vfs2's camera-dart centre dot are
+    shorter, the (c) AXIS tag sits right of 0.32W, annotations float lower."""
+    H, W = arr.shape[:2]
+    black = arr[..., :3].max(2) < INK_BLACK
+    seprows = np.where(black.mean(1) > 0.97)[0]
+    ph = int(seprows.min()) if len(seprows) else H   # first panel only on blocks
+    lab, _ = ndimage.label(black, structure=np.ones((3, 3)))
+    boxes = [(sl[0].start, sl[0].stop, sl[1].start, sl[1].stop, i)
+             for i, sl in enumerate(ndimage.find_objects(lab), 1)
+             if sl[0].stop <= 0.22 * ph and sl[1].stop <= 0.32 * W
+             and sl[0].stop - sl[0].start >= 0.08 * ph]
+    if not boxes:
+        return None
+    y0, y1 = min(b[0] for b in boxes), max(b[1] for b in boxes)
+    x0, x1 = min(b[2] for b in boxes), max(b[3] for b in boxes)
+    # mask to the key comps alone so art sharing the bbox can't pollute the crop
+    return np.isin(lab[y0:y1, x0:x1], [b[4] for b in boxes])
 
 
-def match(repo_file, cands):
-    """Best-matching embed for an installed card; returns (index, mse, runner-up mse)."""
-    ref = interior(repo_file)
-    aspect = ref.shape[0] / ref.shape[1]
-    scores = []
-    for i, (_, arr) in enumerate(cands):
-        h, w = arr.shape[:2]
-        if abs(h / w - aspect) > 0.15: continue
-        r = np.asarray(Image.fromarray(ref).resize((w, h), Image.LANCZOS), float)
-        g = arr[..., :3].mean(2)
-        scores.append((((r - g) ** 2).mean(), i))
-    scores.sort()
-    return scores[0][1], scores[0][0], (scores[1][0] if len(scores) > 1 else float("inf"))
+def glyph_dist(a, b):
+    """Mismatch fraction of two key crops, centre-padded to a common box.
+
+    All AXIS cards bake keys at the same pixel size, so no rescaling: a size
+    gate rejects different-length key strings outright."""
+    if abs(a.shape[0] - b.shape[0]) > 5 or abs(a.shape[1] - b.shape[1]) > 7:
+        return 1.0
+    H, W = max(a.shape[0], b.shape[0]), max(a.shape[1], b.shape[1])
+    pads = []
+    for g in (a, b):
+        p = np.zeros((H, W), bool)
+        y, x = (H - g.shape[0]) // 2, (W - g.shape[1]) // 2
+        p[y:y + g.shape[0], x:x + g.shape[1]] = g
+        pads.append(p)
+    return float((pads[0] ^ pads[1]).mean())
+
+
+def key_templates():
+    """Key string -> key-glyph crops, harvested from every installed Axis card."""
+    lib = {}
+    for d in JOBS:
+        for rf in sorted(glob.glob(f"{REPO}/{d}/Axis/*.webp")):
+            key = os.path.basename(rf)[:-5]
+            if d == "4-way" and key == "R":
+                continue   # derived card, stand-in font
+            base = key.split("_")[0]   # 13_indoor bakes a plain '13'
+            if base == "starting-formation":
+                continue   # no baked key
+            g = keyglyph(np.array(Image.open(rf).convert("RGB")))
+            if g is not None:
+                lib.setdefault(base, []).append(g)
+    return lib
+
+
+def read_key(arr, lib):
+    """Best template key for an embed; returns (key, dist, runner-up dist)."""
+    g = keyglyph(arr)
+    if g is None:
+        return None, 1.0, 1.0
+    scores = sorted((min(glyph_dist(g, t) for t in temps), key)
+                    for key, temps in lib.items())
+    return scores[0][1], scores[0][0], (scores[1][0] if len(scores) > 1 else 1.0)
 
 
 def erase(arr, names=True):
@@ -322,35 +358,60 @@ def save(arr, path):
     Image.fromarray(arr).save(path, "WEBP", lossless=True, quality=100, method=6)
 
 
+GLYPH_OK = 0.10   # key-match mismatch fraction ceiling before a CHECK flag
+
 if __name__ == "__main__":
-    for d, sources in JOBS.items():
-        restricted = set().union(*(s or set() for _, s in sources))
-        pools = {pdf: embeds(pdf) for pdf, _ in sources}
+    # argv = changed source-PDF basenames: only their disciplines re-cut (no args = all).
+    # Staging is cleared so install.py sees exactly this run's disciplines
+    only = set(sys.argv[1:])
+    run = {d: s for d, s in JOBS.items() if not only or any(p in only for p, _ in s)}
+    shutil.rmtree(OUT, ignore_errors=True)
+    lib = key_templates()
+    for d, sources in run.items():
         od = os.path.join(OUT, d)
         os.makedirs(os.path.join(od, "figures"), exist_ok=True)
-        used, arrs = {}, {}
-        for rf in sorted(glob.glob(f"{REPO}/{d}/Axis/*.webp")):
-            key = os.path.basename(rf)[:-5]
-            if d == "4-way" and key == "R": continue   # no AXIS source card; derived below
-            srcs = [pdf for pdf, spec in sources
-                    if (key in spec if spec else key not in restricted)]
-            cands = [c for pdf in srcs for c in pools[pdf]]
-            i, mse, mse2 = match(rf, cands)
-            f, arr = cands[i]
-            if f in used:
-                print(f"  !! {d}/{key}: embed already claimed by {used[f]}")
-            used[f] = key
+        staged = {}
+        for pdf, spec in sources:
+            for f, arr in embeds(pdf):
+                base, dist, dist2 = read_key(arr, lib)
+                if spec:
+                    # restricted source claims only its declared keys (fs8_indoor's
+                    # outdoor-duplicate randoms fall through), an unkeyed embed is
+                    # its starting-formation reference card
+                    key = ("starting-formation" if base is None and "starting-formation" in spec
+                           else next((k for k in spec if k.split("_")[0] == base), None))
+                else:
+                    if base is None:
+                        print(f"  ?? {d}: unkeyed {arr.shape[1]}x{arr.shape[0]} embed skipped ({os.path.basename(f)})")
+                    key = base
+                if key is None:
+                    continue
+                if key in staged:
+                    if np.array_equal(arr, staged[key][0]):
+                        continue   # cf2 embeds every card twice
+                    print(f"  !! {d}/{key}: differing duplicate embed kept out ({os.path.basename(f)})")
+                    continue
+                flag = "" if base is None or (dist < GLYPH_OK and dist2 > 2 * dist) \
+                    else f"  CHECK key dist={dist:.3f} next={dist2:.3f}"
+                staged[key] = (arr, flag)
+        block12 = None   # 4-way's derived R needs block 12 post-badge
+        for key in sorted(staged):
+            arr, flag = staged[key]
             arr, nbadges = remove_badges(arr)
-            if nbadges: print(f"  {d}/{key}: removed {nbadges} badge(s)")
-            arrs[key] = arr
+            if d == "4-way" and key == "12":
+                block12 = arr
             save(arr, f"{od}/{key}.webp")
             save(erase(arr), f"{od}/figures/{key}.webp")
-            flag = "" if mse < 600 and mse2 > 3 * mse else f"  CHECK mse={mse:.0f} next={mse2:.0f}"
-            print(f"  {d}/{key}: {arr.shape[1]}x{arr.shape[0]} mse={mse:.0f}{flag}")
+            note = f" badges={nbadges}" if nbadges else ""
+            print(f"  {d}/{key}: {arr.shape[1]}x{arr.shape[0]}{note}{flag}")
         if d == "4-way":
-            named, fig = derive_R(arrs["12"])
+            if block12 is None:
+                sys.exit("4-way: block 12 never staged (key glyph unread?), cannot derive R")
+            named, fig = derive_R(block12)
             save(named, f"{od}/R.webp")
             save(fig, f"{od}/figures/R.webp")
             print(f"  {d}/R: {named.shape[1]}x{named.shape[0]} derived from block 12")
-        print(f"{d}: {len(used) + (d == '4-way')} cards")
+        print(f"{d}: {len(staged) + (d == '4-way')} cards")
     print("staged ->", OUT)
+    slugs = sorted({s for p in only if (s := pdf_slug(p))}) if only else sorted(run)
+    print("recut-slug:", " ".join(slugs))   # extract-axis-images.yml reads this for the PR branch suffix
