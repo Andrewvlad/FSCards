@@ -154,7 +154,7 @@ function deckFromKeys(keys, settings) {
 }
 
 const SHARED_STORE = 'fscards-shared';
-const SHARED_FIELDS = ['discipline', 'category', 'classLevel', 'indoor', 'tunnel', 'includeFusions', 'imageSet'];
+const SHARED_FIELDS = ['discipline', 'category', 'classLevel', 'indoor', 'tunnel', 'includeFusions', 'imageSet', 'invert'];
 
 function saveShared(state) {
     try {

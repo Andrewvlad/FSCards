@@ -118,6 +118,12 @@
             <span class="toggle"></span>
             Light mode
         </label>
+
+        <label class="toggleSetting hidden" id="invertSetting">
+            <input type="checkbox" id="invertToggle" checked onchange="selectInvert(this)">
+            <span class="toggle"></span>
+            Invert diagrams
+        </label>
     </div>
 </div>
 
@@ -214,6 +220,7 @@
     let flipped = false;
     let recycle = false;
     let theme = document.documentElement.dataset.theme;
+    let invert = true;
 
     // The settings object every deck/image build takes. Split tracks the viewport at call time
     const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
@@ -243,7 +250,7 @@
         } catch(e) {} // Fail silently if storage full or unavailable
 
         // Mirror the pool/image filters into the cross-page store the gallery also reads
-        saveShared({discipline, category, classLevel, indoor, tunnel, includeFusions, imageSet});
+        saveShared({discipline, category, classLevel, indoor, tunnel, includeFusions, imageSet, invert});
     }
 
     function loadSession() {
@@ -268,6 +275,7 @@
                 tunnel     = src.tunnel ?? false;
                 includeFusions = src.includeFusions ?? true;
                 imageSet   = src.imageSet ?? 'Rhythm';
+                invert     = src.invert ?? true;
             }
 
             syncSettingsUI();
@@ -419,7 +427,7 @@
                 const grows = windows.map(([t, b]) => 1 / (b - t));
                 const panels = windows.map(([t, b], i) =>
                     `<img class="diagram" src="${src}" alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
-                return `<div class="splitDiagram"${fallback ? ' data-diagram="dark"' : ''} role="img" aria-label="${formation.key}"
+                return `<div class="splitDiagram"${fallback && invert ? ' data-diagram="dark"' : ''} role="img" aria-label="${formation.key}"
                             style="aspect-ratio: ${(ar * grows.reduce((s, g) => s + g)).toFixed(4)}">${panels}</div>`;
             }
             return `<img class="diagram" src="${src}" alt="${formation.key}">`;
@@ -674,9 +682,13 @@
         link.innerHTML = source.icon;
     }
 
-    // Show dark-mode diagrams
+    // Show dark-mode diagrams unless the user opted out of inversion
     function updateDiagramMode() {
-        document.documentElement.dataset.diagram = diagramMode(discipline, imageSet);
+        const mode = diagramMode(discipline, imageSet);
+        const inverting = theme === 'dark' && mode === 'dark';
+        document.documentElement.dataset.diagram = inverting && !invert ? 'light' : mode;
+        // Opt-out toggle only shown while inversion would apply
+        document.getElementById('invertSetting').classList.toggle('hidden', !inverting);
     }
 </script>
 <!--Settings panel-->
@@ -686,6 +698,7 @@
     const fusionsToggle = document.getElementById('fusionsToggle');
     const recycleToggle = document.getElementById('recycleToggle');
     const themeToggle = document.getElementById('themeToggle');
+    const invertToggle = document.getElementById('invertToggle');
 
     function toggleSettings() {
         const panel = document.getElementById('settingsPanel');
@@ -739,7 +752,14 @@
     function selectTheme(checkbox) {
         theme = checkbox.checked ? 'light' : 'dark';
         document.documentElement.dataset.theme = theme;
+        updateDiagramMode(); // Inversion and its opt-out toggle follow the theme
         try { localStorage.setItem('fscards-theme', theme); } catch (e) {} // Storage may be unavailable
+    }
+
+    function selectInvert(checkbox) {
+        invert = checkbox.checked;
+        updateDiagramMode();
+        saveSession();
     }
 
     function selectFront(button) {
@@ -770,6 +790,7 @@
         fusionsToggle.checked = includeFusions;
         recycleToggle.checked = recycle;
         themeToggle.checked = theme === 'light';
+        invertToggle.checked = invert;
 
         updateDisciplineUI();
     }
@@ -952,6 +973,7 @@
             `- 12ft tunnel: ${tunnel}`,
             `- 8-way tunnel: ${indoor}`,
             `- Include fusions: ${includeFusions}`,
+            `- Invert diagrams: ${invert}`,
             '\n',
 
             '_State (auto-populated):_',
