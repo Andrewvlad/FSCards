@@ -121,4 +121,5 @@ jobs:
                   branch: extract-image-set/axis/${{ steps.extract.outputs.slug }}
                   title: 'Extract updated Axis ${{ steps.extract.outputs.slug }} image set'
                   body-path: ${{ runner.temp }}/pr-body.md
+                  reviewers: Andrewvlad
                   delete-branch: true

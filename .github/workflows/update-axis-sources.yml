@@ -5,13 +5,11 @@ on:
         - cron: '19 5 2 * *' # Second of the month at 05:19 UTC (random off-peak time)
     workflow_dispatch:
 
-permissions:
-    contents: write
-    pull-requests: write
-
 jobs:
     check:
         runs-on: ubuntu-latest
+        permissions:
+            contents: read # for checkout
         outputs:
             changed: ${{ steps.fetch.outputs.changed }}
             failed: ${{ steps.fetch.outputs.failed }}
@@ -61,6 +59,9 @@ jobs:
         needs: check
         if: needs.check.outputs.changed != '[]'
         runs-on: ubuntu-latest
+        permissions:
+            contents: write # for PR
+            pull-requests: write # for PR
         strategy:
             fail-fast: false
             matrix:
@@ -99,12 +100,14 @@ jobs:
                   branch: update-source-pdf/axis/${{ steps.meta.outputs.slug }}
                   title: 'Update Axis ${{ steps.meta.outputs.slug }} PDF'
                   body-path: ${{ runner.temp }}/pr-body.md
+                  reviewers: Andrewvlad
                   delete-branch: true
 
     report-failures:
         needs: check
         if: needs.check.outputs.failed == 'true'
         runs-on: ubuntu-latest
+        permissions: {} # Clear permissions
         steps:
             - name: Fail on fetch errors
               run: |
