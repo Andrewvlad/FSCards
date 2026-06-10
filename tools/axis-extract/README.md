@@ -8,6 +8,7 @@ rules — re-download from there only to pick up an AXIS pool revision):
 | file             | AXIS dive pool                                                | sets / keys                                    |
 |------------------|---------------------------------------------------------------|------------------------------------------------|
 | `fs4.pdf`        | FS 4-Way (FAI-ISC + USPA)                                     | 4-way A–Q, 1–22                                |
+| `fs4_cism.pdf`   | FS 4-Way (CISM)                                               | 4-way `R` (rest of the pool duplicates fs4)    |
 | `fs8.pdf`        | FS 8-Way (FAI-ISC — byte-identical cards to the USPA variant) | 8-way A–Q, 1–22                                |
 | `fs8_indoor.pdf` | Indoor FS 8-Way (FAI-ISC)                                     | 8-way 13/17/20`_indoor` + `starting-formation` |
 | `fs10.pdf`       | FS 10-Way (USPA)                                              | 10-way-speed 1–12                              |
@@ -26,10 +27,19 @@ Run `python3 extract.py` (staging lands in `/tmp/axis_out/`, arguments are
 changed source basenames like `fs2.pdf` and limit the run to their
 disciplines, no arguments = every PDF), then `python3 install.py` to sync
 `assets/diagrams/<d>/Axis/` against the staging (installs pixel-changed
-cards, deletes keys that left the pool, skips re-encode byte noise, pins
-hand mends). The `extract-axis-images` workflow runs this chain plus
+cards, deletes keys that left the pool, skips re-encode byte noise). The
+`extract-axis-images` workflow runs this chain plus
 `tools/panel-cuts/measure.py` on every AXIS source-PDF change on main and
-opens a PR for eyeball review.
+opens a PR for eyeball review. The PR carries an old vs new comparison
+comment (GitHub renders no rich diff for webp), and single images can be
+vetoed from review without a local checkout: a `/reject <keys>` comment
+(keys expand against the PR's changed files, both files per key, or one
+via `13:figure` / `13:diagram`) triggers the `reject-extracted-images`
+workflow, which reverts those images to main, re-measures panel cuts,
+and pushes onto the PR branch. A rejected image resurfaces on that PDF's next
+revision PR, by design, for re-review against the new source. Closing the PR
+unmerged rejects the whole re-cut, and the same workflow then deletes its
+branch (merged branches are covered by the repo's auto-delete setting).
 
 ## How it works
 
@@ -42,13 +52,16 @@ losslessly with `pdfimages`, never resampled (the old 856px set was a ~2.85×
 bilinear page-render upscale of these same rasters). Cards carry no text
 layer, but every card bakes its pool key top-left in one consistent generator
 font, so embeds are keyed by matching that glyph crop against templates
-harvested from the installed verified sets (4-way's derived `R` and the
-unkeyed `starting-formation` excluded as templates). The pipeline is
+harvested from the installed verified sets (the unkeyed `starting-formation`
+excluded as a template). The pipeline is
 embed-driven: a pool revision's new keys stage themselves, art revisions land
 under their stable key, and keys missing from the staging are pool drops that
 `install.py` deletes (refused wholesale when the staging holds under half the
 installed set). A low-margin key match prints a `CHECK` line, verify it by
-eye.
+eye. A restricted source's key that no installed card can template-match yet
+(4-way `R` while the shipped card still bakes its legacy stand-in-font key)
+is claimed by elimination, a garbage read with one unstaged spec key left,
+under a `CHECK` flag, and self-heals once an extracted card is accepted.
 
 - **Badges**: 8-way and 16-way blocks plus every VFS block but 12 carry a baked
   "video courtesy of …" YouTube badge, pasted over the inter/end divider.
@@ -57,15 +70,16 @@ eye.
   whites the box, and repaints the divider across the gap from its surviving
   profile. Art the box was baked over is unrecoverable in the source; fragments
   poking out survive, as in the previously-shipped set.
-- **4-way `R`/Bundy**: not in any AXIS pool — the AXIS CISM pool's R is
-  *Caterpillar*, in a different outline art style — so `derive_R` rebuilds it
-  from block 12's entry panel (crop above the first divider, '12' key swapped
-  for a drawn Liberation-Sans-Bold 'R', as in the old 856px derivation). R
-  being a random, the block iconage goes too: blocks suit a reference pair in
-  red (239,0,0) / blue (0,176,240) to track across panels while randoms are
-  all greyscale, so the tint is un-mixed per pixel keeping the black-ink
-  alpha — flat fill to the white suit, black-line AA to the grey ramp,
-  white-edge AA back to white.
+- **4-way `R`/Bundy**: cut from `fs4_cism.pdf` via its restricted JOBS entry
+  (the current AXIS CISM pool carries R/Bundy as a native card, every other
+  CISM card duplicates fs4 and falls through). Earlier AXIS CISM pools had no
+  Bundy, so the shipped card may still be the legacy derivation: block 12's
+  entry panel, de-tinted, with a Liberation-Sans-Bold stand-in key that no
+  template can match (hence the elimination claim above) until a first
+  extracted R is accepted. Should a future CISM pool drop or change R again,
+  `derive_random.py <block> <key>` re-derives a stand-in from any block's
+  entry panel into the installed set (manual tool, unwired from the
+  workflows, reproduces the legacy R pixel-identically from block 12).
 - **`figures/`**: geometric, component-precise erase — the top-left key and each
   panel's bottom centred name line only (plus the wrapped first line directly
   above it when one exists, recognised by text-tight leading and matching glyph
@@ -87,7 +101,8 @@ eye.
   in the source raster. The shipped figure carries a hand graft: the 'O' erased
   and the tip rebuilt from `figures/K`'s clean free-hanging bottom tip (same
   canopy stamp, same orientation; aligned by line-fit, darkest-wins blend at
-  the seam). Re-running the pipeline on CF4 would regress it. The named
+  the seam). Re-running the pipeline on CF4 stages the regression, reject
+  `H:figure` from the extract PR to keep the graft. The named
   `H.webp` keeps its overlap — the name belongs there.
 - **Source quirks**: `fs8_indoor.pdf`'s randoms page carries 16 randoms plus two
   byte-identical `starting-formation` cards; `cf2.pdf` embeds every card twice

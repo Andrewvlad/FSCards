@@ -21,16 +21,16 @@ key and each panel's bottom centred name line, keeping the (c) AXIS tag, panel
 dividers, rotation arrows/labels and all art.
 
 Sources (committed under assets/sources/axis/; originally downloaded via
-axisflightschool.com -> Draw Generator -> Dive Pools): fs4, fs8, fs8_indoor (13/17/20 _indoor +
-starting-formation), fs10, fs16, vfs2, vfs4 (FAI-ISC version — the USPA variant
-bakes a YouTube badge into block 12's inter), mfs2, fs2 (collegiate), cf2
-(each card embedded twice; either copy matches), cf4. 4-way R/Bundy is not in
-any AXIS pool (the AXIS CISM pool's R is Caterpillar, in a different art
-style), so it is re-derived from block 12's entry panel — see derive_R.
+axisflightschool.com -> Draw Generator -> Dive Pools): fs4, fs4_cism (claims
+only R/Bundy, the rest of the CISM pool duplicates fs4), fs8, fs8_indoor
+(13/17/20 _indoor + starting-formation), fs10, fs16, vfs2, vfs4 (FAI-ISC
+version — the USPA variant bakes a YouTube badge into block 12's inter),
+mfs2, fs2 (collegiate), cf2 (each card embedded twice; either copy matches),
+cf4.
 """
 import hashlib, os, glob, shutil, subprocess, sys
 import numpy as np
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image
 from scipy import ndimage
 from slugs import JOBS, pdf_slug
 
@@ -43,8 +43,6 @@ REPO = f"{ROOT}/assets/diagrams"
 CARD_SIZES = {(300, 300), (300, 900)}  # anything else (header banners, legend pages) is not a card
 INK_BLACK = 110   # max(rgb) below this = solid black ink; grey art is ~179, colours have one high channel
 HALO = 2          # px ring of anti-alias residue whited around an erased glyph
-
-FONT = "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf"
 
 
 def embeds(pdf):
@@ -113,8 +111,6 @@ def key_templates():
     for d in JOBS:
         for rf in sorted(glob.glob(f"{REPO}/{d}/Axis/*.webp")):
             key = os.path.basename(rf)[:-5]
-            if d == "4-way" and key == "R":
-                continue   # derived card, stand-in font
             base = key.split("_")[0]   # 13_indoor bakes a plain '13'
             if base == "starting-formation":
                 continue   # no baked key
@@ -316,44 +312,6 @@ def remove_badges(arr):
     return a, removed
 
 
-def derive_R(arr12):
-    """4-way R/Bundy: block 12's entry panel cropped above the first divider, its
-    '12' key swapped for a drawn 'R' (Liberation Sans Bold — the stand-in the old
-    856px derivation used; the baked AXIS key font is not redistributable)."""
-    black = arr12[..., :3].max(2) < INK_BLACK
-    sep = int(np.where(black.mean(1) > 0.97)[0].min())
-    while (arr12[sep - 1, :, :3].mean(1) < 245).mean() > 0.8: sep -= 1
-    panel = arr12[:sep].copy()
-    # R is a random: shed the block iconage — blocks suit a reference pair in
-    # red (239,0,0) / blue (0,176,240) to track across panels, while randoms
-    # are all greyscale. Un-mix the tint per pixel keeping the black-ink alpha:
-    # the flat fill maps to the white suit, black-line AA to the grey ramp,
-    # white-edge AA back to white.
-    f = panel[..., :3].astype(float)
-    sat = f.max(2) - f.min(2) > 8
-    for mask, dom, off, fill in ((sat & (f[..., 0] >= f[..., 2]), 0, 1, 239),
-                                 (sat & (f[..., 2] > f[..., 0]), 2, 0, 240)):
-        v = np.clip((f[..., dom] - f[..., off]) * 255 / fill + f[..., off], 0, 255)
-        panel[..., :3][mask] = v[mask, None].round()
-    # measure the '12' key bbox before erasing, to size and place the 'R'
-    lab, _ = ndimage.label(panel[..., :3].max(2) < INK_BLACK, structure=np.ones((3, 3)))
-    H, W = panel.shape[:2]
-    boxes = [(sl[0].start, sl[0].stop, sl[1].start, sl[1].stop)
-             for sl in ndimage.find_objects(lab)
-             if sl[0].stop <= 0.22 * H and sl[1].stop <= 0.32 * W]
-    ky0, kx0 = min(b[0] for b in boxes), min(b[2] for b in boxes)
-    kh = max(b[1] for b in boxes) - ky0
-    named = erase(panel, names=False)
-    im = Image.fromarray(named)
-    draw = ImageDraw.Draw(im)
-    for size in range(80, 8, -1):   # largest size whose cap height fits the '12' bbox
-        font = ImageFont.truetype(FONT, size)
-        bx = draw.textbbox((0, 0), "R", font=font)
-        if bx[3] - bx[1] <= kh: break
-    draw.text((kx0 - bx[0], ky0 - bx[1]), "R", font=font, fill=(0, 0, 0))
-    return np.array(im), erase(panel)
-
-
 def save(arr, path):
     Image.fromarray(arr).save(path, "WEBP", lossless=True, quality=100, method=6)
 
@@ -380,6 +338,13 @@ if __name__ == "__main__":
                     # its starting-formation reference card
                     key = ("starting-formation" if base is None and "starting-formation" in spec
                            else next((k for k in spec if k.split("_")[0] == base), None))
+                    # a garbage read with one unstaged spec key left is that key in a
+                    # font no installed card bakes yet (fs4_cism's R until its first
+                    # accepted install), claimed under the CHECK flag for review
+                    if key is None and base is not None and dist >= GLYPH_OK:
+                        left = [k for k in spec if k != "starting-formation" and k not in staged]
+                        if len(left) == 1:
+                            key = left[0]
                 else:
                     if base is None:
                         print(f"  ?? {d}: unkeyed {arr.shape[1]}x{arr.shape[0]} embed skipped ({os.path.basename(f)})")
@@ -394,24 +359,14 @@ if __name__ == "__main__":
                 flag = "" if base is None or (dist < GLYPH_OK and dist2 > 2 * dist) \
                     else f"  CHECK key dist={dist:.3f} next={dist2:.3f}"
                 staged[key] = (arr, flag)
-        block12 = None   # 4-way's derived R needs block 12 post-badge
         for key in sorted(staged):
             arr, flag = staged[key]
             arr, nbadges = remove_badges(arr)
-            if d == "4-way" and key == "12":
-                block12 = arr
             save(arr, f"{od}/{key}.webp")
             save(erase(arr), f"{od}/figures/{key}.webp")
             note = f" badges={nbadges}" if nbadges else ""
             print(f"  {d}/{key}: {arr.shape[1]}x{arr.shape[0]}{note}{flag}")
-        if d == "4-way":
-            if block12 is None:
-                sys.exit("4-way: block 12 never staged (key glyph unread?), cannot derive R")
-            named, fig = derive_R(block12)
-            save(named, f"{od}/R.webp")
-            save(fig, f"{od}/figures/R.webp")
-            print(f"  {d}/R: {named.shape[1]}x{named.shape[0]} derived from block 12")
-        print(f"{d}: {len(staged) + (d == '4-way')} cards")
+        print(f"{d}: {len(staged)} cards")
     print("staged ->", OUT)
     slugs = sorted({s for p in only if (s := pdf_slug(p))}) if only else sorted(run)
     print("recut-slug:", " ".join(slugs))   # extract-axis-images.yml reads this for the PR branch suffix

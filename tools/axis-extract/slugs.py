@@ -9,7 +9,8 @@ import os
 # discipline -> [(pdf, restricted-key-set or None)]; None = source for every key
 # not claimed by a restricted entry.
 JOBS = {
-    "4-way":        [("fs4.pdf", None)],
+    "4-way":        [("fs4.pdf", None),
+                     ("fs4_cism.pdf", {"R"})],
     "8-way":        [("fs8.pdf", None),
                      ("fs8_indoor.pdf", {"13_indoor", "17_indoor", "20_indoor", "starting-formation"})],
     "10-way-speed": [("fs10.pdf", None)],
