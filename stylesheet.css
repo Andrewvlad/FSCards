@@ -461,6 +461,7 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
 
 /* Stats bar */
 #statsBar {
+    --statH: calc(0.8125rem + 0.15rem + 1.3125rem); /* Stat height: 13px label + gap + 21px value */
     display: flex;
     /* Wrap the progress meter */
     column-gap: clamp(1rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
@@ -482,9 +483,20 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
         flex-wrap: wrap;
         column-gap: clamp(1rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
         row-gap: 2rem;
-        /* Prevents row from growing - 13px label + gap + 21px value */
-        max-height: calc(0.8125rem + 0.15rem + 1.3125rem);
+        max-height: var(--statH); /* Prevents row from growing */
         overflow: hidden;
+    }
+
+    /* Endless leaves only the toggle, so it shares the stats row instead of wrapping under it */
+    &:has(#endlessToggle.active) {
+        #statsRow {flex: 1}
+        #progressContainer {
+            flex: 0 0 auto;
+            gap: 0;
+        }
+
+        /* Endless drops progress bar */
+        #progressMain {display: none}
     }
 
     .stat {
@@ -506,9 +518,16 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
 
     #progressContainer {
         flex: 1;
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 0.6rem; /* Gap between progress bar and toggle */
+
+        #progressMain {
+            min-width: 150px;
+            justify-content: center;
+        }
 
         #progressBar {
-            min-width: 150px;
             height: 3px;
             background: var(--border);
             border-radius: 2px;
@@ -521,7 +540,42 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
                 transition: width 0.4s ease;
             }
         }
+
+        #endlessToggle {
+            padding: 0;
+            position: relative;
+            container-type: inline-size;
+            min-height: var(--statH); /* Pinned to stat height */
+
+            /* Circular */
+            aspect-ratio: 1;
+            border-radius: 50%;
+
+            /* Softly pulse when active */
+            &.active {
+                background: transparent;
+                border-color: currentColor;
+                color: var(--accent);
+                animation: pulse 2.4s ease-in-out infinite;
+
+                @media (prefers-reduced-motion: reduce) {animation: none}
+            }
+
+            span {
+                position: absolute;
+                inset: 0;
+                display: grid;
+                place-items: center;
+
+                svg {width: 70cqi}
+            }
+        }
     }
+}
+
+/* Softly pulse when active */
+@keyframes pulse {
+    50% {opacity: 0.55}
 }
 
 /* Formation diagram */
@@ -1012,7 +1066,7 @@ body:not(:has(#modeBar.collapsed)) #statsModeSelect {display: none} /* Hide mode
 
 /* Landscape keeps progress inline */
 @media (max-width: 600px) and (min-height: 481px) {
-    #statsBar #progressContainer {flex-basis: 100%}
+    #statsBar #progressContainer:not(:has(#endlessToggle.active)) {flex-basis: 100%}
 }
 
 /* Expand card height on mobile */

@@ -107,7 +107,7 @@
             </button>
         </div>
 
-        <label class="toggleSetting">
+        <label class="toggleSetting" id="recycleSetting">
             <input type="checkbox" id="recycleToggle" onchange="recycle = checked; saveSession()">
             <span class="toggle"></span>
             Recycle wrong cards
@@ -165,9 +165,12 @@
         </div>
     </div>
     <div class="stat" id="progressContainer">
-        <!--progressCount only shown on very narrow devices-->
-        <label>Progress <span id="progressCount"></span></label>
-        <div id="progressBar"><div id="progressFill"></div></div>
+        <div class="stat" id="progressMain">
+            <!--progressCount only shown on very narrow devices-->
+            <label>Progress <span id="progressCount"></span></label>
+            <div id="progressBar"><div id="progressFill"></div></div>
+        </div>
+        <button type="button" id="endlessToggle" class="pill" onclick="toggleEndless()" aria-pressed="false" aria-label="Endless mode" title="Endless mode"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5c2.5 1 3.5 5 6 6s3.5-1.5 3.5-3-1-4-3.5-3-3.5 5-6 6-3.5-1.5-3.5-3 1-4 3.5-3"/></svg></span></button>
     </div>
 </div>
 
@@ -198,6 +201,7 @@
     const progress = document.getElementById('statCard');
     const progressCount = document.getElementById('progressCount');
     const getIndex = () => +correct.textContent + +wrong.textContent;
+    const runComplete = () => !endless && getIndex() >= deck.length; // Endless never completes
 
     function setProgress(text) {
         progress.textContent = text;
@@ -219,6 +223,8 @@
     let recycle = false;
     let theme = document.documentElement.dataset.theme;
     let invert = true;
+    let endless = false;
+    let currentCard = null; // The formation on screen (deck index is meaningless in endless)
 
     // The settings object every deck/image build takes. Split tracks the viewport at call time
     const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
@@ -229,7 +235,7 @@
 
     // Save after each grading
     function saveSession() {
-        if (getIndex() < deck.length) try {
+        if (!runComplete()) try {
             localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
                 deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
                 correct: correct.textContent,
@@ -244,6 +250,7 @@
                 includeFusions,
                 imageSet,
                 recycle,
+                endless,
             }));
         } catch(e) {} // Fail silently if storage full or unavailable
 
@@ -262,6 +269,7 @@
             if (data) {
                 frontContent = data.frontContent ?? 'diagram';
                 recycle      = data.recycle ?? false;
+                endless      = data.endless ?? false;
             }
 
             const src = shared ?? data;
@@ -367,8 +375,7 @@
         for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
         for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
 
-        const formation = deck[getIndex()];
-        if (formation && !lock) renderCardFaces(formation);
+        if (currentCard && !lock) renderCardFaces(currentCard);
         prefetchDeck(); // re-warm the cache for the swapped-in set
 
         saveSession();
@@ -481,13 +488,13 @@
 
     // Grading does the actual shifting of the index
     function nextCard() {
-        if (getIndex() >= deck.length) return finish();
+        if (runComplete()) return finish();
 
         flipped = false;
-        setProgress(`${getIndex() + 1} / ${deck.length}`);
-        document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
+        setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
+        if (!endless) document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
 
-        const formation = deck[getIndex()];
+        currentCard = endless ? pickEndlessCard() : deck[getIndex()];
 
         arena.innerHTML = `
             <div id="card">
@@ -496,12 +503,12 @@
             </div>
             <p id="keyboardHints">${frontKeyboardHints}</p>
             <div id="actionBar">${frontActionBar}</div>
-            <div id="watchBar">${watchBarFor(formation)}</div>
+            <div id="watchBar">${watchBarFor(currentCard)}</div>
         `;
         // Re-observe: the old card went out with the arena markup
         cardObserver.disconnect();
         cardObserver.observe(document.getElementById('card'));
-        renderCardFaces(formation);
+        renderCardFaces(currentCard);
 
         attachSwipe();
     }
@@ -510,6 +517,7 @@
 <script>
     function finish() {
         clearSession();
+        currentCard = null;
 
         const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
 
@@ -558,12 +566,12 @@
                     correct.textContent++;
                     streak.textContent++;
                 } else { // Wrong
-                    if (recycle) deck.push(deck[getIndex()]);
+                    if (!endless && recycle) deck.push(currentCard);
                     wrong.textContent++;
                     streak.textContent = '0';
                 }
             } else { // Skip
-                deck.push(...deck.splice(getIndex(), 1));
+                if (!endless) deck.push(...deck.splice(getIndex(), 1));
             }
 
             saveSession();
@@ -635,7 +643,8 @@
             classLevel = (classes.find(c => c.key === 'open') ?? classes[classes.length - 1]).key;
 
         // Only worth showing when there's an actual choice between classes
-        document.getElementById('classGroup').classList.toggle('hidden', classes.length <= 1);
+        document.getElementById('classGroup').classList
+            .toggle('hidden', classes.length <= 1);
 
         document.getElementById('classSegment').innerHTML = classes.map(c =>
             `<button type="button" data-class="${c.key}" class="pill${c.key === classLevel ? ' active' : ''}" onclick="selectClass(this)">${c.label}</button>`
@@ -647,7 +656,8 @@
         const active = activeImageSet(discipline, imageSet); // the set actually shown (default USPA)
 
         // Only worth showing when there's an actual choice between sets
-        document.getElementById('imageSetGroup').classList.toggle('hidden', sets.length <= 1);
+        document.getElementById('imageSetGroup')
+            .classList.toggle('hidden', sets.length <= 1);
 
         document.getElementById('imageSetSegment').innerHTML = sets.map(set =>
             `<button type="button" data-imageset="${set}" class="pill${set === active ? ' active' : ''}" onclick="selectImageSet(this)">${set}</button>`
@@ -760,7 +770,8 @@
     function selectFront(button) {
         selectSegment('frontSegment', button);
         frontContent = button.dataset.front;
-        if (deck.length && getIndex() < deck.length) nextCard();
+        if (endless) renderCardFaces(currentCard);
+        else if (!runComplete()) nextCard();
         saveSession();
     }
 
@@ -787,6 +798,7 @@
         themeToggle.checked = theme === 'light';
         invertToggle.checked = invert;
 
+        syncEndlessUI();
         updateDisciplineUI();
     }
 
@@ -948,6 +960,30 @@
         }
     }
 </script>
+<!--Endless mode-->
+<script>
+    // Swap between a finite deck and an endless random stream
+    function toggleEndless() {
+        endless = !endless;
+        syncEndlessUI();
+        newDeck();
+    }
+
+    function syncEndlessUI() {
+        const toggle = document.getElementById('endlessToggle');
+        toggle.classList.toggle('active', endless);
+        toggle.setAttribute('aria-pressed', endless);
+
+        // Recycle does not matter in endless mode
+        document.getElementById('recycleSetting')
+            .classList.toggle('hidden', endless);
+    }
+
+    function pickEndlessCard() {
+        const pool = deck.filter(card => card.key !== currentCard?.key); // No dupes
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+</script>
 <!--Start-->
 <script>
     syncSettingsUI();
@@ -956,7 +992,7 @@
 <!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
 <script>
     function buildIssueUrl() {
-        const card = deck && deck[getIndex()];
+        const card = currentCard;
         const body = [
             '**Describe the issue:**', '', '', '---',
 
@@ -969,6 +1005,7 @@
             `- 8-way tunnel: ${indoor}`,
             `- Include fusions: ${includeFusions}`,
             `- Invert diagrams: ${invert}`,
+            `- Endless: ${endless}`,
             '\n',
 
             '_State (auto-populated):_',
