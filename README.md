@@ -33,21 +33,22 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
 ## Features
 - Gallery view (`/gallery/`) to study the whole pool at a glance
 - Filters
-- Video demonstrations
+- Video demonstrations (compiled by Axis)
 - Auto-saved session, stats, and settings to localStorage
 - Dark mode
 - Keybindings and gesture controls
   - `[SPACE]` (or tap) - Flip card
   - `[←]`/`[→]` (or swipe) - Mark wrong/correct/skip
 
-## Missing Image Sets:
-- Spaceland (unpublished, unofficial, not actively competed)
-- IBA/iFly (unpublished, likely inactive)
+## Missing Image Sets
+- Spaceland 3-way/5-way (unpublished, unofficial, not actively competed)
+- IBA/iFly VFS (unpublished, likely inactive)
   - They link to Axis currently for their dive pool
 - CF 8-Way Speed (inactive)
 - Fury Coaching
-  - Effectively identical to Rhythm
+  - Only differs by watermark
 - Axis experimental dive pools (since they are not active in competition)
+- 2-way MFS MatriX image pool
 - 6-way FS
   - Only part of Fury's Dueling DZs
 - VFS Ninja
@@ -57,11 +58,28 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
 ## TODO
 - [x] Full mobile support
   - [x] Landscape support
-- [ ] Downloadable image sets
+- [ ] Adaptive (weighted) and learn modes to endless
+- [ ] 20-ways from TeXXas pool (first unofficial pool)
+- [ ] Rebuild Rhythm diagram sets
+- [ ] Downloadable app/image sets
 
-## Overview
-The app runs entirely clientside using HTML/CSS/JS.
-Formation diagrams are bundled in `assets/diagrams/` and mapped to letters/numbers in the per-discipline `index.js` files.
-The extraction pipelines that produced each diagram set are committed under `tools/`, with their source PDFs under `assets/sources/`.
-Progress and settings are saved using localStorage.
-Card swiping is supported for both mobile touch gestures and desktop dragging.
+## Nerd Flex
+- Entirely clientside using legible HTML/CSS/JS. Clean, fast, and no dependencies/libraries/frameworks.
+- GitHub Actions pipeline to automatically update Axis image sets.
+- 404 hack to enable URL forwarding (shortens "anagrammatic" query param links, e.g. /mfs, /2waycf, /speed6, /8, etc. all work).
+- Blocks get split horizontally on landscape devices (except Rhythm, which isn't a trifold).
+- Filters are dynamic and hide when they don't apply.
+- Sourced images are of lossless, max quality.
+- UI scales at every size (down to ~200px wide, or ~300px tall, to be tested on ultrawide screens).
+
+## Code Walk
+- Core app is just your standard HTML/CSS/JS.
+- `/assets/diagrams` contains the formations, categorized by discipline.
+  - `/<discipline>/index.js` contains the per-discipline metadata.
+  - `/<discipline>/<provider>/figures` are the diagrams with their labels and symbols stripped.
+  - `/panel-cuts.js` contains the trifold cuts for each figure.
+- `/tools` contains the image extraction pipelines (mainly AI generated).
+- `/.github/workflows` contains the GitHub Actions pipeline that keeps the image sets up to date.
+  - `/update-axis-sources.yml` fetches the latest Axis image set PDFs from the Axis website, and PRs per dicipline ([example](https://github.com/Andrewvlad/FSCards/pull/2)).
+  - `/extract-axis-images.yml` is triggered by an updated Axis PDF, and cuts out only updated images for PR ([example](https://github.com/Andrewvlad/FSCards/pull/5)).
+  - `/reject-extracted-images.yml` allows for rejecting image updates using PR comments ([example](https://github.com/Andrewvlad/FSCards/pull/5)).

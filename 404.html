@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="description" content="Formation skydiving dive pool flashcards">
+    <meta name="author" content="Andrew Vladelshchikov">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSCards - Not found</title>
+    <!--Discipline forwarding - /<key> has no file, so on 404, this forwards to the app as ?discipline=<key>-->
+    <script>
+        const KEYS = [
+            '2-way',
+            '4-way',
+            '6-way-speed',
+            '8-way',
+            '10-way-speed',
+            '16-way',
+            '2-way-vfs',
+            '4-way-vfs',
+            '2-way-mfs',
+            '2-way-cf',
+            '4-way-cf',
+            'cp-freestyle',
+        ];
+        // Bare style words resolve to their only or flagship variant
+        const DEFAULTS = {
+            mfs: '2-way-mfs',
+            vfs: '4-way-vfs',
+            cf: '4-way-cf',
+            speed: '10-way-speed',
+            cp: 'cp-freestyle',
+            10: '10-way-speed',
+            6: '6-way-speed',
+        };
+        const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const deway = s => norm(s).replace(/way/g, ''); // "way" is implied so /2vfs = /2-way-vfs
+        const sig = s => [...s].sort().join(''); // Char anagram tolerates word reorders so /vfs2 = /2vfs
+        const seg = deway(location.pathname.split('/').filter(Boolean).at(-1));
+        const key = KEYS.find(k => deway(k) === seg) ?? DEFAULTS[seg] ?? KEYS.find(k => sig(deway(k)) === sig(seg));
+        // Relative target resolves one level up per hop, so stray nesting terminates instead of looping
+        if (key) location.replace((location.pathname.endsWith('/') ? '../' : './') + '?discipline=' + key);
+    </script>
+    <script>
+        // Resolve the active theme before first paint
+        let savedTheme;
+        try { savedTheme = localStorage.getItem('fscards-theme'); } catch (e) {} // Storage may be unavailable
+        document.documentElement.dataset.theme =
+            savedTheme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+    </script>
+    <!--Below the scripts so forward occurs first-->
+    <link rel="icon" href="favicon.ico">
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
+    <!--Style sheet isn't used since it contains few relevant CSS rules, while missing h1, p, and a-->
+    <style>
+        :root {
+            --bg: #0d0d0f;
+            --accent: #f0c040;
+            --text: #f0ede8;
+            --muted: #7a7a8a;
+        }
+        :root[data-theme="light"] {
+            --bg: #f5f3ee;
+            --text: #1c1b19;
+        }
+        * {box-sizing: border-box; margin: 0; padding: 0}
+        body {
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            text-align: center;
+        }
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: 2.4rem;
+
+            span {color: var(--accent)}
+        }
+        p {
+            color: var(--muted);
+            margin: 0.75rem 0 1.5rem;
+        }
+        a {color: var(--accent)}
+    </style>
+</head>
+<body>
+<main>
+    <h1>FS<span>Cards</span></h1>
+    <p>Page not found</p>
+    <a id="home" href="/">Back home</a>
+</main>
+<!--Dynamically adjust home link for GitHub Pages-->
+<script>
+    if (location.hostname.endsWith('.github.io'))
+        document.getElementById('home').href = '/' + location.pathname.split('/').filter(Boolean)[0] + '/';
+</script>
+</body>
+</html>
