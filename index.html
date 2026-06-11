@@ -140,8 +140,6 @@
     <button data-mode="2-way-cf" class="pill">CF 2-Way</button>
     <button data-mode="4-way-cf" class="pill">CF 4-Way</button>
     <button data-mode="cp-freestyle" class="pill">CP Freestyle</button>
-    <!--Replaces buttons to fit width-->
-    <select id="modeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
 </div>
 
 <div id="statsBar">
@@ -577,10 +575,7 @@
 <!--Switch discipline buttons-->
 <script>
     const modeButtons = document.querySelectorAll('#modeBar button');
-    const modeSelect = document.getElementById('modeSelect');
-    // The second dropdown in stats row for mobile when the mode bar is hidden
     const statsModeSelect = document.getElementById('statsModeSelect');
-    const modeSelects = [modeSelect, statsModeSelect];
 
     for (const button of modeButtons) {
         button.addEventListener('click', () => {
@@ -590,19 +585,19 @@
             button.classList.add('active');
 
             discipline = button.dataset.mode;
-            modeSelects.forEach(select => select.value = discipline);
+            statsModeSelect.value = discipline;
             updateDisciplineUI();
             newDeck();
         });
 
-        // Mirror each mode into dropdowns
-        modeSelects.forEach(select => select.add(new Option(button.textContent, button.dataset.mode)));
+        // Mirror each mode into the collapsed-state dropdown
+        statsModeSelect.add(new Option(button.textContent, button.dataset.mode));
     }
-    modeSelects.forEach(select => select.value = discipline);
+    statsModeSelect.value = discipline;
 
-    // Routes dropdown selection into button listener
-    modeSelects.forEach(select => select.addEventListener('change', () =>
-        [...modeButtons].find(button => button.dataset.mode === select.value)?.click()));
+    // Selecting from the dropdown routes through the matching pill's click handler
+    statsModeSelect.addEventListener('change', () =>
+        [...modeButtons].find(button => button.dataset.mode === statsModeSelect.value)?.click());
 
     // Swap whenever the modes can't fit on one line
     const modeBar = document.getElementById('modeBar');
@@ -779,7 +774,7 @@
     function syncSettingsUI() {
         document.querySelectorAll('#modeBar button').forEach(button =>
             button.classList.toggle('active', button.dataset.mode === discipline));
-        modeSelects.forEach(select => select.value = discipline);
+        statsModeSelect.value = discipline;
         document.querySelectorAll('#categorySegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.category === category));
         document.querySelectorAll('#frontSegment button').forEach(button =>

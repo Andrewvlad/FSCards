@@ -244,12 +244,14 @@ header {
         &.active {pointer-events: none}
     }
 
-    /* Collapsed mode bar swaps the button row for the gold pill dropdown (look lives in .modeDropdown) */
+    /* Collapsed mode bar swaps the button row for dropdown (style in .modeDropdown) */
     #modeSelect {display: none}
 
     &.collapsed {
         button {display: none}
         #modeSelect {display: inline-block}
+        /* Swaps to dropdown instead */
+        body:not(.gallery) & {display: none}
     }
 }
 
@@ -341,8 +343,6 @@ header {
         display: flex;
         justify-content: space-between;
         margin-bottom: 0.75rem;
-
-        .settingsValues {color: var(--accent)}
     }
 
     .toggleGroup {
@@ -463,8 +463,8 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
 #statsBar {
     display: flex;
     /* Wrap the progress meter */
-    column-gap: 2rem;
-    row-gap: 1rem;
+    column-gap: clamp(1rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
+    row-gap: 0.5rem;
 
     padding: 1rem;
     width: 100%;
@@ -475,12 +475,12 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
     flex-wrap: wrap;
     text-transform: uppercase;
 
-    /* Split for so it can overflow and hide on narrow widths */
+    /* Split from bar so it can overflow and hide on narrow widths */
     #statsRow {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        column-gap: 2rem;
+        column-gap: clamp(1rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
         row-gap: 2rem;
         /* Prevents row from growing - 13px label + gap + 21px value */
         max-height: calc(0.8125rem + 0.15rem + 1.3125rem);
@@ -508,7 +508,7 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
         flex: 1;
 
         #progressBar {
-            min-width: 120px;
+            min-width: 150px;
             height: 3px;
             background: var(--border);
             border-radius: 2px;
@@ -641,33 +641,6 @@ figure {
 }
 @keyframes slideToastUp {from {translate: 0 15px}}
 @keyframes hideToast {to {opacity: 0}}
-
-/* Status messages */
-#loadingMessage, #errorMessage {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: 4rem;
-    font-size: 0.8rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-}
-#loadingMessage {
-    color: var(--muted);
-
-    /* Loading spinner */
-    &::before {
-        content: "";
-        width: 32px; height: 32px;
-        border: 2px solid var(--border);
-        border-top-color: var(--accent);
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-    }
-}
-@keyframes spin {to {transform: rotate(360deg)}}
-#errorMessage {color: var(--error)}
 
 /* Floating round buttons, stacked bottom-left */
 #cornerButtons {
@@ -1004,20 +977,15 @@ body.gallery #modeBar {
 /* Mobile support */
 /* -------------- */
 
-/* Mode + Stats unity (hidden on Desktop) */
-#statsModeSelect {display: none} /* Discipline dropdown on stats bar */
+/* Mode + Stats unity */
+body:not(:has(#modeBar.collapsed)) #statsModeSelect {display: none} /* Hide mode dropdown until collapsed */
 #progressCount {display: none} /* Folded card-count */
 
 /* On mobile devices */
 @media (max-width: 600px), (max-height: 600px) { /* Height = Landscape catch */
     /* Reduce spacing */
     #arena, #gallery {padding: 1rem}
-    #statsBar, #statsBar #statsRow {column-gap: 1rem}
     #arena {gap: 1rem}
-
-    /* Duplicate mode dropdown for stats bar hidden */
-    body:not(.gallery) #modeBar {display: none}
-    #statsModeSelect {display: inline-block}
 }
 
 /* On narrow devices */
