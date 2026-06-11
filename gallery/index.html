@@ -159,6 +159,8 @@
     let imageSet = 'Rhythm';
     let theme = document.documentElement.dataset.theme;
     let invert = true;
+
+    const poolSettings = () => ({discipline, indoor, imageSet, classLevel, tunnel, includeFusions});
 </script>
 <!--Save filters-->
 <script>
@@ -189,7 +191,6 @@
         isBlock(a.key) - isBlock(b.key) || (isBlock(a.key) ? a.key - b.key : a.key.localeCompare(b.key));
 
     function matchesCategory(formation) {
-        if (!categorized(discipline)) return true;
         switch (category) {
             case 'blocks':
             case 'randoms':
@@ -200,10 +201,10 @@
         }
     }
 
-    // Lay every formation in the current pool out as a static grid — the named diagram carries all the info
     function renderGrid() {
-        const pool = buildPool({discipline, indoor, imageSet, classLevel, tunnel, includeFusions});
-        const formations = Object.values(pool).filter(matchesCategory).sort(byKey);
+        const pool = Object.values(buildPool(poolSettings()));
+        // Pools without the blocks/randoms split show everything
+        const formations = (categorized(poolSettings()) ? pool.filter(matchesCategory) : pool).sort(byKey);
         const captioned = includeCaption(discipline);
 
         gallery.innerHTML = formations.map(formation => {
@@ -271,8 +272,13 @@
         document.getElementById('fusionsSetting').classList
             .toggle('hidden', !fusionsFor(discipline));
 
+        updateCategoryUI();
+    }
+
+    // The category filter only exists when the class-scoped pool carries both kinds
+    function updateCategoryUI() {
         document.getElementById('categoryGroup').classList
-            .toggle('hidden', !categorized(discipline));
+            .toggle('hidden', !categorized(poolSettings()));
     }
 
     function renderClassButtons() {
@@ -355,6 +361,7 @@
     function selectClass(button) {
         selectSegment('classSegment', button);
         classLevel = button.dataset.class;
+        updateCategoryUI();
         renderGrid();
         saveSession();
     }

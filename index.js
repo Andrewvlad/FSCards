@@ -26,10 +26,10 @@ const DATA = {
 
 const isBlock = (key) => !isNaN(key);
 
-// A discipline offers the Randoms/Blocks split only when its pool has both numbered and
-// lettered entries. Speed, 2-Way CF, and CP have no split, so they ignore the category filter.
-function categorized(discipline) {
-    const keys = Object.keys(DATA[discipline].names);
+// A discipline offers the Randoms/Blocks split only when it holds both numbered and lettered keys.
+// Speed, 2-Way CF, CP, and block-less classes (4-way Rookie) have no split and skip the filter.
+function categorized(settings) {
+    const keys = Object.keys(buildPool(settings));
     return keys.some(isBlock) && keys.some(key => !isBlock(key));
 }
 

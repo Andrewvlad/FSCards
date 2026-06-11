@@ -292,11 +292,12 @@
                 && data.tunnel === tunnel
                 && data.includeFusions === includeFusions
                 && data.category === category;
-            if (!data || !data.deck || (shared && !samePool)) return false;
+            if (!data || !data.deck?.length || (shared && !samePool)) return false;
 
             // Rebuild the full pool (for category switching), then restore the played deck
             fullDeck = buildDeck(poolSettings());
             deck = deckFromKeys(data.deck, poolSettings());
+            if (!deck.length) return false; // If deck no longer valid (pool revised)
             prefetchDeck();
 
             // Populate stats
@@ -335,7 +336,8 @@
 
     // Derive the played deck from fullDeck by category (no reshuffle) and restart the run
     function applyCategory() {
-        deck = fullDeck.filter(matchesCategory);
+        // Pools without the blocks/randoms split show everything
+        deck = categorized(poolSettings()) ? fullDeck.filter(matchesCategory) : [...fullDeck];
         prefetchDeck();
 
         correct.textContent = '0';
@@ -347,7 +349,6 @@
     }
 
     function matchesCategory(card) {
-        if (!categorized(discipline)) return true; // For 10-way Speed
         switch (category) {
             case 'blocks':
             case 'randoms':
@@ -633,8 +634,13 @@
         document.getElementById('fusionsSetting').classList
             .toggle('hidden', !fusionsFor(discipline));
 
+        updateCategoryUI();
+    }
+
+    // The category filter only exists when the class-scoped pool carries both kinds
+    function updateCategoryUI() {
         document.getElementById('categoryGroup').classList
-            .toggle('hidden', !categorized(discipline));
+            .toggle('hidden', !categorized(poolSettings()));
     }
 
     function renderClassButtons() {
@@ -726,6 +732,7 @@
     function selectClass(button) {
         selectSegment('classSegment', button);
         classLevel = button.dataset.class;
+        updateCategoryUI();
         newDeck();
     }
 
