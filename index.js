@@ -165,6 +165,23 @@ function saveShared(state) {
 }
 
 function loadShared() {
-    try { return JSON.parse(localStorage.getItem(SHARED_STORE)); }
-    catch (e) { return null; } // Unavailable or malformed
+    let shared = null;
+    try { shared = JSON.parse(localStorage.getItem(SHARED_STORE)); }
+    catch (e) {} // Unavailable or malformed
+
+    // Discipline override from query param
+    const params = new URLSearchParams(location.search);
+    const discipline = params.get('discipline');
+
+    // Strip the param for clean URL
+    if (discipline !== null) {
+        params.delete('discipline');
+        const query = params.toString();
+        history.replaceState(null, '', location.pathname + (query ? '?' + query : ''));
+    }
+    if (discipline in DATA) {
+        shared = {...shared, discipline};
+        saveShared(shared);
+    }
+    return shared;
 }
