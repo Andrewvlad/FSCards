@@ -108,7 +108,7 @@
         <label class="toggleSetting hidden" id="invertSetting">
             <input type="checkbox" id="invertToggle" checked onchange="selectInvert(this)">
             <span class="toggle"></span>
-            Invert diagrams
+            Invert colors
         </label>
     </div>
 </div>
@@ -186,9 +186,7 @@
 <script>
     const gallery = document.getElementById('gallery');
 
-    // Randoms before blocks
-    const byKey = (a, b) =>
-        isBlock(a.key) - isBlock(b.key) || (isBlock(a.key) ? a.key - b.key : a.key.localeCompare(b.key));
+    const byKey = (a, b) => keyOrder(a.key, b.key);
 
     function matchesCategory(formation) {
         switch (category) {
@@ -480,7 +478,7 @@
             `- 12ft tunnel: ${tunnel}`,
             `- 8-way tunnel: ${indoor}`,
             `- Include fusions: ${includeFusions}`,
-            `- Invert diagrams: ${invert}`,
+            `- Invert colors: ${invert}`,
             '\n',
 
             '_Device info (auto-populated):_',

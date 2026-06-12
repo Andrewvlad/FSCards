@@ -122,7 +122,7 @@
         <label class="toggleSetting hidden" id="invertSetting">
             <input type="checkbox" id="invertToggle" checked onchange="selectInvert(this)">
             <span class="toggle"></span>
-            Invert diagrams
+            Invert colors
         </label>
     </div>
 </div>
@@ -172,6 +172,24 @@
         </div>
         <button type="button" id="endlessToggle" class="pill" onclick="toggleEndless()" aria-pressed="false" aria-label="Endless mode" title="Endless mode"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5c2.5 1 3.5 5 6 6s3.5-1.5 3.5-3-1-4-3.5-3-3.5 5-6 6-3.5-1.5-3.5-3 1-4 3.5-3"/></svg></span></button>
     </div>
+</div>
+
+<!--Endless drawer for endless-specific settings-->
+<div id="endlessDrawer" class="hidden">
+    <div id="drawerContent" class="hidden">
+        <!--Inline with the stats when it fits (fitStrategyRow)-->
+        <div class="segmented" id="strategyRow">
+            <button type="button" data-strategy="random" class="pill active" onclick="selectStrategy(this)" title="Your basic, random draw">Random</button>
+            <button type="button" data-strategy="adaptive" class="pill" onclick="selectStrategy(this)" title="Draw missed cards more often">Adaptive</button>
+            <button type="button" data-strategy="learn" class="pill" onclick="selectStrategy(this)" title="Smaller deck, unlocking more as you succeed">Learn</button>
+        </div>
+        <button type="button" id="drawerClose" onclick="setDrawer(false)" aria-label="Collapse" title="Collapse">
+            <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M2.75 2.75l6.5 6.5M9.25 2.75l-6.5 6.5"/></svg>
+        </button>
+    </div>
+    <button type="button" id="drawerCaret" onclick="toggleDrawer()" aria-expanded="false" aria-controls="drawerContent" aria-label="Card order" title="Card order">
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.25 6 7.75l3.5-3.5"/></svg>
+    </button>
 </div>
 
 <div id="arena"></div>
@@ -224,7 +242,7 @@
     let theme = document.documentElement.dataset.theme;
     let invert = true;
     let endless = false;
-    let currentCard = null; // The formation on screen (deck index is meaningless in endless)
+    let currentCard = null; // The formation on screen (needed for endless)
 
     // The settings object every deck/image build takes. Split tracks the viewport at call time
     const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
@@ -269,7 +287,7 @@
             if (data) {
                 frontContent = data.frontContent ?? 'diagram';
                 recycle      = data.recycle ?? false;
-                endless      = data.endless ?? false;
+                endless      = data.endless === true ? 'random' : data.endless || false; // Migration from true -> random
             }
 
             const src = shared ?? data;
@@ -298,6 +316,7 @@
             fullDeck = buildDeck(poolSettings());
             deck = deckFromKeys(data.deck, poolSettings());
             if (!deck.length) return false; // If deck no longer valid (pool revised)
+            rebuildEndlessState();
             prefetchDeck();
 
             // Populate stats
@@ -338,6 +357,7 @@
     function applyCategory() {
         // Pools without the blocks/randoms split show everything
         deck = categorized(poolSettings()) ? fullDeck.filter(matchesCategory) : [...fullDeck];
+        rebuildEndlessState();
         prefetchDeck();
 
         correct.textContent = '0';
@@ -493,7 +513,8 @@
 
         flipped = false;
         setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
-        if (!endless) document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
+        if (endless) fitStrategyRow(); // Counter-width growth can push the inline fit over the edge
+        else document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
 
         currentCard = endless ? pickEndlessCard() : deck[getIndex()];
 
@@ -571,6 +592,7 @@
                     wrong.textContent++;
                     streak.textContent = '0';
                 }
+                if (endless) endlessResult(currentCard.key, direction);
             } else { // Skip
                 if (!endless) deck.push(...deck.splice(getIndex(), 1));
             }
@@ -969,26 +991,152 @@
 </script>
 <!--Endless mode-->
 <script>
-    // Swap between a finite deck and an endless random stream
+    // Swap between a finite deck and an endless draw (defaults to random)
     function toggleEndless() {
-        endless = !endless;
+        endless = endless ? false : 'random';
         syncEndlessUI();
+        newDeck();
+    }
+
+    // Switch the endless draw strategy
+    function selectStrategy(button) {
+        selectSegment('strategyRow', button);
+        endless = button.dataset.strategy;
         newDeck();
     }
 
     function syncEndlessUI() {
         const toggle = document.getElementById('endlessToggle');
         toggle.classList.toggle('active', endless);
-        toggle.setAttribute('aria-pressed', endless);
+        toggle.setAttribute('aria-pressed', !!endless);
+
+        document.querySelectorAll('#strategyRow [data-strategy]').forEach(button =>
+            button.classList.toggle('active', button.dataset.strategy === endless));
 
         // Recycle does not matter in endless mode
         document.getElementById('recycleSetting')
             .classList.toggle('hidden', endless);
+
+        fitStrategyRow();
     }
 
+    // Keep endless strategy options inline with stats, otherwise fall back into a drawer
+    function fitStrategyRow() {
+        const row = document.getElementById('strategyRow');
+        const content = document.getElementById('drawerContent');
+        const drawer = document.getElementById('endlessDrawer');
+
+        if (!endless) { // Early exit
+            if (row.parentElement !== content) content.prepend(row);
+            drawer.classList.add('hidden');
+            return;
+        }
+
+        const statsRow = document.getElementById('statsRow');
+        const container = document.getElementById('progressContainer');
+
+        if (row.nextElementSibling !== container) document.getElementById('statsBar').insertBefore(row, container);
+        const fits = statsRow.scrollHeight <= statsRow.clientHeight + 1 // Early check - multi-lined stats (hidden overflow) = no room
+            && container.getBoundingClientRect().top < statsRow.getBoundingClientRect().bottom;
+        if (!fits && row.parentElement !== content) content.prepend(row);
+
+        drawer.classList.toggle('hidden', fits);
+    }
+    new ResizeObserver(fitStrategyRow).observe(document.body);
+    document.fonts?.ready.then(fitStrategyRow);
+
+    function setDrawer(open) {
+        document.getElementById('drawerContent').classList.toggle('hidden', !open);
+        document.getElementById('drawerCaret').setAttribute('aria-expanded', open);
+    }
+
+    function toggleDrawer() {
+        setDrawer(document.getElementById('drawerContent').classList.contains('hidden'));
+    }
+
+    // Body grows by the open drawer's height so the arena never resizes (mirrors --panelH)
+    new ResizeObserver(([entry]) => {
+        document.body.style.setProperty('--drawerH', `${entry.borderBoxSize[0].blockSize}px`);
+    }).observe(document.getElementById('drawerContent'));
+
+    // Strategy tunables
+    const MASTERY_STREAK = 2;
+    const UNLEARNED_WEIGHT = 3;
+    const MISS_MULTIPLIER = 2.2;
+    const HIT_MULTIPLIER = 0.55;
+    const WEIGHT_MIN = 0.4, WEIGHT_MAX = 6;
+
+    const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
+
+    // Engine state
+    let weights = {};
+    let learnKeys = [];
+    let unlockedCount = 6;
+    let masteredKeys = {}; // reset key's value on miss
+
+    function rebuildEndlessState() {
+        weights = {};
+        masteredKeys = {};
+
+        // Initialize learn props
+        if (endless === 'learn') {
+            learnKeys = deck.map(card => card.key).sort((a, b) => isBlock(a) - isBlock(b));
+            unlockedCount = Math.min(6, learnKeys.length);
+        }
+    }
+
+    // Pick the next card by the active strategy
     function pickEndlessCard() {
-        const pool = deck.filter(card => card.key !== currentCard?.key); // No dupes
+        switch (endless) {
+            case 'adaptive': return pickAdaptive();
+            case 'learn':    return pickLearn();
+            default:         return pickRandom();
+        }
+    }
+
+    // Fold a graded answer back into the active strategy's state
+    function endlessResult(key, correct) {
+        switch (endless) {
+            case 'adaptive': return adaptiveResult(key, correct);
+            case 'learn':    return learnResult(key, correct);
+        }
+    }
+
+    // No back-to-back repeats
+    const notLast = (pool) => pool.filter(card => card.key !== currentCard?.key);
+    const learned = (key) => (masteredKeys[key] ?? 0) >= MASTERY_STREAK;
+
+    function weightedPick(cards, weightOf) {
+        let r = Math.random() * cards.reduce((sum, card) => sum + weightOf(card), 0);
+        return cards.find(card => (r -= weightOf(card)) <= 0) ?? cards.at(-1);
+    }
+
+    // Random (uniform draw)
+    function pickRandom() {
+        const pool = notLast(deck);
         return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // Adaptive (weight toward missed cards)
+    function pickAdaptive() {
+        return weightedPick(notLast(deck), card => weights[card.key] ?? 1);
+    }
+    function adaptiveResult(key, correct) {
+        weights[key] = clamp((weights[key] ?? 1) * (correct ? HIT_MULTIPLIER : MISS_MULTIPLIER), WEIGHT_MIN, WEIGHT_MAX);
+    }
+
+    // Learn (draw from the unlocked cross-section and slowly add new cards to pool)
+    function pickLearn() {
+        const unlocked = new Set(learnKeys.slice(0, unlockedCount));
+        const live = deck.filter(card => unlocked.has(card.key));
+        return weightedPick(notLast(live), card => learned(card.key) ? 1 : UNLEARNED_WEIGHT);
+    }
+    function learnResult(key, correct) {
+        masteredKeys[key] = correct ? (masteredKeys[key] ?? 0) + 1 : 0;
+        if (!correct) return; // A miss only zeroes mastery, never completes the slice
+
+        // Expand the slice by one once the whole unlocked slice is learned
+        if (unlockedCount < learnKeys.length && learnKeys.slice(0, unlockedCount).every(learned)) unlockedCount++;
     }
 </script>
 <!--Start-->
@@ -1011,7 +1159,7 @@
             `- 12ft tunnel: ${tunnel}`,
             `- 8-way tunnel: ${indoor}`,
             `- Include fusions: ${includeFusions}`,
-            `- Invert diagrams: ${invert}`,
+            `- Invert colors: ${invert}`,
             `- Endless: ${endless}`,
             '\n',
 

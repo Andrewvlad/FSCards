@@ -58,7 +58,7 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
 ## TODO
 - [x] Full mobile support
   - [x] Landscape support
-- [ ] Adaptive (weighted) and learn modes to endless
+- [x] Adaptive (weighted) and learn modes to endless
 - [ ] 20-ways from TeXXas pool (first unofficial pool)
 - [ ] Rebuild Rhythm diagram sets
 - [ ] Downloadable app/image sets

@@ -140,7 +140,6 @@ header {
                 font-family: var(--titleFont);
                 font-size: 1.8rem;
                 font-weight: 900;
-                letter-spacing: -0.02em;
                 color: var(--text);
                 list-style: none; /* Hide the default details marker */
                 width: fit-content;
@@ -453,10 +452,20 @@ header {
     }
 }
 
-/* Open panel grows page by its own height (--panelH), arena keeps closed-state size, page scrolls */
-body:not(.gallery):has(#settingsPanel:not(.hidden)) {
-    height: calc(100dvh + var(--panelH, 0px));
+/* Open panels grow page by their own height (--panelH/--drawerH), keeping arena size locked */
+body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) #drawerContent:not(.hidden)) {
+    height: calc(100dvh + var(--panelH, 0px) + var(--drawerH, 0px));
     overflow-y: auto;
+}
+
+/* Page only grows by the leftover */
+@media (min-width: 601px) and (min-height: 601px) {
+    body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) #drawerContent:not(.hidden)) {
+        height: auto;
+        min-height: 100dvh;
+
+        #arena {flex-basis: auto} /* Floors the arena at its content height, card never squeezed */
+    }
 }
 
 /* Stats bar */
@@ -464,7 +473,7 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
     --statH: calc(0.8125rem + 0.15rem + 1.3125rem); /* Stat height: 13px label + gap + 21px value */
     display: flex;
     /* Wrap the progress meter */
-    column-gap: clamp(1rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
+    column-gap: clamp(0.75rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
     row-gap: 0.5rem;
 
     padding: 1rem;
@@ -481,7 +490,7 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
         display: flex;
         align-items: center;
         flex-wrap: wrap;
-        column-gap: clamp(1rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
+        column-gap: clamp(0.75rem, 5vmin - 0.5rem, 2rem); /* Scales the width with the viewport size */
         row-gap: 2rem;
         max-height: var(--statH); /* Prevents row from growing */
         overflow: hidden;
@@ -489,6 +498,7 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
 
     /* Endless leaves only the toggle, so it shares the stats row instead of wrapping under it */
     &:has(#endlessToggle.active) {
+        column-gap: 0.5rem; /* Clears the now unnecessary 2rem gap between toggle and stats */
         #statsRow {flex: 1}
         #progressContainer {
             flex: 0 0 auto;
@@ -497,6 +507,12 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
 
         /* Endless drops progress bar */
         #progressMain {display: none}
+    }
+
+    /* Hides endless strategy if it doesn't fit*/
+    #strategyRow {
+        flex-wrap: nowrap;
+        flex-shrink: 0;
     }
 
     .stat {
@@ -576,6 +592,65 @@ body:not(.gallery):has(#settingsPanel:not(.hidden)) {
 /* Softly pulse when active */
 @keyframes pulse {
     50% {opacity: 0.55}
+}
+
+/* Endless drawer: collapsible card-order pill row under the stats bar */
+#endlessDrawer {
+    position: relative;
+    width: 100%;
+
+    #drawerContent {
+        padding: 1rem;
+        border-bottom: 1px solid var(--border);
+        animation: slideDown 0.2s ease;
+    }
+
+    /* Collapse x pinned to the panel's top-right corner */
+    #drawerClose {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        display: flex;
+        padding: 0.25rem;
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.2s;
+
+        &:hover {color: var(--accent)}
+    }
+
+    /* Pull button: a circle straddling the bar border when collapsed, the drawer border when open */
+    #drawerCaret {
+        position: absolute;
+        top: 100%;
+        left: 50%;
+        translate: -50% -50%; /* Center the circle on the border line */
+        z-index: 10; /* Above the card's top edge on tight mobile spacing */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 1.5rem; /* Bottom half (0.75rem) stays inside the arena's 1rem mobile padding, clear of the card */
+        aspect-ratio: 1;
+        padding: 0;
+        background: var(--bg); /* Masks the border line passing behind */
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        color: var(--muted);
+        cursor: pointer;
+        transition: color 0.2s, border-color 0.2s;
+
+        &:hover {
+            color: var(--accent);
+            border-color: var(--accent);
+        }
+
+        svg {transition: transform 0.2s}
+    }
+
+    /* Caret points down to open, up to collapse */
+    &:has(#drawerContent:not(.hidden)) #drawerCaret svg {transform: rotate(180deg)}
 }
 
 /* Formation diagram */
@@ -1056,7 +1131,7 @@ body:not(:has(#modeBar.collapsed)) #statsModeSelect {display: none} /* Hide mode
         height: 100lvh;
         overflow-y: auto;
     }
-    body:not(.gallery):has(#settingsPanel:not(.hidden)) {height: calc(100lvh + var(--panelH, 0px))}
+    body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) #drawerContent:not(.hidden)) {height: calc(100lvh + var(--panelH, 0px) + var(--drawerH, 0px))}
 
     /* Hide elements */
     #keyboardHints {display: none}

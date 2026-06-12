@@ -26,6 +26,16 @@ const DATA = {
 
 const isBlock = (key) => !isNaN(key);
 
+// Sort A-Z, 1-99
+const keyOrder = (a, b) => {
+    const blockCheckA = isBlock(a), blockCheckB = isBlock(b);
+
+    if (blockCheckA !== blockCheckB) return blockCheckA - blockCheckB; // Randoms before blocks
+    else return blockCheckA
+        ? a - b // Int comparison
+        : a.localeCompare(b); // String comparison
+};
+
 // A discipline offers the Randoms/Blocks split only when it holds both numbered and lettered keys.
 // Speed, 2-Way CF, CP, and block-less classes (4-way Rookie) have no split and skip the filter.
 function categorized(settings) {
