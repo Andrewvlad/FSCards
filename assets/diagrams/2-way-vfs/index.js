@@ -22,4 +22,5 @@ const _2WayVfs = {
     },
     classes: [],
     sets: { USPA: null, Axis: null },
+    collegiate: true,
 };

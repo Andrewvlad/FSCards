@@ -9,4 +9,5 @@ const _6WaySpeed = {
     },
     classes: [],
     sets: { USPA: null },
+    collegiate: true,
 };

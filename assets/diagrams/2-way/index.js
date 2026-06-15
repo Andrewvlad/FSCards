@@ -24,4 +24,5 @@ const _2Way = {
     },
     classes: [],
     sets: { USPA: null, Axis: null },
+    collegiate: true,
 };

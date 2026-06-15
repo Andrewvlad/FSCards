@@ -53,6 +53,7 @@ const _4Way = {
     // Blocks for 12-foot tunnels
     tunnel: [3, 5, 6, 7, 9, 11, 14, 15, 16, 17, 18, 21],
     sets: { Rhythm: null, USPA: null, Axis: null, FAI: null },
+    collegiate: [1, 2, 4, 6, 7, 9, 13, 21],
     videos: {
         1: "https://youtu.be/QiHgkFsiYFo",
         2: "https://youtu.be/ezHhMcT9V0Y",
