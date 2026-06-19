@@ -21,6 +21,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from extract import JOBS, OUT
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
+sys.path.insert(0, f"{ROOT}/tools")
+import legacy_archive as la
+SRC = f"{ROOT}/assets/sources/axis"
+DEP_ROOT = f"{SRC}/legacy/deprecated"    # superseded art parked as <disc>/<key>_dep-<year> on a re-cut
 MIN_STAGED_RATIO = 0.5   # refuse orphan deletes when staging covers under half the installed set (botched run guard)
 RECUT_TOLERANCE = 200    # max channel delta of a re-render diff; real Axis ink edits flip to 255
 
@@ -31,7 +35,7 @@ pool_order = lambda k: (k[0].isdigit(), int("".join(filter(str.isdigit, k)) or "
 to_keys = lambda rels: sorted(dict.fromkeys(os.path.splitext(os.path.basename(r))[0] for r in rels), key=pool_order)
 
 total = 0
-all_installed, all_deleted, all_tolerated, all_refused = [], [], [], []
+all_installed, all_deleted, all_tolerated, all_refused, all_archived = [], [], [], [], []
 # JOBS keys, not listdir: stale staging from a renamed discipline must not install
 for d in sorted(JOBS):
     od = os.path.join(OUT, d)
@@ -42,7 +46,7 @@ for d in sorted(JOBS):
     staged_rels = {os.path.relpath(s, od) for s in staged}
     repo_rels = {os.path.relpath(f, repo_dir)
                  for f in glob.glob(f"{repo_dir}/*.webp") + glob.glob(f"{repo_dir}/figures/*.webp")}
-    installed, tolerated, identical = [], [], 0
+    installed, tolerated, archived, identical = [], [], [], 0
     for src in staged:
         rel = os.path.relpath(src, od)
         dst = os.path.join(repo_dir, rel)
@@ -58,34 +62,39 @@ for d in sorted(JOBS):
             if md < RECUT_TOLERANCE:
                 tolerated.append((rel, md))
                 continue
+        if exists and not rel.startswith("figures/"):  # real change: archive the outgoing diagram (figures are derived)
+            archived.append(la.archive_image(DEP_ROOT, d, rel, dst))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
         shutil.copyfile(src, dst)
         installed.append(rel)
-    deleted, refused = [], []
-    orphans = sorted(repo_rels - staged_rels)
-    if orphans:
-        if len(staged_rels) >= MIN_STAGED_RATIO * len(repo_rels):
-            for rel in orphans:
-                os.remove(os.path.join(repo_dir, rel))
-                deleted.append(rel)
-        else:
-            refused = orphans
+    # Refused wholesale under the half-set guard or when a key category staged nothing (botched run)
+    deleted = []
+    deletable, refused = la.orphan_guard(staged_rels, repo_rels, MIN_STAGED_RATIO)
+    for rel in deletable:
+        if not rel.startswith("figures/"):    # archive the outgoing diagram only (figures are derived)
+            archived.append(la.archive_image(DEP_ROOT, d, rel, os.path.join(repo_dir, rel)))
+        os.remove(os.path.join(repo_dir, rel))
+        deleted.append(rel)
     total += len(installed) + len(deleted)
     # Per-discipline detail to stderr: shown live in the action log, kept out of install.log (PR body)
     print(f"{d}: {identical} identical, {len(installed)} installed, {len(deleted)} deleted"
-          + (f", {len(tolerated)} re-render" if tolerated else ""), file=sys.stderr)
+          + (f", {len(tolerated)} re-render" if tolerated else "")
+          + (f", {len(archived)} archived" if archived else ""), file=sys.stderr)
     for rel in installed:
         print(f"    installed {rel}", file=sys.stderr)
     for rel in deleted:
         print(f"    deleted {rel} (key left the pool)", file=sys.stderr)
     for rel, md in tolerated:
         print(f"    re-render {rel} (maxd {md} < {RECUT_TOLERANCE}, kept repo render)", file=sys.stderr)
+    for rel in archived:
+        print(f"    archived {rel}", file=sys.stderr)
     if refused:
         print(f"    !! refusing {len(refused)} deletion(s), staging holds under half the installed set", file=sys.stderr)
     all_installed += to_keys(installed)
     all_deleted   += to_keys(deleted)
     all_tolerated += to_keys(r for r, _ in tolerated)
     all_refused   += to_keys(refused)
+    all_archived  += archived
 
 # Grouped summary to stdout - the only thing tee'd into install.log, so the PR body shows just this
 print(f"Total: {total} file(s) changed (including figures)")
@@ -95,5 +104,7 @@ if all_deleted:
     print(f"- Deleted ({len(all_deleted)}): {', '.join(all_deleted)} (key left the pool)")
 if all_tolerated:
     print(f"- Kept ({len(all_tolerated)}): {', '.join(all_tolerated)} (change was not noticed)")
+if all_archived:
+    print(f"- Archived ({len(all_archived)}) to legacy/deprecated/: {', '.join(os.path.basename(a) for a in all_archived)}")
 if all_refused:
     print(f"- [ERROR] Refusing {len(all_refused)} deletions, staging holds under half the set, review manually: {', '.join(all_refused)}")

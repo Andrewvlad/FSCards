@@ -2,7 +2,7 @@ name: Update Axis image set PDFs
 
 on:
     schedule:
-        - cron: '19 5 2 * *' # Second of the month at 05:19 UTC (random off-peak time)
+        - cron: '19 5 28 * *' # 28th at 05:19 UTC (end of month - latest day every month has - so a mid-month revision is caught the same month)
     workflow_dispatch:
 
 jobs:
@@ -76,7 +76,7 @@ jobs:
                   name: changed-pdfs
                   path: ${{ runner.temp }}/staged
 
-            - name: Place PDF and compose PR
+            - name: Place PDF, archive the edition, compose PR
               id: meta
               env:
                   PDF_PATH: ${{ matrix.path }}
@@ -85,17 +85,29 @@ jobs:
                   # The check job already fetched and compared these exact bytes, just place them
                   cp "$RUNNER_TEMP/staged/$(basename "$PDF_PATH")" "$PDF_PATH"
 
+                  # Archive the fetched edition into legacy/<fetch year>/, so the archive keeps one
+                  # copy per edition (this current one included) - a same-year re-revision nests by
+                  # fetch month (<year>/<Month>/) beside the flat copy - legacy/** captures both
+                  archive=$(python3 tools/legacy_archive.py archive-pdf "$PDF_PATH" assets/sources/axis/legacy)
+
                   # Discipline slug from the shared JOBS manifest, matching the extract workflow's branches (vfs2.pdf -> 2-way-vfs)
                   slug=$(python3 -c "import sys; sys.path.insert(0, 'tools/axis-extract'); from slugs import pdf_slug; print(pdf_slug(sys.argv[1]) or '')" "$(basename "$PDF_PATH")")
                   {
-                      echo "Upstream revision detected for [\`$PDF_PATH\`]($ARTIFACT_URL)"
+                      echo "Upstream revision detected for [\`$PDF_PATH\`]($ARTIFACT_URL)."
+                      echo
+                      echo "Also archived this edition at \`$archive\` (labeled by its fetch year)."
                   } > "$RUNNER_TEMP/pr-body.md"
-                  echo "slug=$slug" >> "$GITHUB_OUTPUT"
+                  {
+                      echo "slug=$slug"
+                      echo "archive=$archive"
+                  } >> "$GITHUB_OUTPUT"
 
             - name: Open PR for updated PDF
               uses: peter-evans/create-pull-request@v8
               with:
-                  add-paths: ${{ matrix.path }}
+                  add-paths: |
+                      ${{ matrix.path }}
+                      assets/sources/axis/legacy/**
                   commit-message: 'chore: Update Axis ${{ steps.meta.outputs.slug }} PDF'
                   branch: update-source-pdf/axis/${{ steps.meta.outputs.slug }}
                   title: 'Update Axis ${{ steps.meta.outputs.slug }} PDF'

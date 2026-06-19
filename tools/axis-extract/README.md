@@ -28,7 +28,9 @@ changed source basenames like `fs2.pdf` and limit the run to their
 disciplines, no arguments = every PDF), then `python3 install.py` to sync
 `assets/diagrams/<d>/Axis/` against the staging (installs pixel-changed
 cards, deletes keys that left the pool, skips re-encode byte noise). The
-`extract-axis-images` workflow runs this chain plus
+`extract-axis-images` workflow runs this chain plus the shared
+`tools/validate_ordering.py` ordering check (randoms A.. - FS skip I, CF with
+I - blocks 1..N, the contract in `tools/validate_ordering.py`) and
 `tools/panel-cuts/measure.py` on every AXIS source-PDF change on main and
 opens a PR for eyeball review. The PR carries an old vs new comparison
 comment (GitHub renders no rich diff for webp), and single images can be
@@ -40,6 +42,14 @@ and pushes onto the PR branch. A rejected image resurfaces on that PDF's next
 revision PR, by design, for re-review against the new source. Closing the PR
 unmerged rejects the whole re-cut, and the same workflow then deletes its
 branch (merged branches are covered by the repo's auto-delete setting).
+
+On a re-cut `install.py` also parks the outgoing art of every changed or dropped
+key (the named diagram only) under `assets/sources/axis/legacy/deprecated/<disc>/<key>_dep-<year>.webp`
+(year = the re-cut day), and `update-axis-sources` archives each
+fetched edition under `assets/sources/axis/legacy/<year>/` (shared
+`legacy_archive.py`); a `/reject` drops the matching `_dep-` copy, `/upscale`
+keeps the card and drops only its archive. See
+`assets/sources/axis/legacy/README.md`.
 
 ## How it works
 

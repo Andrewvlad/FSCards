@@ -118,7 +118,9 @@ jobs:
               if: steps.commit.outputs.changed == 'true'
               uses: peter-evans/create-pull-request@v8
               with:
-                  add-paths: assets/diagrams/**
+                  add-paths: |
+                      assets/diagrams/**
+                      assets/sources/axis/legacy/deprecated/**
                   commit-message: 'chore: Update Axis ${{ steps.extract.outputs.slug }} image set'
                   branch: extract-image-set/axis/${{ steps.extract.outputs.slug }}
                   title: 'Extract updated Axis ${{ steps.extract.outputs.slug }} image set'

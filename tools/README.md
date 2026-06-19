@@ -21,3 +21,9 @@ potrace/cairosvg for the vectorizer). Staging lands under `/tmp`; install is a
 copy over `assets/diagrams/` — but see each README first for the hand-managed
 exceptions a blind re-run would regress (4-way `R`/Bundy, 8-way `D`'s foot
 graft, the CF4 canopy re-stamp).
+
+On a re-cut, `install.py` also parks the superseded art of every changed or dropped
+key under `assets/sources/<src>/legacy/deprecated/<disc>/<key>_dep-<year>.webp`, and
+the source-PDF watchers archive each fetched edition under
+`assets/sources/<src>/legacy/<year>/` — both through the shared `legacy_archive.py`,
+which dates an edition by the day it was fetched.

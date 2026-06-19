@@ -1,6 +1,10 @@
-name: Reject extracted images
+name: Review extracted images
 
-# Reject image extraction using comments (/reject <keys>) or PR closure
+# Owner PR comments steer an image-extract review:
+#   /reject <keys>    revert bad cards to main (and drop the deprecation archive the re-cut added)
+#   /upscale <keys>   keep the cards, drop only their deprecation archive (a same-art quality bump,
+#                     so the old version is a duplicate not worth keeping)
+# Closing a PR unmerged rejects the whole re-cut (cleanup job below).
 
 on:
     issue_comment:
@@ -12,22 +16,22 @@ permissions:
     contents: write # Push reverts to the PR branch
     pull-requests: write # Reply and react
 
-# Queue rejects per PR so concurrent comments don't race the push
+# Queue actions per PR so concurrent comments don't race the push
 concurrency:
-    group: reject-images-${{ github.event.issue.number || github.event.pull_request.number }}
+    group: review-images-${{ github.event.issue.number || github.event.pull_request.number }}
     cancel-in-progress: false
 
 jobs:
-    reject:
-        # Owner's /reject on a PR (branch verified in resolve, issue_comment fires on plain issues too)
+    apply:
+        # Owner's /reject or /upscale on a PR (branch verified in resolve, issue_comment fires on plain issues too)
         if: >-
             github.event_name == 'issue_comment'
-            && startsWith(github.event.comment.body, '/reject')
+            && (startsWith(github.event.comment.body, '/reject') || startsWith(github.event.comment.body, '/upscale'))
             && github.event.comment.author_association == 'OWNER'
             && github.event.issue.pull_request
         runs-on: ubuntu-latest
         steps:
-            - name: Resolve PR and target paths
+            - name: Resolve PR, command, and target paths
               id: resolve
               env:
                   GH_TOKEN: ${{ github.token }}
@@ -43,24 +47,37 @@ jobs:
                   gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > "$RUNNER_TEMP/changed.txt"
 
                   err() { echo "error=$1" >> "$GITHUB_OUTPUT"; exit 0; }
-                  # Tokens from the comment's first line, expanded against the PR's changed files
-                  read -ra tokens <<<"$(head -n1 <<<"$COMMENT_BODY" | sed 's|^/reject||')"
-                  [ ${#tokens[@]} -gt 0 ] || err 'Usage: `/reject <keys>`, e.g. `/reject 13 17:figure G:diagram`'
+                  # Command + tokens from the comment's first line. /reject reverts the card - /upscale keeps it
+                  cmd=$(head -n1 <<<"$COMMENT_BODY" | grep -oE '^/(reject|upscale)' || true)
+                  read -ra tokens <<<"$(head -n1 <<<"$COMMENT_BODY" | sed -E 's#^/(reject|upscale)##')"
+                  [ ${#tokens[@]} -gt 0 ] || err "Usage: \`$cmd <keys>\`, e.g. \`$cmd 13 G\`"
                   : > "$RUNNER_TEMP/targets.txt"
                   missed=()
                   for token in "${tokens[@]}"; do
                       [[ "$token" =~ ^([A-Za-z0-9_-]+)(:(figures?|fig|f|diagram|d))?$ ]] || { missed+=("$token"); continue; }
+                      key="${BASH_REMATCH[1]}"
                       # Bare key hits both files, :figure/:fig/:f only the figures sibling, :diagram/:d only the named card
                       case "${BASH_REMATCH[3]}" in
                           fig*|f) sub='figures/';;
                           '') sub='(figures/)?';;
                           *) sub='';;
                       esac
-                      grep -E "^assets/diagrams/[^/]+/Axis/$sub${BASH_REMATCH[1]}\.webp$" "$RUNNER_TEMP/changed.txt" >> "$RUNNER_TEMP/targets.txt" || missed+=("$token")
+                      hit=''
+                      # /reject reverts the shipped card (and/or its figure) to main
+                      if [ "$cmd" = /reject ]; then
+                          grep -E "^assets/diagrams/[^/]+/(Axis|USPA|FAI)/$sub$key\.webp$" "$RUNNER_TEMP/changed.txt" >> "$RUNNER_TEMP/targets.txt" && hit=1
+                      fi
+                      # Both commands drop the diagram's _dep- archive (figures are no longer archived). A :figure
+                      # scope leaves it alone: only the figure was rejected, the diagram change still stands.
+                      if [ "$sub" != figures/ ]; then
+                          grep -E "^assets/sources/[^/]+/legacy/deprecated/[^/]+/${key}_dep-[0-9_-]+\.webp$" "$RUNNER_TEMP/changed.txt" >> "$RUNNER_TEMP/targets.txt" && hit=1
+                      fi
+                      [ -n "$hit" ] || missed+=("$token")
                   done
-                  [ ${#missed[@]} -eq 0 ] || err "No changed Axis image for: ${missed[*]}. Nothing reverted"
+                  [ ${#missed[@]} -eq 0 ] || err "Nothing to ${cmd#/} for: ${missed[*]}"
                   {
                       echo "head_ref=$head_ref"
+                      echo "cmd=$cmd"
                       echo "label=${tokens[*]}"
                       echo 'targets<<EOF'
                       sort -u "$RUNNER_TEMP/targets.txt"
@@ -72,7 +89,7 @@ jobs:
               with:
                   ref: ${{ steps.resolve.outputs.head_ref }}
 
-            - name: Revert rejected images to main
+            - name: Apply to the PR branch
               id: revert
               if: steps.resolve.outputs.targets != ''
               env:
@@ -83,12 +100,13 @@ jobs:
                       if git cat-file -e "origin/main:$p" 2>/dev/null; then
                           git checkout origin/main -- "$p" # Revert (also restores a pool-drop deletion)
                       else
-                          git rm -q --ignore-unmatch -- "$p" # Key new in this PR, rejecting drops the file
+                          git rm -q --ignore-unmatch -- "$p" # New in this PR (a _dep- archive, or a new key): drop it
                       fi
                   done <<<"$TARGETS"
                   echo "changed=$(git status --porcelain | grep -q . && echo true || echo false)" >> "$GITHUB_OUTPUT"
-                  # Only block (numbered) images feed panel cuts
-                  echo "disciplines=$(grep -E '/(figures/)?[0-9][^/]*\.webp$' <<<"$TARGETS" | cut -d/ -f3 | sort -u | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+                  # Only block (numbered) shipped images feed panel cuts (/upscale touches none, so this is empty there)
+                  # anchored to assets/diagrams so deprecated archives don't pose as disciplines
+                  echo "disciplines=$(grep -E '^assets/diagrams/.*/(figures/)?[0-9][^/]*\.webp$' <<<"$TARGETS" | cut -d/ -f3 | sort -u | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
             - uses: actions/setup-python@v6
               if: steps.revert.outputs.changed == 'true' && steps.revert.outputs.disciplines != ''
@@ -101,16 +119,21 @@ jobs:
                   pip install numpy pillow
                   python3 tools/panel-cuts/measure.py ${{ steps.revert.outputs.disciplines }}
 
-            - name: Commit and push the rejection
+            - name: Commit and push
               if: steps.revert.outputs.changed == 'true'
               env:
+                  CMD: ${{ steps.resolve.outputs.cmd }}
                   LABEL: ${{ steps.resolve.outputs.label }}
                   HEAD_REF: ${{ steps.resolve.outputs.head_ref }}
               run: |
                   git config user.name 'github-actions[bot]'
                   git config user.email 'github-actions[bot]@users.noreply.github.com'
-                  git add -A -- assets/diagrams
-                  git commit -m "chore: Reject Axis re-cut of $LABEL"
+                  git add -A -- assets/diagrams assets/sources
+                  if [ "$CMD" = /upscale ]; then
+                      git commit -m "chore: Mark $LABEL as upscale (drop deprecation archive)"
+                  else
+                      git commit -m "chore: Reject re-cut of $LABEL"
+                  fi
                   git push origin "HEAD:refs/heads/$HEAD_REF"
 
             - name: Reply and react
@@ -120,6 +143,7 @@ jobs:
                   PR_NUMBER: ${{ github.event.issue.number }}
                   COMMENT_ID: ${{ github.event.comment.id }}
                   ERROR: ${{ steps.resolve.outputs.error }}
+                  CMD: ${{ steps.resolve.outputs.cmd }}
                   TARGETS: ${{ steps.resolve.outputs.targets }}
                   CHANGED: ${{ steps.revert.outputs.changed }}
               run: |
@@ -127,10 +151,13 @@ jobs:
                       gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "$ERROR"
                       exit 0
                   fi
-                  if [ "$CHANGED" = true ]; then
-                      body=$(printf 'Reverted to `main`:\n%s' "$(sed 's|^|- `|; s|$|`|' <<<"$TARGETS")")
+                  list=$(sed 's|^|- `|; s|$|`|' <<<"$TARGETS")
+                  if [ "$CHANGED" != true ]; then
+                      body='Nothing to change, targets already match `main`'
+                  elif [ "$CMD" = /upscale ]; then
+                      body=$(printf 'Marked as upscale - kept the new image, dropped its deprecation archive:\n%s' "$list")
                   else
-                      body='Nothing to revert, target images already match `main`'
+                      body=$(printf 'Reverted to `main`:\n%s' "$list")
                   fi
                   gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "$body"
                   gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content='+1'
