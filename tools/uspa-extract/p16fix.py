@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""2-way randoms (SCM Ch.7 p16): single 1x4 bordered row — too short for ext_rand's
+"""2-way randoms (SCM Ch.7): single 1x4 bordered row - too short for ext_rand's
 page-relative grid thresholds. Find the table band from its full-width horizontal rules,
 verticals within the band, then reuse ext_rand's key/crop/erase verbatim."""
-import os
+import os, sys
 import numpy as np
 from PIL import Image
-import ext_rand
+import ext_rand, find_pages
 from ext_rand import render, words, find_key, erase_names, max_run, clusters, INK
 
-ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/scm_ch07.pdf"
+ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/collegiate.pdf"
 ext_rand.CACHE = "/tmp/fsx_ch7"
-PAGE, DPI = 16, 600
+DPI = 600
 OUT = "/tmp/fsx_out/ch7/2-way"
+# Locate the FS 2-way randoms page from the headers. The 2026 edition prints no appendix
+# subtitle on it, so fall back to the page right after the 2-way block run.
+_rnd, _blk = find_pages.pages_for(ext_rand.PDF, {None, "FS"}, 2)
+PAGE = _rnd[0] if _rnd else (max(_blk) + 1 if _blk else None)
+if PAGE is None:
+    print("2-way randoms: no page found, skipping"); sys.exit(0)
 
 arr = render(PAGE, DPI); ws = words(PAGE, DPI)
 H, W, _ = arr.shape
@@ -20,9 +26,11 @@ dark = arr[..., :3].mean(2) < INK
 # table band: horizontal rules spanning >60% page width, nearest above keys / below names
 rowrun = np.array([max_run(dark[r, :]) for r in range(H)])
 hl = [int(np.mean(c)) for c in clusters(list(np.where(rowrun > 0.6 * W)[0]), int(0.012 * H))]
-keys = [w for w in ws if w[4].strip() in "ABCD"]
+keys = [w for w in ws if w[4].strip() in {"A", "B", "C", "D"}]
+if not keys:
+    print("2-way randoms: no A-D keys on the located page, skipping"); sys.exit(0)
 ky0 = min(k[1] for k in keys)
-names = [w for w in ws if w[4].strip() not in "ABCD" and ky0 < w[1] < ky0 + 0.25 * H]
+names = [w for w in ws if w[4].strip() not in {"A", "B", "C", "D"} and ky0 < w[1] < ky0 + 0.25 * H]
 ny1 = max(n[3] for n in names)
 top = max(y for y in hl if y < ky0); bot = min(y for y in hl if y > ny1)
 

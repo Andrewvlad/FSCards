@@ -1,0 +1,15 @@
+{
+    "page": "https://www.uspa.org/SCM",
+    "chapters": {
+        "assets/sources/uspa/fs.pdf": {
+            "folder": "Individual Chapters",
+            "file": "SCM_Ch09.pdf",
+            "slug": "ch9-fs"
+        },
+        "assets/sources/uspa/collegiate.pdf": {
+            "folder": "Individual Chapters",
+            "file": "SCM_Ch07.pdf",
+            "slug": "ch7-collegiate"
+        }
+    }
+}

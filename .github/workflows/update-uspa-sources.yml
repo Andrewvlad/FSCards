@@ -1,0 +1,131 @@
+name: Update USPA SCM source PDFs
+
+on:
+    schedule:
+        - cron: '41 5 28 * *' # 28th at 05:41 UTC (end of month - latest day every month has - so a mid-month revision is caught the same month)
+    workflow_dispatch:
+
+jobs:
+    check:
+        runs-on: ubuntu-latest
+        permissions:
+            contents: read # for checkout
+        outputs:
+            changed: ${{ steps.fetch.outputs.changed }}
+            failed: ${{ steps.fetch.outputs.failed }}
+            artifact_url: ${{ steps.stash.outputs['artifact-url'] }}
+        steps:
+            - uses: actions/checkout@v5
+
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: '3.12'
+
+            # Discovers each chapter's download URL live from the SCM page by name
+            # (no pinnable URL - see fetch_uspa.py), fetches it, diffs the committed copy.
+            - name: Discover and fetch SCM chapter PDFs
+              id: fetch
+              run: |
+                  mkdir -p "$RUNNER_TEMP/staged"
+                  python3 tools/uspa-extract/fetch_uspa.py --out-dir "$RUNNER_TEMP/staged" | tee "$RUNNER_TEMP/report.json"
+
+                  {
+                      echo "changed=$(jq -c '.changed' "$RUNNER_TEMP/report.json")"
+                      echo "failed=$(jq -r '.failed' "$RUNNER_TEMP/report.json")"
+                  } >> "$GITHUB_OUTPUT"
+                  {
+                      echo "### USPA SCM source check"
+                      jq -r '.setupError // empty | select(.) | "Setup error: " + .' "$RUNNER_TEMP/report.json"
+                      jq -r '.details | to_entries[] | "- `\(.key)`: \(.value.status)" + (if .value.note then " - " + .value.note else "" end)' "$RUNNER_TEMP/report.json"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            # Stash report + changed bytes so the pr job commits exactly what was compared
+            - name: Stash report
+              uses: actions/upload-artifact@v7
+              with:
+                  name: uspa-report
+                  path: ${{ runner.temp }}/report.json
+
+            - name: Stash changed PDFs for the pr job
+              id: stash
+              if: steps.fetch.outputs.changed != '[]'
+              uses: actions/upload-artifact@v7
+              with:
+                  name: changed-pdfs
+                  path: ${{ runner.temp }}/staged
+
+    pr:
+        needs: check
+        if: needs.check.outputs.changed != '[]'
+        runs-on: ubuntu-latest
+        permissions:
+            contents: write # for PR
+            pull-requests: write # for PR
+        strategy:
+            fail-fast: false
+            matrix:
+                path: ${{ fromJSON(needs.check.outputs.changed) }}
+        steps:
+            - uses: actions/checkout@v5
+
+            - name: Restore the changed PDF and report
+              uses: actions/download-artifact@v7
+              with:
+                  merge-multiple: true # changed-pdfs + uspa-report into one dir
+                  path: ${{ runner.temp }}/staged
+
+            - name: Place PDF, archive the edition, compose PR
+              id: meta
+              env:
+                  PDF_PATH: ${{ matrix.path }}
+                  ARTIFACT_URL: ${{ needs.check.outputs.artifact_url }}
+              run: |
+                  # The check job already fetched and compared these exact bytes, just place them
+                  cp "$RUNNER_TEMP/staged/$(basename "$PDF_PATH")" "$PDF_PATH"
+
+                  # Archive the fetched edition into legacy/<fetch year>/, so the archive keeps one
+                  # copy per edition (this current one included) - a same-year re-revision nests by
+                  # fetch month (<year>/<Month>/) beside the flat copy - legacy/** captures both
+                  archive=$(python3 tools/legacy_archive.py archive-pdf "$PDF_PATH" assets/sources/uspa/legacy)
+
+                  slug=$(jq -r --arg p "$PDF_PATH" '.chapters[$p].slug' tools/uspa_sources.json)
+                  detail=$(jq -c --arg p "$PDF_PATH" '.details[$p]' "$RUNNER_TEMP/staged/report.json")
+                  {
+                      echo "Upstream revision detected for [\`$PDF_PATH\`]($ARTIFACT_URL)."
+                      echo
+                      echo "Also archived this edition at \`$archive\` (labeled by its fetch year)."
+                      echo
+                      echo "Discovered from the live USPA SCM file library:"
+                      echo '```json'
+                      echo "$detail" | jq .
+                      echo '```'
+                      echo "Re-cut its USPA image set after merge: \`tools/uspa-extract/driver_ch9.py\` (Ch.9) / \`driver_ch7.py\` (Ch.7), then install over \`assets/diagrams/\` - mind the hand-managed exceptions in the README."
+                  } > "$RUNNER_TEMP/pr-body.md"
+                  {
+                      echo "slug=$slug"
+                      echo "archive=$archive"
+                  } >> "$GITHUB_OUTPUT"
+
+            - name: Open PR for updated PDF
+              uses: peter-evans/create-pull-request@v8
+              with:
+                  add-paths: |
+                      ${{ matrix.path }}
+                      assets/sources/uspa/legacy/**
+                  commit-message: 'chore: Update USPA ${{ steps.meta.outputs.slug }} PDF'
+                  branch: update-source-pdf/uspa/${{ steps.meta.outputs.slug }}
+                  title: 'Update USPA ${{ steps.meta.outputs.slug }} PDF'
+                  body-path: ${{ runner.temp }}/pr-body.md
+                  reviewers: Andrewvlad
+                  delete-branch: true
+
+    report-failures:
+        needs: check
+        if: needs.check.outputs.failed == 'true'
+        runs-on: ubuntu-latest
+        permissions: {} # Clear permissions
+        steps:
+            - name: Fail on fetch errors
+              run: |
+                  echo 'One or more chapters failed to fetch or discover, see check job summary.'
+                  exit 1

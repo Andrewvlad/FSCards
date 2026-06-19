@@ -10,7 +10,7 @@ from collections import deque
 import numpy as np
 from PIL import Image
 ROOT=os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)),"../.."))
-PDF=f"{ROOT}/assets/sources/uspa/scm_fs.pdf"
+PDF=f"{ROOT}/assets/sources/uspa/fs.pdf"
 CACHE="/tmp/fsx"
 INK=110
 
@@ -41,18 +41,18 @@ def clusters(idx,gap):
         else: out.append([i,i])
     return out
 
-def regular_edges(edges, n_expected=None):
-    """Keep the longest run of ~equally spaced edges (drops header/footer strays)."""
+def regular_edges(edges):
+    """Longest run of ~equally spaced edges (drops header/footer strays). Pitch = median gap -
+    a run breaks wherever a gap departs from it, so a title underline or table-caption rule
+    above the grid (some editions print one ~150px over the first cell border, far under the
+    ~880px row pitch) can't anchor a spurious top row."""
     if len(edges)<3: return edges
-    diffs=np.diff(edges); med=np.median(diffs)
-    keep=[edges[0]]
-    for i in range(1,len(edges)):
-        if abs(edges[i]-keep[-1]-med) < 0.4*med or len(keep)==1 and abs(edges[i]-keep[-1])<1.6*med:
-            keep.append(edges[i])
-        elif edges[i]-keep[-1] > 1.6*med:
-            # gap too big: stop extending (stray below grid)
-            break
-    return keep
+    med=np.median(np.diff(edges))
+    best=[]; run=[edges[0]]
+    for e in edges[1:]:
+        run=run+[e] if abs(e-run[-1]-med)<0.4*med else [e]
+        if len(run)>len(best): best=run
+    return best
 
 def detect_grid(arr):
     H,W=arr.shape[:2]; dark=arr[...,:3].mean(2)<INK

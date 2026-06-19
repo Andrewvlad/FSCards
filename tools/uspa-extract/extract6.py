@@ -1,19 +1,24 @@
 #!/usr/bin/env python3
-"""Extract the 5 USPA 6-Way Speed formation cells from SCM Ch.7 Appendix D (p17).
-Layout: row1 = cells 1-4 across, row2 = cell 5 (col 1). Each cell: number top-left, vector
-formation diagram, name centred at bottom, black border. Output mirrors the 10-way-speed USPA style:
-named = number+diagram+name on white (border removed); figure = diagram only (number+name
-erased glyph-precisely via ext_rand's erase_names from the PDF text layer)."""
+"""Extract the USPA 6-Way Speed formation cells from SCM Ch.7 (page located via find_pages).
+The cells form a left-justified grid (the pool has run 3 formations in one row up to 5 across
+two), found by scanning the WHOLE page for its border lines - never hardcoded page positions or
+a fixed cell count. Each cell: number top-left, vector formation diagram, name centred at bottom,
+black border. Output mirrors the 10-way-speed USPA style: named = number+diagram+name on white
+(border removed); figure = diagram only (number+name erased glyph-precisely via ext_rand's
+erase_names from the PDF text layer)."""
 import os, sys
 import numpy as np
 from PIL import Image
-import ext_rand
+import ext_rand, find_pages
 
-ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/scm_ch07.pdf"
+ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/collegiate.pdf"
 ext_rand.CACHE = "/tmp/fsx_ch7"
-PAGE, DPI = 17, 600
+DPI = 600
 OUTDIR = "/tmp/fsx_out/ch7/6-way-speed"
 INK = 140
+# Locate the 6-Way Speed Formations page from the headers (single page, no random/block split)
+_rnd, _other = find_pages.pages_for(ext_rand.PDF, {None, "FS"}, 6)
+PAGE = _other[0] if _other else None
 
 def longest_run(b):
     if not b.any():
@@ -48,30 +53,54 @@ def hlines(ink, x0, x1, min_len, gap=20):
 def save_webp(arr, path):
     Image.fromarray(arr).save(path, "WEBP", lossless=True, method=6)
 
+def vrun_span(col):
+    """[start, end) of the longest contiguous run in a boolean column - a border's true vertical
+    extent. A horizontal rule (title underline, footer) crossing the column is only ~2px, so it
+    never wins, keeping the grid's span clear of those strays."""
+    best = (0, 0, 0); s = None
+    for i, v in enumerate(col):
+        if v:
+            if s is None: s = i
+        elif s is not None:
+            if i - s > best[0]: best = (i - s, s, i)
+            s = None
+    if s is not None and len(col) - s > best[0]: best = (len(col) - s, s, len(col))
+    return best[1], best[2]
+
 def detect(g):
+    """Find the formation grid by scanning the WHOLE page for its border lines - no hardcoded
+    page-fraction bands (the grid's position shifts between editions). The grid's vertical span
+    comes from each detected vertical's longest run, then horizontals are read inside that span
+    across column 1 (present in every row), so the title and footer rules drop out."""
     ink = g < INK
     H, W = g.shape
-    # cells live in the top region; ignore the footer band entirely
-    top = int(0.45 * H)
-    # vertical borders across the row1 band
-    vy0, vy1 = int(0.12 * H), int(0.40 * H)
-    vx = vlines(ink, vy0, vy1, min_len=int(0.10 * H), gap=40)
-    # horizontal borders within the left column (covers both rows)
-    hx0, hx1 = vx[0], vx[1] if len(vx) > 1 else W
-    hy = [y for y in hlines(ink, hx0 + 10, hx1 - 10, min_len=int(0.6 * (hx1 - hx0)), gap=40) if y < top]
-    return vx, hy, (H, W)
+    vx = vlines(ink, 0, H, min_len=int(0.10 * H), gap=40)        # one cell tall - col-1 dividers span more
+    if len(vx) < 2:
+        return vx, [], ink, (H, W)                              # no grid: caller skips gracefully
+    spans = [vrun_span(ink[:, x]) for x in vx]
+    gtop = min(s for s, _ in spans); gbot = max(e for _, e in spans)
+    hy = [y for y in hlines(ink, vx[0], vx[1], min_len=int(0.6 * (vx[1] - vx[0])), gap=40)
+          if gtop - 25 <= y <= gbot + 25]
+    return vx, hy, ink, (H, W)
 
-def boxes_from(vx, hy):
-    """Build the 5 cell boxes from detected borders.
-    Columns: consecutive vx pairs (cell left/right). Rows: hy = [r1top, r1bot/r2top, r2bot]."""
-    cols = [(vx[i], vx[i + 1]) for i in range(len(vx) - 1)]
-    boxes = []
-    r1t, r1b = hy[0], hy[1]
-    for c, (x0, x1) in enumerate(cols[:4]):
-        boxes.append((c + 1, x0, x1, r1t, r1b))
-    # row 2: cell 5 under column 1
-    r2t, r2b = hy[1], hy[2]
-    boxes.append((5, cols[0][0], cols[0][1], r2t, r2b))
+def vpresent(ink, x, y0, y1, frac=0.6):
+    """A vertical divider spans row band [y0,y1] near column x - i.e. this cell exists in this
+    row. Lets a later row carry fewer cells than the widest (top) row."""
+    band = y1 - y0
+    W = ink.shape[1]
+    return max(longest_run(ink[y0 + 5:y1 - 5, xx]) for xx in range(max(0, x - 12), min(W, x + 12))) >= frac * band
+
+def boxes_from(vx, hy, ink):
+    """Number the cells row-major over however many rows/cells are drawn. Each row is
+    left-justified, so its cells are the prefix of vx whose dividers actually span that row's
+    band - no fixed 4-across/1-below assumption."""
+    boxes = []; k = 0
+    for r in range(len(hy) - 1):
+        y0, y1 = hy[r], hy[r + 1]
+        present = [x for x in vx if vpresent(ink, x, y0, y1)]
+        for c in range(len(present) - 1):
+            k += 1
+            boxes.append((k, present[c], present[c + 1], y0, y1))
     return boxes
 
 def band_inner(g, coord, p0, p1, axis, step, thr=245, frac=0.80):
@@ -97,12 +126,16 @@ def interior_bounds(g, x0, x1, y0, y1):
     return cx0, cy0, cx1, cy1
 
 if __name__ == "__main__":
+    if PAGE is None:
+        print("6-way-speed: page not found, skipping"); sys.exit(0)
     g = np.array(Image.fromarray(ext_rand.render(PAGE, DPI)).convert("L"))
-    vx, hy, (H, W) = detect(g)
+    vx, hy, ink, (H, W) = detect(g)
+    if len(vx) < 2 or len(hy) < 2:
+        print("6-way-speed: grid not detected, skipping"); sys.exit(0)
     print("H,W =", H, W)
     print("vx (vertical borders):", vx)
     print("hy (horizontal borders):", hy)
-    boxes = boxes_from(vx, hy)
+    boxes = boxes_from(vx, hy, ink)
     print("boxes:", [(k, x0, x1, y0, y1) for k, x0, x1, y0, y1 in boxes])
 
     do_extract = "--extract" in sys.argv
