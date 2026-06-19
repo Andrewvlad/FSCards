@@ -43,6 +43,7 @@ REPO = f"{ROOT}/assets/diagrams"
 CARD_SIZES = {(300, 300), (300, 900)}  # anything else (header banners, legend pages) is not a card
 INK_BLACK = 110   # max(rgb) below this = solid black ink; grey art is ~179, colours have one high channel
 HALO = 2          # px ring of anti-alias residue whited around an erased glyph
+MIN_STAGED_RATIO = 0.5   # staged/installed floor - a resolution bump stages 0 cards, must fail loud not open an empty PR
 
 
 def embeds(pdf):
@@ -359,6 +360,10 @@ if __name__ == "__main__":
                 flag = "" if base is None or (dist < GLYPH_OK and dist2 > 2 * dist) \
                     else f"  CHECK key dist={dist:.3f} next={dist2:.3f}"
                 staged[key] = (arr, flag)
+        expected = len(glob.glob(f"{REPO}/{d}/Axis/*.webp"))   # installed cards = this run's floor (figures/ excluded)
+        if len(staged) < MIN_STAGED_RATIO * expected:
+            sys.exit(f"{d}: staged {len(staged)} cards, under half the {expected} installed - "
+                     f"likely a source resolution change, check CARD_SIZES {CARD_SIZES}")
         for key in sorted(staged):
             arr, flag = staged[key]
             arr, nbadges = remove_badges(arr)

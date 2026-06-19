@@ -80,6 +80,13 @@ jobs:
                       tail -1 "$RUNNER_TEMP/install.log"
                   } >> "$GITHUB_STEP_SUMMARY"
 
+            - name: Validate pool ordering
+              if: steps.commit.outputs.changed == 'true'
+              run: |
+                  # Post-install, so it sees exactly the sets the PR proposes.
+                  # tee+|| true keeps a warning non-blocking, so the PR still opens with the warning shown
+                  python3 tools/validate_ordering.py ${{ steps.commit.outputs.disciplines }} | tee "$RUNNER_TEMP/ordering.log" || true
+
             - name: Measure panel cuts (for tri-panel splitting)
               id: measure
               if: steps.commit.outputs.changed == 'true'
@@ -113,6 +120,11 @@ jobs:
                       cat "$RUNNER_TEMP/install.log"
                       echo '```'
                       echo
+                      echo '### Ordering check'
+                      echo 'Randoms run A.. (skip I), blocks 1..N. A warning flags a mis-cut key or a reordered edition.'
+                      echo '```'
+                      grep '\[ordering\]' "$RUNNER_TEMP/ordering.log" || echo '(ordering-check output unavailable)'
+                      echo '```'
                       # Mapping flags section only when the recut flagged uncertain key matches
                       if [ -n "$flags" ]; then
                           echo

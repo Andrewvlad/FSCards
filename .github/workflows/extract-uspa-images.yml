@@ -67,6 +67,13 @@ jobs:
                       tail -1 "$RUNNER_TEMP/install.log"
                   } >> "$GITHUB_STEP_SUMMARY"
 
+            - name: Validate pool ordering
+              if: steps.commit.outputs.changed == 'true'
+              run: |
+                  # Post-install, so it sees exactly the sets the PR proposes (after PROTECT/orphan-delete).
+                  # tee+|| true keeps a warning non-blocking, so the PR still opens with the warning shown
+                  python3 tools/validate_ordering.py ${{ steps.commit.outputs.disciplines }} | tee "$RUNNER_TEMP/ordering.log" || true
+
             - name: Measure panel cuts (for tri-panel splitting)
               id: measure
               if: steps.commit.outputs.changed == 'true'
@@ -97,6 +104,12 @@ jobs:
                       echo '### Extraction summary'
                       echo '```'
                       cat "$RUNNER_TEMP/install.log"
+                      echo '```'
+                      echo
+                      echo '### Ordering check'
+                      echo 'Randoms run A.. (FS skip I, CF with I), blocks 1..N. A warning flags a mis-cut key or a reordered edition.'
+                      echo '```'
+                      grep '\[ordering\]' "$RUNNER_TEMP/ordering.log" || echo '(ordering-check output unavailable)'
                       echo '```'
                       echo
                       echo 'The 4-way `R`/Bundy card is CISM-only, absent from the SCM, so it is never re-cut and stays as shipped. The 8-way `D`/Hope Diamond hand graft re-proposes on a re-cut - `/reject D` to keep it. The re-cut is **not** auto-merged: verify the diagrams, reject what you do not want, or re-run `driver_ch9.py` / `driver_ch7.py` by hand for a deeper re-cut.'
