@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
-"""Extract the FAI ISC FS dive-pool diagrams from the 2026 CR PDF annexes
-(4-way pp17-20, 8-way pp21-24; the VFS annex is skipped -- its art is USPA's,
-"Images Copyright United States Parachute Association", already shipped better
-in the USPA set). Each page embeds the complete art as a single native raster
+"""Extract the FAI ISC FS dive-pool diagrams from the CR PDF annexes (4-way +
+8-way - the VFS annex is skipped -- its art is USPA's, "Images Copyright United
+States Parachute Association", already shipped better in the USPA set). Annex
+pages are LOCATED per edition from their running titles (locate(), never
+hardcoded -- CR front matter and annex order drift every revision). Each page
+embeds the complete art as a single native raster
 (verified: a render adds only page furniture), so cells cut 1:1 from the
 composited rasters, zero resample, saved as lossless webp at source size.
 
-The pages carry key+name baked into the art (no per-cell text layer). Cells are
+The pages carry key+name baked into the art (no per-cell text layer), so each cell's
+key is READ by matching its baked top-left key glyph against a template library harvested
+from the installed FAI set (key_templates / read_key, the same approach axis-extract uses on
+its identical no-text-layer PDFs) -- never a hardcoded key list or grid position, so a pool
+reorder or addition is picked up from the art itself. Cells are
 cropped between the full extents of the detected grid lines, shedding only the
 lines' own pixels and anti-alias fringe -- no original white space is removed
 (gapped block-row seams keep both lines -- midpoint-merging them bled each row's
@@ -20,16 +26,23 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
-PDF = f"{ROOT}/assets/sources/fai/fai_fs_2026.pdf"
+PDF = f"{ROOT}/assets/sources/fai/fs.pdf"   # current edition (legacy driver overrides per edition)
+REPO = f"{ROOT}/assets/diagrams"   # installed sets, harvested for key-glyph templates
 INK = 120
 
-RAND_KEYS = list("ABCDEFGHJKLMNOPQ")          # 16, I skipped
-BLOCK_KEYS = [str(i) for i in range(1, 23)]   # 1..22
+# Top-left key location, as (H-frac, W-frac) - shared by erase_key (erases it) and keyglyph
+# (reads it). FAI art is solid black like the key, so position + size isolate it, not colour.
+KEY_ZONE = (0.22, 0.28)   # corner the key sits in
+KEY_CAP = (0.16, 0.12)    # max single key-glyph component size
 
 def native(page):
     """The page's largest embedded raster, composited over white through its
-    smask (paired by PDF object number) when one is embedded."""
-    stem = f"/tmp/faiext/nat/p{page}"
+    smask (paired by PDF object number) when one is embedded. The page-raster cache
+    is keyed by the source PDF (parent dir + stem) so the legacy driver can extract
+    many editions in one process without page-number collisions."""
+    sub = f"{os.path.basename(os.path.dirname(PDF))}_{os.path.splitext(os.path.basename(PDF))[0]}"
+    stem = f"/tmp/faiext/nat/{sub}/p{page}"
+    os.makedirs(os.path.dirname(stem), exist_ok=True)
     if not glob.glob(stem + "-*.png"):
         subprocess.run(["pdfimages", "-png", "-f", str(page), "-l", str(page), PDF, stem],
                        check=True, capture_output=True)
@@ -163,20 +176,17 @@ def despeckle(arr):
     return arr
 
 def columns(spans):
-    """Pair sorted vertical-line spans into (L, R) column pairs via interior-width
-    walk. Box interior ~5x the inter-box gap, so a centre-distance near the median
-    interior is a column; a small gap or a far stray is skipped."""
+    """Cell columns from sorted vertical-line spans: a cell is any adjacent line-pair
+    whose gap is near the median cell width. Handles both block layouts -- paired-border
+    strips (2026: own L+R per strip, narrow gutter between, 8 lines -> 4 cells - the gutter
+    stays under the width threshold) and contiguous shared-border grids (2018/22: one line
+    per boundary, equal gaps, 5 lines -> 4 cells). The earlier skip-ahead-by-two paired
+    (0,1)(2,3) and dropped every other column on the contiguous grid."""
     xs = [centre(s) for s in spans]
     diffs = [b - a for a, b in zip(xs, xs[1:])]
     interior = np.median([d for d in diffs if d > 0.10 * (xs[-1] - xs[0])]) if diffs else 0
-    cols, i = [], 0
-    while i < len(spans) - 1:
-        w = xs[i + 1] - xs[i]
-        if 0.7 * interior < w < 1.35 * interior:
-            cols.append((spans[i], spans[i + 1])); i += 2
-        else:
-            i += 1
-    return cols
+    return [(spans[i], spans[i + 1]) for i in range(len(spans) - 1)
+            if 0.7 * interior < xs[i + 1] - xs[i] < 1.35 * interior]
 
 # ---- glyph erase (operates in-place on an RGB panel crop) ----
 def erase_glyphs(panel, zone, hcap, wcap, baseline=None):
@@ -243,9 +253,11 @@ def erase_glyphs(panel, zone, hcap, wcap, baseline=None):
                       & ((sub == i) | (sub == 0))] = 255
 
 def erase_key(panel):
-    """Key glyph: digits/letter in the top-left corner of the (first) panel."""
+    """Key glyph: digits/letter in the top-left corner of the (first) panel. Zone + size caps
+    (KEY_ZONE / KEY_CAP) are shared with keyglyph, which reads the same glyph for naming."""
     H, W = panel.shape[:2]
-    erase_glyphs(panel, (0, int(0.22 * H), 0, int(0.28 * W)), int(0.16 * H), int(0.12 * W))
+    erase_glyphs(panel, (0, int(KEY_ZONE[0] * H), 0, int(KEY_ZONE[1] * W)),
+                 int(KEY_CAP[0] * H), int(KEY_CAP[1] * W))
 
 def erase_caption(panel):
     """Caption (name / 'Inter') in the bottom band of a panel -- full width, since a
@@ -274,31 +286,154 @@ def sliced_components(named, fig):
 def save(arr, path):
     Image.fromarray(arr).save(path, "WEBP", lossless=True, quality=100, method=6)
 
+# ---- key reading (match the baked key glyph vs templates from the installed set) ----
+GLYPH_OK = 0.10   # key-match mismatch fraction ceiling before a CHECK flag
+
+def keyglyph(panel):
+    """Binary crop of the baked top-left key (a letter A-Q, or a 1-2 digit block number),
+    or None when the corner holds no glyph. Isolated by the same top-left zone + size caps
+    erase_key uses: FAI art is solid black like the key, so position and size separate them,
+    not colour (the trick axis-extract leans on with its grey art). Two-digit keys land as two
+    components inside the zone - their union is cropped to one mask so '10'..'22' read whole."""
+    H, W = panel.shape[:2]
+    lab, _ = ndimage.label(panel.mean(2) < INK)
+    y1z, x1z = int(KEY_ZONE[0] * H), int(KEY_ZONE[1] * W)
+    hcap, wcap = int(KEY_CAP[0] * H), int(KEY_CAP[1] * W)
+    boxes = []
+    for i, sl in enumerate(ndimage.find_objects(lab), 1):
+        if sl is None: continue
+        sy, sx = sl
+        if (sy.stop <= y1z and sx.stop <= x1z
+                and sy.stop - sy.start <= hcap and sx.stop - sx.start <= wcap):
+            boxes.append((sy.start, sy.stop, sx.start, sx.stop, i))
+    if not boxes:
+        return None
+    y0, y1 = min(b[0] for b in boxes), max(b[1] for b in boxes)
+    x0, x1 = min(b[2] for b in boxes), max(b[3] for b in boxes)
+    return np.isin(lab[y0:y1, x0:x1], [b[4] for b in boxes])
+
+def glyph_dist(a, b):
+    """Mismatch fraction of two key crops, centre-padded to a common box. Every cell of one
+    edition bakes its key at one pixel size, so no rescale -- a size gate rejects a different
+    key-string length (a 1-digit vs a 2-digit block) outright."""
+    if abs(a.shape[0] - b.shape[0]) > 5 or abs(a.shape[1] - b.shape[1]) > 7:
+        return 1.0
+    H, W = max(a.shape[0], b.shape[0]), max(a.shape[1], b.shape[1])
+    pads = []
+    for g in (a, b):
+        p = np.zeros((H, W), bool)
+        y, x = (H - g.shape[0]) // 2, (W - g.shape[1]) // 2
+        p[y:y + g.shape[0], x:x + g.shape[1]] = g
+        pads.append(p)
+    return float((pads[0] ^ pads[1]).mean())
+
+def key_templates():
+    """Key string -> key-glyph crops, harvested from the installed (verified-correct) FAI
+    cards of both disciplines. The filename IS the key and the baked art IS the glyph, so the
+    key->glyph map is read from shipped ground truth -- no hardcoded list. (13_indoor bakes a
+    plain '13' - the keyless starting-formation cards are skipped.)"""
+    lib = {}
+    for d in ("4-way", "8-way"):
+        for rf in sorted(glob.glob(f"{REPO}/{d}/FAI/*.webp")):
+            base = os.path.basename(rf)[:-5].split("_")[0]
+            if base == "starting-formation":
+                continue
+            arr = np.array(Image.open(rf).convert("RGB"))
+            H, W = arr.shape[:2]
+            if H > 1.5 * W: arr = arr[:H // 3]   # block strip: the key sits in panel 1 only
+            g = keyglyph(arr)
+            if g is not None:
+                lib.setdefault(base, []).append(g)
+    return lib
+
+def read_key(panel, lib):
+    """Best-matching template key for a cell crop - returns (key, dist, runner-up dist)."""
+    g = keyglyph(panel)
+    if g is None:
+        return None, 1.0, 1.0
+    scores = sorted((min(glyph_dist(g, t) for t in temps), key)
+                    for key, temps in lib.items())
+    return scores[0][1], scores[0][0], (scores[1][0] if len(scores) > 1 else 1.0)
+
+# ---- page location (running titles, never hardcoded -- annex pagination drifts per edition) ----
+# Key on the stable core 'CURRENT [INDOOR ][VERTICAL ]FORMATION SKYDIVING <N>-WAY <BLOCK|RANDOM>
+# POOL' shared by every edition - the prefix drifts ('Addendum <L> -' 2018, none 2022-24,
+# 'ANNEX <L> -' 2025-26) so it is not matched. The optional 'INDOOR' word marks the Indoor CR's
+# 8-way pool (usis.py), distinct from the outdoor 8-way. 'current' anchors the title, never in body.
+ANNEX = re.compile(
+    r'current\s+(indoor\s+)?(vertical\s+)?formation\s+skydiving'
+    r'\s+(\d+)\s*-?\s*way\s+(block|random)\s+pool', re.I)
+
+def page_annex(text):
+    """The single annex a page is the title page OF, as (style, width, section, indoor), else None.
+    Only an annex's title (first) page carries the running title - continuation pages do not, so
+    the block-span logic in locate() stays correct. A TOC dot-leader line and the contents page
+    (which lists every annex) are rejected by keeping only a page that names exactly one annex."""
+    found = set()
+    for line in text.splitlines():
+        if '..' in line: continue
+        m = ANNEX.search(line)
+        if m:
+            found.add(("VFS" if m.group(2) else "FS", int(m.group(3)), m.group(4).lower(), bool(m.group(1))))
+    return next(iter(found)) if len(found) == 1 else None
+
+def locate(pdf, style="FS", widths=(4, 8), indoor=False):
+    """Map each requested discipline to (randoms_page, [block_pages]) by reading the annex
+    running titles. A block annex spans from its title page to the next annex's - a random annex
+    is one page. Every annex (incl. VFS / indoor) is read to bound the spans, then ones off the
+    requested style / width / indoor flag dropped (usis.py asks for indoor 8-way)."""
+    pages = subprocess.run(["pdftotext", "-layout", pdf, "-"],
+                           capture_output=True, text=True, check=True).stdout.split("\f")
+    hits = {}
+    for n, pg in enumerate(pages, 1):
+        a = page_annex(pg)
+        if a: hits[n] = a
+    starts = sorted(hits)
+    jobs = {}
+    for i, p in enumerate(starts):
+        st, width, section, ind = hits[p]
+        end = starts[i + 1] - 1 if i + 1 < len(starts) else len(pages)
+        if st != style or width not in widths or ind != indoor: continue
+        j = jobs.setdefault(f"{width}-way", {"rand": None, "blocks": []})
+        if section == "random": j["rand"] = p
+        else: j["blocks"] = list(range(p, end + 1))
+    return {d: (j["rand"], j["blocks"]) for d, j in jobs.items()}
+
 # ---- page geometry ----
 def extract_randoms(page):
-    """4x4 contiguous grid (16 randoms A-Q, shared borders). Row edges are snapped
-    to a square pitch (= the column width) anchored on the detected H-lines -- some
-    pages (p20) render the top row border at < half width, missing detection -- then
-    each predicted edge refines to the detected span where one exists."""
-    arr = native(page); dark = arr.mean(2) < INK
+    """4x4 contiguous grid (16 randoms A-Q, shared borders). Row edges anchor on the
+    detected H-lines at the rows' OWN pitch (their median spacing), not the column width:
+    cells are square on recent editions but ~3% shorter than wide on 2018, and assuming
+    square overshot the raster. Column width is only a fallback pitch when under two H-lines
+    are found. Some pages (p20) render the top border at < half width, missing detection, so
+    the grid is reconstructed by pitch and each predicted edge refines to a detected span -
+    an anchor whose grid would fall off the raster is rejected, the per-edge fallback clamped."""
+    arr = native(page); H = arr.shape[0]; dark = arr.mean(2) < INK
     vs = line_spans(dark, 1, 0.45)
     hs = line_spans(dark, 0, 0.40)
-    w = float(np.median([centre(b) - centre(a) for a, b in zip(vs, vs[1:])]))   # square cell pitch
-    best = None
+    w = float(np.median([centre(b) - centre(a) for a, b in zip(vs, vs[1:])]))
+    ph = float(np.median([centre(b) - centre(a) for a, b in zip(hs, hs[1:])])) if len(hs) > 1 else w
+    # prefer the highest score, then the TOPMOST grid (weak top borders on some pages tie a correct
+    # top-anchored grid with a wrong one built into blank space). Track the best grid that FITS the
+    # raster and the best overall - the fit guard can reject every anchor (over-estimated pitch), so
+    # fall back to the best overall, then to a raster-top anchor when there are no H-lines at all.
+    best = fitted = None
     for ln in hs:
         for k in range(4):
-            y0 = centre(ln) - k * w
-            if y0 < -0.02 * w: continue
-            edges = [y0 + j * w for j in range(5)]
-            score = sum(1 for e in edges if any(abs(e - centre(l)) < 0.10 * w for l in hs))
-            # prefer the highest score, then the TOPMOST grid (weak top borders on some
-            # pages tie a correct top-anchored grid with a wrong one built into blank space)
+            y0 = centre(ln) - k * ph
+            edges = [y0 + j * ph for j in range(5)]
+            score = sum(1 for e in edges if any(abs(e - centre(l)) < 0.10 * ph for l in hs))
             if best is None or score > best[0] or (score == best[0] and y0 < best[1]):
                 best = (score, y0)
+            if -0.02 * ph <= edges[0] and edges[-1] <= H + 0.02 * ph and (   # grid fits the raster
+                    fitted is None or score > fitted[0] or (score == fitted[0] and y0 < fitted[1])):
+                fitted = (score, y0)
+    best = fitted or best or (0, 0.0)
     rows = []
     for j in range(5):
-        e = best[1] + j * w
-        rows.append(next((l for l in hs if abs(centre(l) - e) < 0.10 * w), [round(e), round(e)]))
+        e = best[1] + j * ph
+        snap = next((l for l in hs if abs(centre(l) - e) < 0.10 * ph), None)
+        rows.append(snap if snap else [min(max(round(e), 0), H - 1)] * 2)
     return arr, vs, rows
 
 def extract_blocks(page):
@@ -366,56 +501,74 @@ def montage(items, path, cell_w=260):
         sheet.paste(im, ((n % cols) * cell_w, (n // cols) * (maxh + 4)))
     sheet.save(path)
 
-def process(disc, rand_page, block_pages):
-    d = f"/tmp/faiext/out/{disc}"; os.makedirs(f"{d}/figures", exist_ok=True)
-    named_qa, fig_qa, warns = [], [], 0
-    # randoms (row-major A..Q)
+def process(disc, rand_page, block_pages, lib=None, keys=None, outroot="/tmp/faiext/out"):
+    """keys=None glyph-reads each cell (live path). A list assigns the canonical pool order by
+    grid position, skipping empty slots -- the legacy corpus uses this since older editions'
+    key letterforms defeat the glyph match (validate_ordering enforces the same fixed order)."""
+    d = f"{outroot}/{disc}"; os.makedirs(f"{d}/figures", exist_ok=True)
+    named_qa, fig_qa, warns, seen = [], [], 0, set()
+    kit = iter(keys) if keys is not None else None
+    def assign(cell, region=None):
+        if kit is not None:
+            if (cell.mean(2) < INK).mean() < 0.003: return None, 0.0, 0.0   # empty slot, no key consumed
+            return next(kit, None), 0.0, 0.0
+        return read_key(region if region is not None else cell, lib)
+
+    def stage(key, dist, dist2, named, fig):
+        nonlocal warns
+        if key in seen:
+            print(f"  !! {disc}/{key}: read twice, second cell dropped"); warns += 1
+            return
+        seen.add(key)
+        # figure despeckled after its erase: a spared caption-hugging crumb loses its
+        # anchor glyphs with the caption and goes too
+        despeckle(named); despeckle(fig)
+        warns += audit(f"{disc}/{key}", named, fig)
+        save(named, f"{d}/{key}.webp"); save(fig, f"{d}/figures/{key}.webp")
+        named_qa.append((key, named)); fig_qa.append((key, fig))
+        if kit is None:   # glyph mode only: flag a low-confidence key match (no match in position mode)
+            flag = "" if dist < GLYPH_OK and dist2 > 2 * dist else f"  CHECK key dist={dist:.3f} next={dist2:.3f}"
+            if flag: print(f"  {disc}/{key}:{flag}")
+
+    # randoms (key read from each cell's baked glyph, not its grid position)
     arr, vs, rows = extract_randoms(rand_page)
-    ki = 0
-    for r in range(4):
-        for c in range(4):
-            if ki >= len(RAND_KEYS): break
-            key = RAND_KEYS[ki]; ki += 1
+    for r in range(len(rows) - 1):
+        for c in range(len(vs) - 1):
             named, _ = cut(arr, rows[r], rows[r + 1], vs[c], vs[c + 1])
+            key, dist, dist2 = assign(named)
+            if key is None: continue
             fig = named.copy(); erase_key(fig); erase_caption(fig)
-            # figure despeckled after its erase: a spared caption-hugging crumb
-            # loses its anchor glyphs with the caption and goes too
-            despeckle(named); despeckle(fig)
-            warns += audit(f"{disc}/{key}", named, fig)
-            save(named, f"{d}/{key}.webp"); save(fig, f"{d}/figures/{key}.webp")
-            named_qa.append((key, named)); fig_qa.append((key, fig))
-    # blocks (page-major, then row-major; each = 3-panel strip with its dividers kept)
-    bi = 0
+            stage(key, dist, dist2, named, fig)
+    # blocks (each = 3-panel strip with its dividers kept - key baked top-left of panel 1)
     for pg in block_pages:
         arr, cols, boxes = extract_blocks(pg)
         for (top, d1, d2, bot) in boxes:
             for (left, right) in cols:
-                if bi >= len(BLOCK_KEYS): break
-                key = BLOCK_KEYS[bi]; bi += 1
                 named, org = cut(arr, top, bot, left, right)
-                fig = named.copy()
                 # panel content bounds in crop coords -- divider cores excluded by
                 # the span slices, then shrunk past the lines' AA fringe: those
                 # rows otherwise form a full-width sub-white component INSIDE the
                 # slice that a caption descender fuses with, hiding its glyph from
                 # the erase (8-way 15 "Zippers" kept both p's)
-                p = [0, d1[0] - org, d1[1] + 1 - org, d2[0] - org, d2[1] + 1 - org, fig.shape[0]]
-                g = fig.mean(2)
+                g = named.mean(2)
+                raw = [0, d1[0] - org, d1[1] + 1 - org, d2[0] - org, d2[1] + 1 - org, named.shape[0]]
                 p = [v for s in range(3)
-                     for v in shrink(g, p[2 * s], p[2 * s + 1], 0, fig.shape[1])[:2]]
+                     for v in shrink(g, raw[2 * s], raw[2 * s + 1], 0, named.shape[1])[:2]]
+                key, dist, dist2 = assign(named, named[p[0]:p[1]])
+                if key is None: continue
+                fig = named.copy()
                 erase_key(fig[p[0]:p[1]])
                 for s in range(3):
                     erase_caption(fig[p[2 * s]:p[2 * s + 1]])
-                despeckle(named); despeckle(fig)
-                warns += audit(f"{disc}/{key}", named, fig)
-                save(named, f"{d}/{key}.webp"); save(fig, f"{d}/figures/{key}.webp")
-                named_qa.append((key, named)); fig_qa.append((key, fig))
+                stage(key, dist, dist2, named, fig)
     montage(named_qa, f"/tmp/faiext/qa_{disc}_named.png")
     montage(fig_qa, f"/tmp/faiext/qa_{disc}_fig.png")
-    print(f"{disc}: randoms={ki} blocks={bi} warnings={warns} -> {d}")
+    print(f"{disc}: {len(seen)} cards warnings={warns} -> {d}")
 
 if __name__ == "__main__":
     os.makedirs("/tmp/faiext/nat", exist_ok=True)   # extraction + QA staging
-    JOBS = {"4-way": (20, [17, 18, 19]), "8-way": (24, [21, 22, 23])}
+    lib = key_templates()
+    assert lib, "no FAI key templates harvested -- is the FAI set installed under assets/diagrams?"
+    JOBS = locate(PDF)
     for disc, (rp, bps) in JOBS.items():
-        process(disc, rp, bps)
+        process(disc, rp, bps, lib)

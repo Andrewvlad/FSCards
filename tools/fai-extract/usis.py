@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Extract the USIS set (FAI indoor 8-way pool) from the 2026 Indoor FS CR PDF,
-committed at assets/sources/fai/fai_indoor_2026.pdf (originally fai.org).
+committed at assets/sources/fai/indoor.pdf (originally fai.org).
 Dive-pool pages: p26 blocks 1-8, p27 blocks 9-16, p28 blocks 17-22, p29 randoms
 A-Q, p30 the two starting-formation reference cards.
 
@@ -19,10 +19,10 @@ indoor-variant blocks install, renamed assets/diagrams/8-way/FAI/<13|17|20>_indo
 cell is byte-identical to extract.py's outdoor FAI cell (same embedded art in
 both CRs, same pipeline) except block 21, which differs only by ~45 px of
 anti-alias jitter -- the staged set doubles as a cross-PDF consistency check."""
-import os, subprocess, glob
+import os, sys, subprocess, glob
 import numpy as np
 from PIL import Image
-from extract import (ROOT, runmax0, runmax1, line_spans, shrink, edge_fringe,
+from extract import (ROOT, locate, runmax0, runmax1, line_spans, shrink, edge_fringe,
                      edge_remnants, despeckle, erase_glyphs, erase_key,
                      erase_caption, sliced_components, save, montage)
 
@@ -34,14 +34,16 @@ def clusters(idx, gap):
         else: out.append([int(i), int(i)])
     return [int((a + b) / 2) for a, b in out]
 
-PDF = f"{ROOT}/assets/sources/fai/fai_indoor_2026.pdf"
+PDF = f"{ROOT}/assets/sources/fai/indoor.pdf"   # current edition (argv overrides for a manual per-edition run)
 OUT = "/tmp/usisext"
 INK = 110
+BLOCK = [str(n) for n in range(1, 23)]   # block keys 1-22 (cropped in reading order)
+RAND = list("ABCDEFGHJKLMNOPQ")          # random keys A-Q (skip I)
 
 def rasters(page):
     """All content rasters of a page (in placement order), each composited over
     white through its smask (paired by PDF object number) when one is embedded."""
-    stem = f"{OUT}/nat/p{page}"
+    stem = f"{OUT}/nat/{os.path.splitext(os.path.basename(PDF))[0]}-p{page}"   # PDF-qualified: editions don't share a cell
     if not glob.glob(stem + "-*.png"):
         subprocess.run(["pdfimages", "-png", "-f", str(page), "-l", str(page), PDF, stem],
                        check=True, capture_output=True)
@@ -70,27 +72,39 @@ def line_runs(b, minlen):
     if s is not None and len(b) - s >= minlen: out.append((s, len(b) - 1))
     return out
 
-def crop_blocks(arr, keys_by_band):
-    """4 cols x 2 block-bands per page; cells cut between paired border verticals,
-    band extents read off the first border column. The last page's second band has
-    only blocks 21-22, so near-empty cells are skipped by ink fill."""
+def column_pairs(xs):
+    """Cell columns from sorted vertical border centres: every adjacent pair whose gap is
+    near the median cell width. Handles gutter-separated strips and contiguous shared-border
+    grids alike (older editions), the same fix extract.columns carries."""
+    diffs = [b - a for a, b in zip(xs, xs[1:])]
+    interior = np.median([d for d in diffs if d > 0.10 * (xs[-1] - xs[0])]) if diffs else 0
+    return [(xs[i], xs[i + 1]) for i in range(len(xs) - 1)
+            if 0.7 * interior < xs[i + 1] - xs[i] < 1.35 * interior]
+
+def crop_blocks(arr, keys):
+    """Block strips across a page's bands x columns, assigned sequential keys (next(keys)) in
+    reading order - a near-empty cell (the last page's unused slots) is skipped without consuming
+    a key. Columns via column_pairs, band extents off the first border column."""
     B = np.array(Image.fromarray(arr).convert("L")) < INK
-    xs = clusters(np.where(runmax0(B) >= 500)[0], 6)
-    pairs = [(xs[2 * m], xs[2 * m + 1]) for m in range(len(xs) // 2)]
-    bands = line_runs(B[:, max(0, xs[0] - 1):xs[0] + 2].any(1), 400)
+    H = B.shape[0]
+    xs = clusters(np.where(runmax0(B) >= int(0.25 * H))[0], 6)   # border spans a band (~0.46 H)
+    cols = column_pairs(xs)
+    bands = line_runs(B[:, max(0, xs[0] - 1):xs[0] + 2].any(1), int(0.20 * H))
     cells = {}
-    for bi, (y0, y1) in enumerate(bands):
-        for ci, (x0, x1) in enumerate(pairs):
-            if ci >= len(keys_by_band[bi]): continue
+    for (y0, y1) in bands:
+        for (x0, x1) in cols:
             if B[y0:y1 + 1, x0:x1 + 1].mean() < 0.01: continue
-            cells[keys_by_band[bi][ci]] = arr[y0:y1 + 1, x0:x1 + 1]
+            k = next(keys, None)
+            if k is None: return cells
+            cells[k] = arr[y0:y1 + 1, x0:x1 + 1]
     return cells
 
 def crop_randoms(arr):
     """Contiguous 4x4 grid: adjacent cells share their border lines."""
     B = np.array(Image.fromarray(arr).convert("L")) < INK
-    xs = clusters(np.where(runmax0(B) >= 800)[0], 6)
-    ys = clusters(np.where(runmax1(B) >= 800)[0], 6)
+    H, W = B.shape                                               # border spans full contiguous grid
+    xs = clusters(np.where(runmax0(B) >= int(0.6 * H))[0], 6)
+    ys = clusters(np.where(runmax1(B) >= int(0.6 * W))[0], 6)
     rmap = [list("ABCD"), list("EFGH"), list("JKLM"), list("NOPQ")]
     return {rmap[r][c]: arr[ys[r]:ys[r + 1] + 1, xs[c]:xs[c + 1] + 1]
             for r in range(len(ys) - 1) for c in range(len(xs) - 1)}
@@ -150,19 +164,29 @@ def audit(key, named, fig, eraser):
     return len(warns)
 
 if __name__ == "__main__":
+    # Optional argv: <indoor pdf> <staging dir>, for a manual per-edition run - the page-raster
+    # cache (OUT/nat) is PDF-qualified, so editions never share a cell.
+    if len(sys.argv) > 1: PDF = sys.argv[1]
+    if len(sys.argv) > 2: OUT = sys.argv[2]
     d = f"{OUT}/8-way/USIS"
     os.makedirs(f"{d}/figures", exist_ok=True)
     os.makedirs(f"{OUT}/nat", exist_ok=True)
 
+    # Indoor 8-way pages located per edition (added 2020 - absent earlier -> nothing to do)
+    jobs = locate(PDF, style="FS", widths=(8,), indoor=True)
+    if "8-way" not in jobs:
+        print(f"{os.path.basename(PDF)}: no indoor 8-way pool, nothing to extract"); sys.exit(0)
+    rand_page, block_pages = jobs["8-way"]
+
+    keys = iter(BLOCK)
     cells = {}
-    for page, bands in ((26, [["1", "2", "3", "4"], ["5", "6", "7", "8"]]),
-                        (27, [["9", "10", "11", "12"], ["13", "14", "15", "16"]]),
-                        (28, [["17", "18", "19", "20"], ["21", "22"]])):
-        cells |= crop_blocks(rasters(page)[0], bands)
-    cells |= crop_randoms(rasters(29)[0])
+    for pg in block_pages:
+        cells |= crop_blocks(rasters(pg)[0], keys)
+    cells |= crop_randoms(rasters(rand_page)[0])
 
     named_qa, fig_qa, warns = [], [], 0
-    for k in [str(n) for n in range(1, 23)] + list("ABCDEFGHJKLMNOPQ"):
+    for k in BLOCK + RAND:
+        if k not in cells: continue   # an older edition's indoor pool may be smaller
         named = cells[k]
         fig = erase_figure(named.copy())
         warns += audit(k, named, fig, erase_figure)
@@ -177,8 +201,8 @@ if __name__ == "__main__":
         save(named, f"{d}/{k}.webp"); save(fig, f"{d}/figures/{k}.webp")
         named_qa.append((k, named)); fig_qa.append((k, fig))
 
-    # starting formations (p30, placement order: left card, then its variant)
-    for arr, name in zip(rasters(30), ("starting-formation", "starting-formation_alt")):
+    # starting formations on the page after the randoms annex (placement order: card, then variant)
+    for arr, name in zip(rasters(rand_page + 1), ("starting-formation", "starting-formation_alt")):
         fig = erase_start_label(arr.copy())
         warns += audit(name, arr, fig, erase_start_label)
         ys, xs = strip_border(arr)

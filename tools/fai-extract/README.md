@@ -7,18 +7,23 @@ size** — never resampled.
 
 | script | set | source | pages |
 |---|---|---|---|
-| `extract.py` | `FAI` (4-way, 8-way) | `fai_fs_2026.pdf` (2026 FS CR) | 4-way blocks pp17–19, randoms p20; 8-way blocks pp21–23, randoms p24 |
-| `usis.py` | `USIS` (8-way indoor, ships merged into `FAI`) | `fai_indoor_2026.pdf` (2026 Indoor FS CR) | blocks pp26–28, randoms p29, starting formations p30 |
+| `extract.py` | `FAI` 4-way + 8-way (outdoor) | `fs.pdf` (current FS CR) | **located per edition** from annex running titles (2026: 4-way blocks pp17–19 / randoms p20, 8-way pp21–23 / p24) |
+| `usis.py` | indoor 8-way, merged into `FAI` | `indoor.pdf` (current Indoor CR) | **located per edition** (2026: blocks pp26–28, randoms p29, starting formations p30) |
+| `rext.py` | 4-way `R`/Bundy (derived) | `fs.pdf` block 12 | — |
 
-Run `python3 extract.py && python3 rext.py` (staging `/tmp/faiext/out/<d>/`) or
-`python3 usis.py` (staging `/tmp/usisext/8-way/USIS/`); install extract.py's
-output by copying over `assets/diagrams/<d>/FAI/`. The USIS cut has no
-directory of its own: only its indoor-variant blocks install, renamed
-`assets/diagrams/8-way/FAI/<13|17|20>_indoor.webp` (+ `figures/` siblings),
-plus the two starting-formation reference cards. Every other staged cell is
-byte-identical to extract.py's outdoor FAI cell (same embedded art in both
-CRs, same pipeline) except block 21, which differs only by ~45 px of
-anti-alias jitter — the staged set doubles as a cross-PDF consistency check.
+Sources are yearless and overwritten per edition (the year lives in `legacy/<year>/`); the live
+pipeline re-extracts whenever they change. Run `python3 extract.py && python3 rext.py` (outdoor
+4-way + 8-way + the derived R, staging `/tmp/faiext/out/<d>/`) and/or `python3 usis.py` (indoor
+8-way, staging `/tmp/usisext/8-way/USIS/`), then `python3 install.py` to copy the staged sets over
+`assets/diagrams/<d>/FAI/`. Install is **pixel-aware**: a card installs only when its decoded
+pixels changed (so a libwebp re-encode or a re-rendered source never floods the diff), a key that
+left the pool is deleted (refused wholesale if staging covers under half the set). The indoor cut
+ships **merged** into 8-way/FAI: only the cells whose indoor art differs from the outdoor card
+install, renamed `<13|17|20>_indoor.webp` (+ `figures/` siblings), plus the two starting-formation
+reference cards — every other indoor cell is byte-identical to the outdoor cell (block 21 differs
+only by ~45 px of anti-alias jitter, below the variant threshold), so the indoor-variant set is
+read from the art, never a hardcoded `13/17/20` list. The whole run is automated by
+`.github/workflows/extract-fai-images.yml` on a merged CR (see **Pipeline** below).
 `rext.py` adds
 **4-way `R`/Bundy** (CISM-only, absent from the FAI pool): block 12's first
 panel *is* the Bundy formation, cut with the "12" key swapped for a drawn "R"
@@ -43,6 +48,32 @@ need a render-mode page source, not `pdfimages`).
 
 ## How it works
 
+**Pages are located per edition, never hardcoded.** `locate()` reads each page's annex running
+title and keys on the stable core `CURRENT [INDOOR ][VERTICAL ]FORMATION SKYDIVING <N>-WAY
+<BLOCK|RANDOM> POOL` shared by every edition — the prefix drifts (`Addendum <L> -` in 2018, none
+in 2022–24, `ANNEX <L> -` in 2025–26) so it is not matched; `current` anchors the title and never
+appears in body text. The optional `INDOOR` word marks the Indoor CR's 8-way pool, so `usis.py`
+calls the same `locate(indoor=True, widths=(8,))` instead of hardcoded page numbers (the indoor
+8-way pool was added in 2020; 2018 has none, located as empty). A block annex spans from its title
+page to the next annex's; the contents page (which lists every annex) and TOC dot-leader lines are
+rejected by keeping only a page that names exactly one annex. This is the robustness `uspa-extract`'s
+`find_pages` relies on (CR front matter and annex order drift every revision), verified across the
+2018–2026 editions kept in `legacy/`.
+
+**Keys are read from the art, never assigned by position.** Each detected cell's baked top-left
+key glyph (`keyglyph`, isolated by the same top-left zone + size caps `erase_key` uses — FAI art is
+solid black like the key, so position and size separate them, not colour) is matched (`glyph_dist`,
+size-gated mismatch fraction) against a template library harvested from the installed FAI set
+(`key_templates`: the filename is the key, the baked art is the glyph), and the cell takes its
+best match. This is the approach `axis-extract` uses on its identical no-text-layer PDFs, so a pool
+reorder or addition is picked up from the art itself, with no `RAND_KEYS`/`BLOCK_KEYS` list to edit.
+A block's key lives in panel 1, so its strip is sliced to the first panel both when harvesting and
+when reading. A weak or ambiguous match prints a `CHECK` flag; a key read twice is dropped with a
+`!!`. Verified on the 2026 CR: the glyph reads reproduce the old positional output byte-for-byte
+(152/152 cells) and recover every cell's own key from pixels alone (80/80, both disciplines,
+including the synthetic `R` and the `_indoor` variants). Harvesting depends on the installed set
+existing — a fresh checkout always has it (it is shipped), and an empty harvest asserts loudly.
+
 Every extracted page embeds its complete art as **one native raster** (verified:
 a page render adds only title/footer furniture), composited over white through
 its smask when one is embedded (paired by PDF object number in `pdfimages
@@ -65,9 +96,15 @@ so geometry and text removal are pixel-based:
   margin row still stops the walk before any caption or art. Gapped
   block-row seams keep both lines — the earlier midpoint-merge bled each row's
   border into its neighbour (stray line at a cell's top/bottom). Only
-  near-duplicates (< 0.1 pitch) merge. Randoms rows snap to a square pitch
-  anchored on detected lines (some pages render the top border at < half
-  width), each predicted edge refining to a detected span where one exists.
+  near-duplicates (< 0.1 pitch) merge. Randoms rows anchor on the detected
+  H-lines at the rows' own pitch (their median spacing, **not** the column
+  width: cells are square on recent editions but ~3% shorter than wide on 2018,
+  and assuming square overshot the raster), each predicted edge refining to a
+  detected span where one exists, an anchor whose grid falls off the raster
+  rejected. Block columns pair adjacent vertical lines at the median cell width,
+  so both layouts cut: gutter-separated strips (own L+R border each, 2026) and
+  the contiguous shared-border grid older editions draw (one line per boundary —
+  the earlier skip-ahead-by-two dropped every other column there).
   Neither set ships frame borders: FAI cells have none in-source, and `usis.py`
   strips USIS's printed ones by the same line+fringe rule (`strip_border`,
   applied after the erase; internal block dividers stay), matching the
@@ -138,3 +175,52 @@ The FAI and USIS strips' panels are equal thirds within ≤ 0.21% divider drift
 vs exact H/3 (the earlier 0.65–1.5% FAI figure was an artifact of the old
 fixed-margin crop), inside the ≤ 0.4% bound the app's split-panel view was
 verified against — see the split-panels note in CLAUDE.md.
+
+## Pipeline
+
+A merged FAI CR re-extracts itself. `.github/workflows/extract-fai-images.yml` fires on a push to
+`main` touching `assets/sources/fai/fs.pdf` or `indoor.pdf` (the watcher that would open
+those source PRs is not yet wired — download a CR revision by hand for now): it runs `extract.py` +
+`rext.py` when the FS CR changed and `usis.py` when either CR changed (the indoor-variant decision
+reads the outdoor cards), then `install.py`, the shared `validate_ordering.py` ordering canary and
+`panel-cuts/measure.py`, and opens a review PR with the install summary, any `CHECK` key-match
+flags, and a bot comment tabling each changed image old-vs-new (SHA-pinned raw URLs, since webp
+gets no GitHub rich diff). Reject individual cards with a `/reject <keys>` comment, or approve a
+same-art quality bump with `/upscale <keys>` (keeps the card, drops only its deprecation archive) -
+both via the shared `reject-extracted-images.yml` (e.g. `/reject 13 20_indoor:figure`); the PR is
+never auto-merged. Mirrors the AXIS and USPA extract pipelines.
+
+## Legacy and the deprecated corpus
+
+`assets/sources/fai/legacy/<year>/` holds every CR edition back to 2018, the current one included
+(see its README; 2020 FS is unrecoverable). `legacy.py` runs the live extractor over every **outdoor**
+FS edition — mapping cells to the canonical pool order **by position** (`process(keys=...)`, since the
+baked-key glyph reader is within-edition and older letterforms drift) — and compares each key's
+**name-erased figure** to the current shipped one with a shift / scale / whitespace-tolerant metric
+(ink-bbox crop, 128x128, mean abs diff), writing the deprecated-image corpus under `legacy/deprecated/`.
+The figure (art only), not the named diagram, is the deprecation signal:
+it ignores a baked name-text fix (e.g. Open Acordian -> Open Accordion), the threshold (>= 16) sitting
+above the erasure-pixel noise floor (~10-14) and below a real redraw (>= 20). It doubles as the
+extractor's cross-edition regression test: on the current-art lineage the position extraction
+reproduces the shipped set, so a clean run proves the geometry (page location, randoms pitch, block
+columns) survives the older editions — building this corpus is what surfaced and hardened those three paths.
+
+Going forward the corpus also grows on its own: on each real re-cut `install.py` parks the outgoing art
+of a changed or dropped key as `legacy/deprecated/<disc>/<key>_dep-<year>.webp` (the named diagram only -
+the name-erased figure is a derivation, re-creatable, so not archived; year = the new edition's
+`fs`/`indoor` source via `tools/legacy_archive.py`), so `legacy.py` is only needed for a full rebuild.
+A `/reject`-ed re-cut drops the matching `_dep-` copy; `/upscale <keys>` instead keeps the new card and
+drops only its archive (a same-art quality bump that needs no deprecation record).
+
+**Held card.** 4-way `H` (Bow) ships at its 2018 render: the 2022 CR redrew it with thinner strokes,
+the 2018 art reads cleaner. This is no longer enforced in code — a re-cut re-proposes the 2022+ redraw,
+and `legacy.py` now gives `H` an ordinary cross-edition deprecation record like any other key — so the
+2018 render is kept by **rejecting `H` in the review PR** (`/reject H`). Accept the re-cut to adopt a
+future redraw.
+
+The corpus is **outdoor only**. The legacy indoor pool is an edition-varying, non-contiguous subset
+(2020/2022 carry 20 blocks, omitting 14 and 20; 2023 grew to the full 22), which `usis.py`'s
+position-keying mis-maps across editions, and the shipped indoor variants (`13/17/20_indoor`) were
+introduced in 2023 rather than changed — so no superseded indoor art exists to archive. The indoor CRs
+are kept under `legacy/<year>/indoor.pdf` only as the source-edition record; future indoor changes
+are caught by the live extract workflow (`usis.py` → `install.py` diff), not by `legacy.py`.

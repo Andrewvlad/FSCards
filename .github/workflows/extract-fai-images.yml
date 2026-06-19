@@ -1,0 +1,188 @@
+name: Extract FAI image set
+
+on:
+    push:
+        branches: [main]
+        paths: # Only fires when an updated FAI CR is merged
+            - 'assets/sources/fai/fs.pdf'
+            - 'assets/sources/fai/indoor.pdf'
+    workflow_dispatch:
+        inputs:
+            pdfs:
+                description: 'Space-separated CRs (fs.pdf, indoor.pdf) to extract (blank = both)'
+                default: ''
+
+permissions:
+    contents: write
+    pull-requests: write
+
+jobs:
+    extract:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+              with:
+                  fetch-depth: 2 # Fetch HEAD + parent for the PDF diff
+
+            - uses: actions/setup-python@v6
+              with:
+                  python-version: '3.12'
+
+            - name: Install Python dependencies
+              run: |
+                  sudo apt-get update
+                  # fonts-liberation: rext.py draws the 4-way R key in Liberation Sans (ArialMT stand-in)
+                  sudo apt-get install -y --no-install-recommends poppler-utils fonts-liberation
+                  pip install numpy pillow scipy
+
+            - name: Extract embedded diagrams from updated CR(s)
+              id: extract
+              env:
+                  PDFS: ${{ github.event.inputs.pdfs }}
+              run: |
+                  # merge commit's HEAD^ is pre-merge main, so the diff is the whole PR.
+                  # Manual dispatch re-cuts the PDFs input (blank = both CRs)
+                  if [ "$GITHUB_EVENT_NAME" = "push" ]; then
+                      changed=$(git diff --name-only HEAD^ HEAD -- 'assets/sources/fai/fs.pdf' 'assets/sources/fai/indoor.pdf' | xargs -rn1 basename | tr '\n' ' ')
+                  else
+                      changed="${PDFS:-fs.pdf indoor.pdf}"
+                  fi
+                  echo "changed CRs: ${changed:-none}"
+                  # Outdoor 4-way + 8-way (+ derived 4-way R) when the FS CR changed
+                  case " $changed " in
+                      *" fs.pdf "*)
+                          python3 tools/fai-extract/extract.py | tee -a "$RUNNER_TEMP/extract.log"
+                          python3 tools/fai-extract/rext.py | tee -a "$RUNNER_TEMP/extract.log" ;;
+                  esac
+                  # Re-stage indoor when the indoor CR changed OR the FS CR changed (the indoor-variant
+                  # decision in install.py compares each indoor cell against the outdoor card)
+                  case " $changed " in
+                      *fs.pdf*|*indoor.pdf*)
+                          python3 tools/fai-extract/usis.py | tee -a "$RUNNER_TEMP/extract.log" ;;
+                  esac
+                  # Branch suffix = changed CR(s), so concurrent runs land on independent branches/PRs
+                  slug=""
+                  case " $changed " in *fs.pdf*) slug="fs";; esac
+                  case " $changed " in *indoor.pdf*) slug="${slug:+$slug-}indoor";; esac
+                  echo "slug=${slug:-all}" >> "$GITHUB_OUTPUT"
+
+            - name: Commit changed diagram(s)
+              id: commit
+              run: |
+                  python3 tools/fai-extract/install.py | tee "$RUNNER_TEMP/install.log"
+                  # Status + path list feeds the comparison comment after the PR exists
+                  changed=$(git status --porcelain -- 'assets/diagrams/*/FAI/*' | tee "$RUNNER_TEMP/changed-images.txt")
+                  echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+                  # Changed disciplines (3rd path segment) scope the panel-cut re-measure
+                  echo "disciplines=$(echo "$changed" | cut -c4- | cut -d/ -f3 | sort -u | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+                  {
+                      echo '### FAI re-cut'
+                      tail -1 "$RUNNER_TEMP/install.log"
+                  } >> "$GITHUB_STEP_SUMMARY"
+
+            - name: Measure panel cuts (for tri-panel splitting)
+              id: measure
+              if: steps.commit.outputs.changed == 'true'
+              run: |
+                  python3 tools/panel-cuts/measure.py ${{ steps.commit.outputs.disciplines }}
+                  # Audit sheets exist only when a cut moved, i.e. panel-cuts.js changed
+                  echo "cuts=$(git status --porcelain -- assets/diagrams/panel-cuts.js | grep -q . && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+            # Using artifacts rather than creating orphan branches to host the images
+            - name: Upload audit sheets for review
+              id: audit
+              if: steps.measure.outputs.cuts == 'true'
+              uses: actions/upload-artifact@v7
+              with:
+                  name: panel-cut-audit-sheets
+                  path: tools/panel-cuts/audit-*.png
+
+            - name: Compose PR body
+              if: steps.commit.outputs.changed == 'true'
+              env:
+                  CUTS_CHANGED: ${{ steps.measure.outputs.cuts }}
+                  AUDIT_URL: ${{ steps.audit.outputs['artifact-url'] }}
+              run: |
+                  body="$RUNNER_TEMP/pr-body.md"
+                  flags=$(grep -E 'CHECK|!!' "$RUNNER_TEMP/extract.log" || true)
+                  {
+                      echo 'FAI CR changed, triggering a re-extraction of the embedded diagrams. Noticeable changes added for review.'
+                      echo
+                      echo '### Extraction summary'
+                      echo '```'
+                      cat "$RUNNER_TEMP/install.log"
+                      echo '```'
+                      echo
+                      # Mapping flags section only when the recut flagged uncertain key matches
+                      if [ -n "$flags" ]; then
+                          echo
+                          echo '### Mapping flags'
+                          echo 'Outdoor cells are keyed by their baked top-left key glyph. `CHECK` lines are low-margin matches, verify those diagrams by eye against the CR (see `tools/fai-extract/README.md`).'
+                          echo '```'
+                          echo "$flags"
+                          echo '```'
+                      fi
+                      echo
+                      echo 'The 4-way `R`/Bundy card is derived from block 12 (CISM-only, absent from the FAI pool) - the indoor 8-way variants (`13/17/20_indoor`) and starting formations are merged in from the Indoor CR. See `tools/fai-extract/README.md`.'
+                      if [ "$CUTS_CHANGED" = 'true' ]; then
+                          echo
+                          echo "Panel cuts updated, review the [audit sheet]($AUDIT_URL)."
+                      fi
+                  } > "$body"
+
+            - name: Open PR with re-cut sets
+              id: pr
+              if: steps.commit.outputs.changed == 'true'
+              uses: peter-evans/create-pull-request@v8
+              with:
+                  add-paths: |
+                      assets/diagrams/**
+                      assets/sources/fai/legacy/deprecated/**
+                  commit-message: 'chore: Update FAI ${{ steps.extract.outputs.slug }} image set'
+                  branch: extract-image-set/fai/${{ steps.extract.outputs.slug }}
+                  title: 'Extract updated FAI ${{ steps.extract.outputs.slug }} image set'
+                  body-path: ${{ runner.temp }}/pr-body.md
+                  reviewers: Andrewvlad
+                  delete-branch: true
+
+            - name: Comment showing old vs new images
+              if: steps.commit.outputs.changed == 'true'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ steps.pr.outputs.pull-request-number }}
+                  HEAD_SHA: ${{ steps.pr.outputs.pull-request-head-sha }}
+              run: |
+                  # webp gets no rich diff in Files changed, so embed SHA-pinned raw images for review
+                  body="$RUNNER_TEMP/compare.md"
+                  raw="https://raw.githubusercontent.com/$GITHUB_REPOSITORY"
+                  # Pool order per discipline: randoms A-Z, then blocks numerically, with diagrams followed by their respective figures
+                  awk '{
+                      n = split($NF, seg, "/")
+                      key = seg[n]; sub(/\.webp$/, "", key)
+                      printf "%s\t%d\t%d\t%s\t%d\t%s\n", seg[3], (key ~ /^[0-9]/), key + 0, key, (seg[n - 1] == "figures"), $0
+                  }' "$RUNNER_TEMP/changed-images.txt" | sort -t$'\t' -k1,1 -k2,2n -k3,3n -k4,4 -k5,5n | cut -f6- > "$RUNNER_TEMP/sorted-images.txt"
+                  {
+                      echo '<!--fai-compare-->'
+                      echo "Changed images below. Reject with a \`/reject <keys>\` comment (e.g. \`/reject 13 G:diagram 20_indoor:figure\`)."
+                      echo
+                      echo '| File | Current | Incoming |'
+                      echo '| ---- | ------- | -------- |'
+                      n=0
+                      while read -r status path; do
+                          n=$((n + 1))
+                          [ $n -gt 120 ] && continue # Stay under the 65536-char comment cap
+                          old="<img src=\"$raw/$GITHUB_SHA/$path\" width=\"300\">"
+                          new="<img src=\"$raw/$HEAD_SHA/$path\" width=\"300\">"
+                          case "$status" in
+                              '??') old='*(new key)*';;
+                              D) new='*(dropped key)*';;
+                          esac
+                          echo "| \`${path#assets/diagrams/}\` | $old | $new |"
+                      done < "$RUNNER_TEMP/sorted-images.txt"
+                  } > "$body"
+                  if [ $n -gt 120 ]; then echo "| *($((n - 120)) more files not shown)* | | |" >> "$body"; fi
+                  # One live comparison comment per PR, re-runs replace it
+                  gh api --paginate "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/comments" \
+                      --jq '.[] | select(.body | startswith("<!--fai-compare-->")) | .id' |
+                      xargs -r -I{} gh api -X DELETE "repos/$GITHUB_REPOSITORY/issues/comments/{}"
+                  gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body-file "$body"

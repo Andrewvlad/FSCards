@@ -50,8 +50,11 @@ GAP = 3            # px between core rows still clustered as one band
 
 
 def divider_bands(g):
-    """Two (top, bottom) divider bands, inclusive, fringe included. More than two
-    full-width candidates (dense art row) resolve by proximity to exact thirds."""
+    """Two (top, bottom) divider bands, inclusive, fringe included. A divider is a
+    near-complete full-width ruled line - when more than two rows clear the full-width test
+    (a dense art row can), the two STRONGEST lines win, never the two nearest a position.
+    So a block whose panels are unequal heights (a source-side mistake) still resolves to its
+    real dividers, and the measured fractions report whatever heights those panels actually are."""
     H, W = g.shape
     core = np.where((g < INK).mean(1) > FULL)[0]
     bands = []
@@ -59,8 +62,11 @@ def divider_bands(g):
         if bands and r - bands[-1][-1] <= GAP: bands[-1].append(int(r))
         else: bands.append([int(r)])
     if len(bands) < 2: return None
-    bands.sort(key=lambda b: min(abs(np.mean(b) - H / 3), abs(np.mean(b) - 2 * H / 3)))
-    picked = sorted(bands[:2], key=lambda b: b[0])
+    # rank by how complete a ruled line each band is (peak then mean coverage), not where it
+    # sits: a real divider saturates the row (~1.0), incidental full-width art averages lower
+    cover = lambda b: (max((g[r] < INK).mean() for r in b),
+                       float(np.mean([(g[r] < INK).mean() for r in b])))
+    picked = sorted(sorted(bands, key=cover, reverse=True)[:2], key=lambda b: b[0])
     out = []
     for b in picked:
         top, bot = b[0], b[-1]
@@ -95,7 +101,8 @@ def measure_set(discipline, imageset, srcdir=None):
     for f in sorted(setdir.glob('[0-9]*.webp'), key=lambda p: (int(p.stem.split('_')[0]), p.stem)):
         im = Image.open(f).convert('RGB')
         fig = setdir / 'figures' / f.name
-        assert Image.open(fig).size == im.size, f'{fig} extents differ from named'
+        if Image.open(fig).size != im.size:   # a :diagram-only reject can desync the pair: skip, don't abort
+            print(f'  !! {fig} extents differ from named, skipping'); continue
         g = np.asarray(im).astype(float).mean(2)
         det = divider_bands(g)
         if det is None:
@@ -201,9 +208,11 @@ if __name__ == '__main__':
     for discipline, imageset, *src in targets:
         print(f'{discipline}/{imageset}:')
         results, extras = measure_set(discipline, imageset, *src)
+        if not results:                       # SVG-only set (4-way-cf USPA) or every pair reject-desynced
+            print('  no blocks measured'); continue
         measured.setdefault(discipline, {})[imageset] = results
         for key, n in extras.items():
-            print(f'  note: {key} had {n} extra full-width candidate band(s), resolved by thirds proximity')
+            print(f'  note: {key} had {n} extra full-width candidate band(s), resolved by line strength')
         drifts = [max(abs((c[1] + c[2]) / 2 - 1 / 3), abs((c[3] + c[4]) / 2 - 2 / 3)) for c, *_ in results.values()]
         clr = min(r[3] for r in results.values())
         floor = min(floor, (clr, f'{discipline}/{imageset}'))
