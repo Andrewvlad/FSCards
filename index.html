@@ -41,6 +41,7 @@
             <summary id="logo">FS<span>Cards</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
             <nav class="viewMenu" aria-label="Switch view">
                 <a href="./" aria-current="page"><strong>Flashcards</strong></a>
+                <a href="quiz/"><strong>Quiz</strong></a>
                 <a href="gallery/"><strong>Gallery</strong></a>
             </nav>
         </details>
@@ -279,7 +280,7 @@
     function loadSession() {
         try {
             let data = null;
-            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Trainer run
+            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Flashcards run
 
             const shared = loadShared(); // Filters, also written by the gallery
 
@@ -632,9 +633,11 @@
 
     // Swap whenever the modes can't fit on one line
     const modeBar = document.getElementById('modeBar');
+    const COLLAPSE_BELOW_HEIGHT = 900; // Collapse the mode bar into the dropdown below this viewport height (px)
     function fitModeBar() {
         modeBar.classList.remove('collapsed'); // measure with the modes expanded
-        modeBar.classList.toggle('collapsed', modeBar.scrollWidth > modeBar.clientWidth + 1);
+        const overflowing = modeBar.scrollWidth > modeBar.clientWidth + 1;
+        modeBar.classList.toggle('collapsed', overflowing || innerHeight < COLLAPSE_BELOW_HEIGHT);
     }
     fitModeBar();
     new ResizeObserver(fitModeBar).observe(document.body);

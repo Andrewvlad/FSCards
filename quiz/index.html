@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <base href="../">
-    <meta name="description" content="Formation skydiving dive pool diagrams">
+    <meta name="description" content="Formation skydiving dive pool quiz">
     <meta name="author" content="Andrew Vladelshchikov">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FSCards - Diagram Gallery</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!--Prevent swiped cards from expanding the viewport-->
+    <title>FSCards - Quiz</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@700&family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
             savedTheme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     </script>
 </head>
-<body class="gallery">
+<body class="quiz">
 
 <!--Floating corner buttons (bottom-left, stacked): diagram-source logo on top, report-issue below-->
 <div id="cornerButtons">
@@ -39,11 +39,11 @@
     <div id="headerTitle">
         <!--The logo doubles as a view switcher-->
         <details id="viewSwitch">
-            <summary id="logo">FS<span>Gallery</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
+            <summary id="logo">FS<span>Quiz</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
             <nav class="viewMenu" aria-label="Switch view">
                 <a href="./"><strong>Flashcards</strong></a>
-                <a href="quiz/"><strong>Quiz</strong></a>
-                <a href="gallery/" aria-current="page"><strong>Gallery</strong></a>
+                <a href="quiz/" aria-current="page"><strong>Quiz</strong></a>
+                <a href="gallery/"><strong>Gallery</strong></a>
             </nav>
         </details>
         <div id="tagline">Learn the skydiving formation dive pool</div>
@@ -64,6 +64,14 @@
     <div class="settingsGroup" id="classGroup">
         <div class="settingsLabel"><span>Class</span></div>
         <div class="segmented" id="classSegment"></div>
+    </div>
+
+    <div class="settingsGroup" id="answerGroup">
+        <div class="settingsLabel"><span>Answers</span></div>
+        <div class="segmented" id="answerSegment">
+            <button type="button" data-answer="symbol" class="pill active" onclick="selectQuizMode(this)">Symbol</button>
+            <button type="button" data-answer="name" class="pill" onclick="selectQuizMode(this)">Name</button>
+        </div>
     </div>
 
     <div class="settingsGroup" id="imageSetGroup">
@@ -100,6 +108,12 @@
             </button>
         </div>
 
+        <label class="toggleSetting" id="recycleSetting">
+            <input type="checkbox" id="recycleToggle" onchange="recycle = checked; saveSession()">
+            <span class="toggle"></span>
+            Recycle wrong cards
+        </label>
+
         <label class="toggleSetting">
             <input type="checkbox" id="themeToggle" onchange="selectTheme(this)">
             <span class="toggle"></span>
@@ -127,11 +141,59 @@
     <button data-mode="2-way-cf" class="pill">CF 2-Way</button>
     <button data-mode="4-way-cf" class="pill">CF 4-Way</button>
     <button data-mode="cp-freestyle" class="pill">CP Freestyle</button>
-    <!--Replaces buttons to fit width-->
-    <select id="modeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
 </div>
 
-<div id="gallery"></div>
+<div id="statsBar">
+    <!--Split so that they can overflow hidden on narrow widths-->
+    <div id="statsRow">
+        <!--Hidden, see CSS-->
+        <select id="statsModeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
+        <div class="stat">
+            <label>Card</label>
+            <p id="statCard">—</p>
+        </div>
+        <div class="stat">
+            <label>Correct</label>
+            <p class="good" id="statCorrect">0</p>
+        </div>
+        <div class="stat">
+            <label>Wrong</label>
+            <p class="bad" id="statWrong">0</p>
+        </div>
+        <div class="stat">
+            <label>Streak</label>
+            <p id="statStreak">0</p>
+        </div>
+    </div>
+    <div class="stat" id="progressContainer">
+        <div class="stat" id="progressMain">
+            <!--progressCount only shown on very narrow devices-->
+            <label>Progress <span id="progressCount"></span></label>
+            <div id="progressBar"><div id="progressFill"></div></div>
+        </div>
+        <button type="button" id="endlessToggle" class="pill" onclick="toggleEndless()" aria-pressed="false" aria-label="Endless mode" title="Endless mode"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5c2.5 1 3.5 5 6 6s3.5-1.5 3.5-3-1-4-3.5-3-3.5 5-6 6-3.5-1.5-3.5-3 1-4 3.5-3"/></svg></span></button>
+    </div>
+</div>
+
+<!--Endless drawer for endless-specific settings-->
+<div id="endlessDrawer" class="hidden">
+    <div id="drawerContent" class="hidden">
+        <!--Inline with the stats when it fits (fitStrategyRow)-->
+        <div class="segmented" id="strategyRow">
+            <button type="button" data-strategy="random" class="pill active" onclick="selectStrategy(this)" title="Your basic, random draw">Random</button>
+            <button type="button" data-strategy="adaptive" class="pill" onclick="selectStrategy(this)" title="Draw missed cards more often">Adaptive</button>
+            <button type="button" data-strategy="learn" class="pill" onclick="selectStrategy(this)" title="Smaller deck, unlocking more as you succeed">Learn</button>
+        </div>
+        <button type="button" id="drawerClose" onclick="setDrawer(false)" aria-label="Collapse" title="Collapse">
+            <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M2.75 2.75l6.5 6.5M9.25 2.75l-6.5 6.5"/></svg>
+        </button>
+    </div>
+    <button type="button" id="drawerCaret" onclick="toggleDrawer()" aria-expanded="false" aria-controls="drawerContent" aria-label="Card order" title="Card order">
+        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.25 6 7.75l3.5-3.5"/></svg>
+    </button>
+</div>
+
+<div id="arena"></div>
 
 
 <!--Per-discipline info-->
@@ -147,80 +209,427 @@
 <script src="assets/diagrams/2-way-cf/index.js"></script>
 <script src="assets/diagrams/4-way-cf/index.js"></script>
 <script src="assets/diagrams/cp-freestyle/index.js"></script>
+<script src="assets/diagrams/panel-cuts.js"></script>
 
 <script src="index.js"></script>
 <script>
+    // Initialize stats
+    const correct = document.getElementById('statCorrect');
+    const wrong = document.getElementById('statWrong');
+    const streak = document.getElementById('statStreak');
+    const progress = document.getElementById('statCard');
+    const progressCount = document.getElementById('progressCount');
+    const getIndex = () => +correct.textContent + +wrong.textContent;
+    const runComplete = () => !endless && getIndex() >= deck.length; // Endless never completes
+
+    function setProgress(text) {
+        progress.textContent = text;
+        progressCount.textContent = `(${text})`;
+    }
+
     // Initialize state
     let discipline = '4-way';
     let category = 'all';
     let classLevel = 'open';
+    let answerType = 'symbol';
     let indoor = false;
     let tunnel = false;
     let includeFusions = true;
     let imageSet = 'Rhythm';
+    let fullDeck = [];
+    let deck = [];
+    let flipped = false;
+    let recycle = false;
     let theme = document.documentElement.dataset.theme;
     let invert = true;
+    let endless = false;
+    let expandMode = false; // Only show arena
+    let currentCard = null; // The formation on screen (needed for endless)
 
-    const poolSettings = () => ({discipline, indoor, imageSet, classLevel, tunnel, includeFusions});
+    // The settings object every deck/image build takes. Split tracks the viewport at call time
+    const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
+
+    // Report FAB moves inside the card in quiz
+    const cornerButtons = document.getElementById('cornerButtons');
 </script>
-<!--Save filters-->
+<!--Save progress-->
 <script>
+    const SAVE_KEY = 'fscards-quiz';
+
+    // Save after each grading
     function saveSession() {
+        if (!runComplete()) try {
+            localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
+                deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
+                correct: correct.textContent,
+                wrong:   wrong.textContent,
+                streak:  streak.textContent,
+                discipline,
+                category,
+                classLevel,
+                answerType,
+                indoor,
+                tunnel,
+                includeFusions,
+                imageSet,
+                recycle,
+                endless,
+            }));
+        } catch(e) {} // Fail silently if storage full or unavailable
+
+        // Mirror the pool/image filters into the cross-page store the gallery also reads
         saveShared({discipline, category, classLevel, indoor, tunnel, includeFusions, imageSet, invert});
     }
 
     function loadSession() {
-        const data = loadShared();
-        if (!data) return; // Nothing saved
+        try {
+            let data = null;
+            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Quiz run
 
-        discipline = data.discipline in DATA ? data.discipline : '4-way'; // Disciplines fall back (in case of rename)
-        category   = data.category ?? 'all';
-        classLevel = data.classLevel ?? 'open';
-        indoor     = data.indoor ?? false;
-        tunnel     = data.tunnel ?? false;
-        includeFusions = data.includeFusions ?? true;
-        imageSet   = data.imageSet ?? 'Rhythm';
-        invert     = data.invert ?? true;
+            const shared = loadShared(); // Filters, also written by the gallery
+
+            // Flashcard-only settings
+            if (data) {
+                answerType   = data.answerType ?? 'symbol';
+                recycle      = data.recycle ?? false;
+                endless      = data.endless === true ? 'random' : data.endless || false; // Migration from true -> random
+            }
+
+            const src = shared ?? data;
+            if (src) {
+                discipline = src.discipline in DATA ? src.discipline : '4-way'; // Disciplines fall back (in case of rename)
+                category   = src.category ?? 'all';
+                classLevel = src.classLevel ?? 'open';
+                indoor     = src.indoor ?? false;
+                tunnel     = src.tunnel ?? false;
+                includeFusions = src.includeFusions ?? true;
+                imageSet   = src.imageSet ?? 'Rhythm';
+                invert     = src.invert ?? true;
+            }
+
+            syncSettingsUI();
+
+            const samePool = data
+                && data.discipline === discipline
+                && data.classLevel === classLevel
+                && data.tunnel === tunnel
+                && data.includeFusions === includeFusions
+                && data.category === category;
+            if (!data || !data.deck?.length || (shared && !samePool)) return false;
+
+            // Rebuild the full pool (for category switching), then restore the played deck
+            fullDeck = buildDeck(poolSettings());
+            deck = deckFromKeys(data.deck, poolSettings());
+            if (!deck.length) return false; // If deck no longer valid (pool revised)
+            rebuildEndlessState();
+            prefetchDeck();
+
+            // Populate stats
+            correct.textContent = data.correct;
+            wrong.textContent   = data.wrong;
+            streak.textContent  = data.streak;
+
+            showToast('Resumed');
+
+            return true;
+        } catch(e) {return false;}
+    }
+
+    function showToast(message, long = false) {
+        const toast = document.createElement('output');
+        toast.role = 'status';
+        toast.className = long ? 'toast long' : 'toast';
+        toast.textContent = message;
+        toast.addEventListener('animationend', e => e.animationName === 'hideToast' && toast.remove());
+        document.body.appendChild(toast);
+    }
+
+    // Only clear when game complete. Progress in a new mode will override
+    function clearSession() {
+        try {
+            localStorage.removeItem(SAVE_KEY);
+        } catch(e) {} // Fail silently if storage unavailable
     }
 </script>
-<!--Build the diagram grid-->
+<!--Define deck-->
 <script>
-    const gallery = document.getElementById('gallery');
+    function newDeck() {
+        fullDeck = buildDeck(poolSettings());
+        applyCategory();
+    }
 
-    const byKey = (a, b) => keyOrder(a.key, b.key);
+    // Derive the played deck from fullDeck by category (no reshuffle) and restart the run
+    function applyCategory() {
+        // Pools without the blocks/randoms split show everything
+        deck = categorized(poolSettings()) ? fullDeck.filter(matchesCategory) : [...fullDeck];
+        rebuildEndlessState();
+        prefetchDeck();
 
-    function matchesCategory(formation) {
+        correct.textContent = '0';
+        wrong.textContent = '0';
+        streak.textContent = '0';
+
+        saveSession();
+        nextCard();
+    }
+
+    function matchesCategory(card) {
         switch (category) {
             case 'blocks':
             case 'randoms':
-                return isBlock(formation.key) === (category === 'blocks');
+                return isBlock(card.key) === (category === 'blocks');
             case 'all':
             default:
                 return true;
         }
     }
 
-    function renderGrid() {
-        const pool = Object.values(buildPool(poolSettings()));
-        // Pools without the blocks/randoms split show everything
-        const formations = (categorized(poolSettings()) ? pool.filter(matchesCategory) : pool).sort(byKey);
-        const captioned = includeCaption(discipline);
+    // Warm each diagram URL at most once a session (resize splits and set swaps re-call this)
+    const warmed = new Set();
+    function prefetchDeck() {
+        const fresh = [];
+        for (const card of deck) for (const url of [card.image, card.figure])
+            if (!warmed.has(url)) { warmed.add(url); fresh.push(url); }
+        if (!fresh.length) return;
+        const warm = () => fresh.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
+        if (window.requestIdleCallback) requestIdleCallback(warm);
+        else setTimeout(warm);
+    }
 
-        gallery.innerHTML = formations.map(formation => {
-            const diagram = `<img src="${formation.image}" alt="${formation.name}" loading="lazy">`;
-            const media = formation.video
-                ? `<a href="${formation.video}" target="_blank" rel="noopener noreferrer">${diagram}</a>`
-                : diagram;
-            return captioned
-                ? `<figure>${media}<figcaption>${formation.name}</figcaption></figure>`
-                : media;
-        }).join('');
+    // Re-point every card's diagram at the current set/indoor without rebuilding the deck
+    function hotSwapImages() {
+        const images = poolImages(poolSettings());
+        for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
+        for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
+
+        if (currentCard && !flipped) renderCardFaces(currentCard);
+        prefetchDeck(); // re-warm the cache for the swapped-in set
+
+        saveSession();
+    }
+</script>
+<script>
+    // Finish-screen action
+    const restartActionBar = `<button id="restart" onclick="newDeck()">↺ New Session</button>`;
+</script>
+<!--Flip card-->
+<script>
+    function flipCard() {
+        flipped = !flipped;
+        document.getElementById('card').classList.toggle('flipped', flipped);
+    }
+</script>
+<!--Create card-->
+<script>
+    const arena = document.getElementById('arena');
+
+    const SPLIT_RATIO = 2; // Cards at least twice as wide as tall show blocks as side-by-side panels
+    const SEAM_MARGIN = 0.0035;
+
+    // Add captions to images
+    function diagramFace(src, formation, hideCaption) {
+        if (!includeCaption(discipline)) {
+            // When the card renders wide, show a block's three panels as separate horizontally arranged images
+            const cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
+            if (cuts) {
+                const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
+                const [ar, d1t, d1b, d2t, d2b] = cuts;
+                const windows = [[0, d1t - SEAM_MARGIN], [d1b + SEAM_MARGIN, d2t - SEAM_MARGIN], [d2b + SEAM_MARGIN, 1]];
+                const grows = windows.map(([t, b]) => 1 / (b - t));
+                const panels = windows.map(([t, b], i) =>
+                    `<img class="diagram" src="${src}" alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
+                return `<div class="splitDiagram"${fallback && invert ? ' data-diagram="dark"' : ''} role="img" aria-label="${formation.key}"
+                            style="aspect-ratio: ${(ar * grows.reduce((s, g) => s + g)).toFixed(4)}">${panels}</div>`;
+            }
+            return `<img class="diagram" src="${src}" alt="${formation.key}">`;
+        }
+        return `<figure class="captionedDiagram">
+                    <img class="diagram" src="${src}" alt="${formation.key}">
+                    <figcaption${hideCaption ? ' class="captionHidden"' : ''}>${formation.name}</figcaption>
+                </figure>`;
+    }
+
+    // Build the two card faces. Re-render split-block images
+    function renderCardFaces(formation) {
+        document.querySelector('#card .front').innerHTML = `<div class="cardContent">${diagramFace(formation.figure, formation, true)}</div>`;
+        document.querySelector('#card .back').innerHTML = `
+            <div class="cardContent">
+                ${diagramFace(formation.image, formation, false)}
+            </div>
+        `;
+
+        // Pre-decode the backside image
+        document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
+    }
+
+    // Crossing the threshold changes split markup and, for single-panel sets, image resolution
+    let splitView = false;
+    const cardObserver = new ResizeObserver(([entry]) => {
+        const {width, height} = entry.contentRect;
+        if (!height) return; // Detached card on results screen reports zero
+
+        arena.style.setProperty('--cardH', height + 'px'); // Anchors the report FAB to the card's bottom edge
+
+        const split = width >= SPLIT_RATIO * height;
+        if (split === splitView) return;
+
+        splitView = split;
+        hotSwapImages();
+    });
+
+    // Grading does the actual shifting of the index
+    function nextCard() {
+        arena.classList.remove('swiping'); // Fresh card brings icons back
+
+        if (runComplete()) return finish();
+
+        flipped = false;
+        setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
+        if (endless) fitStrategyRow(); // Counter-width growth can push the inline fit over the edge
+        else document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
+
+        currentCard = endless ? pickEndlessCard() : deck[getIndex()];
+
+        arena.innerHTML = `
+            <button type="button" id="expandToggle" title="Expand" aria-label="Toggle expand mode" aria-pressed="${expandMode}" onclick="toggleExpand()">
+                <svg class="iconExpand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M8 6l4-4 4 4"/><path d="M8 18l4 4 4-4"/><path d="M12 2v20"/>
+                </svg>
+                <svg class="iconCompress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 2v8"/><path d="M8 6l4 4 4-4"/><path d="M12 22v-8"/><path d="M8 18l4-4 4 4"/>
+                </svg>
+            </button>
+            <div id="card">
+                <div class="cardFace front"></div>
+                <div class="cardFace back"></div>
+            </div>
+            <div id="answerGrid"></div>
+        `;
+        // Re-observe: the old card went out with the arena markup
+        cardObserver.disconnect();
+        cardObserver.observe(document.getElementById('card'));
+        renderCardFaces(currentCard);
+        renderAnswers(currentCard);
+        arena.append(cornerButtons); // arena.innerHTML wiped cornerButtons - re-add as an arena sibling of #card so the controls anchor to the arena and don't flip with the card
+    }
+</script>
+<!--Finish game-->
+<script>
+    function finish() {
+        clearSession();
+        currentCard = null;
+        toggleExpand(false); // Results screen needs its chrome back. The toggle button lives on the card
+
+        const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
+
+        const message =
+            pct === 100 ? 'Perfect score!' :
+            pct >= 80   ? 'Impressive!' :
+            pct >= 60   ? 'Nice try!' :
+                          'Keep at it!';
+
+        setProgress('✓');
+        document.getElementById('progressFill').style.width = '100%';
+        arena.innerHTML = `
+            <div id="done">
+                <div class="label">Session Complete</div>
+                <div id="score">${pct}%</div>
+                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong</div>
+                <div id="message">${message}</div>
+                <div id="actionBar">${restartActionBar}</div>
+            </div>
+        `;
+        arena.append(cornerButtons); // Keep the FABs in the arena. The result's screen returns them to normal positions
+    }
+</script>
+<!--Expand mode-->
+<script>
+    function toggleExpand(force) {
+        expandMode = typeof force === 'boolean' ? force : !expandMode;
+        document.body.classList.toggle('expand', expandMode);
+        document.getElementById('expandToggle')?.setAttribute('aria-pressed', expandMode);
+    }
+</script>
+<!--Grade card-->
+<script>
+    function grade(direction) {
+        const card = document.getElementById('card');
+
+        setOverlay(direction);
+
+        // The card is always flipped to the answer here (answer() flips before grading), so it flies off showing the diagram
+        const flyX = (direction ? -0.75 : 0.75) * window.innerWidth;
+        const rot  = direction ? -MAX_ROT : MAX_ROT;
+        card.style.transition = ''; // Remove "none" transition
+        card.style.transform  = `rotateY(180deg) translateX(${flyX}px) rotate(${rot}deg)`;
+        arena.classList.add('swiping'); // Hide the card-anchored icons while the card flies off
+
+        setTimeout(() => {
+            if (direction) { // Correct
+                correct.textContent++;
+                streak.textContent++;
+            } else { // Wrong
+                if (!endless && recycle) deck.push(currentCard);
+                wrong.textContent++;
+                streak.textContent = '0';
+            }
+            if (endless) endlessResult(currentCard.key, direction);
+
+            saveSession();
+            nextCard();
+        }, SWIPE_DURATION);
+    }
+</script>
+<!--Answer grid-->
+<script>
+    const REVEAL_DELAY = 850; // ms the revealed answer shows before the card auto-advances
+
+    // Which answer label types a discipline offers
+    function answerTypesFor(discipline) {
+        if (includeCaption(discipline)) return ['name']; // CP: the numeric key is doc order, not a real label
+        const {names} = DATA[discipline];
+        const symbolIsName = Object.keys(names).every(k => names[k] === k); // CF 2-way letters
+        return symbolIsName ? ['symbol'] : ['symbol', 'name'];
+    }
+
+    function answerLabel(formation) {
+        if (answerType === 'symbol') return formation.key;
+        const parts = formation.name.split(' - '); // Split block names and add a horizontal rule
+        return parts.length === 2 ? `<span>${parts[0]}</span><hr><span>${parts[1]}</span>` : formation.name;
+    }
+
+    // Every same-category formation in the pool, sorted, forms the answer board
+    function boardFor(formation) {
+        const block = isBlock(formation.key);
+        return fullDeck.filter(f => isBlock(f.key) === block).sort((a, b) => keyOrder(a.key, b.key));
+    }
+
+    function renderAnswers(formation) {
+        const grid = document.getElementById('answerGrid');
+        grid.dataset.answer = answerType; // Sets columns to 4 for symbols
+        grid.innerHTML = boardFor(formation).map(f =>
+            `<button type="button" class="answerOption" data-key="${f.key}" onclick="answer('${f.key}')">${answerLabel(f)}</button>`
+        ).join('');
+    }
+
+    // Mark the board, flip to the named diagram, then auto-advance through grade()
+    function answer(key) {
+        if (flipped) return;
+
+        const right = key === currentCard.key;
+        const grid = document.getElementById('answerGrid');
+        grid.classList.add('answered');
+        grid.querySelector(`[data-key="${key}"]`).classList.add(right ? 'correct' : 'wrong');
+        if (!right) grid.querySelector(`[data-key="${currentCard.key}"]`).classList.add('revealCorrect');
+
+        flipCard();
+        setTimeout(() => grade(right), REVEAL_DELAY);
     }
 </script>
 <!--Switch discipline buttons-->
 <script>
     const modeButtons = document.querySelectorAll('#modeBar button');
-    const modeSelect = document.getElementById('modeSelect');
+    const statsModeSelect = document.getElementById('statsModeSelect');
 
     for (const button of modeButtons) {
         button.addEventListener('click', () => {
@@ -230,20 +639,19 @@
             button.classList.add('active');
 
             discipline = button.dataset.mode;
-            modeSelect.value = discipline;
+            statsModeSelect.value = discipline;
             updateDisciplineUI();
-            renderGrid();
-            saveSession();
+            newDeck();
         });
 
         // Mirror each mode into the collapsed-state dropdown
-        modeSelect.add(new Option(button.textContent, button.dataset.mode));
+        statsModeSelect.add(new Option(button.textContent, button.dataset.mode));
     }
-    modeSelect.value = discipline;
+    statsModeSelect.value = discipline;
 
     // Selecting from the dropdown routes through the matching pill's click handler
-    modeSelect.addEventListener('change', () =>
-        [...modeButtons].find(button => button.dataset.mode === modeSelect.value)?.click());
+    statsModeSelect.addEventListener('change', () =>
+        [...modeButtons].find(button => button.dataset.mode === statsModeSelect.value)?.click());
 
     // Swap whenever the modes can't fit on one line
     const modeBar = document.getElementById('modeBar');
@@ -260,6 +668,7 @@
     function updateDisciplineUI() {
         renderImageSetButtons();
         renderClassButtons();
+        renderAnswerButtons();
 
         // 8-way is the only discipline with different indoor pools
         document.getElementById('indoorSetting').classList
@@ -288,11 +697,22 @@
             classLevel = (classes.find(c => c.key === 'open') ?? classes[classes.length - 1]).key;
 
         // Only worth showing when there's an actual choice between classes
-        document.getElementById('classGroup').classList.toggle('hidden', classes.length <= 1);
+        document.getElementById('classGroup').classList
+            .toggle('hidden', classes.length <= 1);
 
         document.getElementById('classSegment').innerHTML = classes.map(c =>
             `<button type="button" data-class="${c.key}" class="pill${c.key === classLevel ? ' active' : ''}" onclick="selectClass(this)">${c.label}</button>`
         ).join('');
+    }
+
+    // The Symbol/Name choice only exists when the discipline has both a distinct symbol AND name
+    function renderAnswerButtons() {
+        const types = answerTypesFor(discipline);
+        if (!types.includes(answerType)) answerType = types.includes('name') ? 'name' : types[0];
+
+        document.getElementById('answerGroup').classList.toggle('hidden', types.length <= 1);
+        document.querySelectorAll('#answerSegment button').forEach(button =>
+            button.classList.toggle('active', button.dataset.answer === answerType));
     }
 
     function renderImageSetButtons() {
@@ -300,7 +720,8 @@
         const active = activeImageSet(discipline, imageSet); // the set actually shown (default USPA)
 
         // Only worth showing when there's an actual choice between sets
-        document.getElementById('imageSetGroup').classList.toggle('hidden', sets.length <= 1);
+        document.getElementById('imageSetGroup')
+            .classList.toggle('hidden', sets.length <= 1);
 
         document.getElementById('imageSetSegment').innerHTML = sets.map(set =>
             `<button type="button" data-imageset="${set}" class="pill${set === active ? ' active' : ''}" onclick="selectImageSet(this)">${set}</button>`
@@ -344,54 +765,58 @@
     const indoorToggle = document.getElementById('indoorToggle');
     const tunnelToggle = document.getElementById('tunnelToggle');
     const fusionsToggle = document.getElementById('fusionsToggle');
+    const recycleToggle = document.getElementById('recycleToggle');
     const themeToggle = document.getElementById('themeToggle');
     const invertToggle = document.getElementById('invertToggle');
 
     function toggleSettings() {
-        document.getElementById('settingsPanel').classList.toggle('hidden');
+        const panel = document.getElementById('settingsPanel');
+        panel.classList.toggle('hidden');
         document.getElementById('settingsToggle').classList.toggle('active');
+        document.body.style.setProperty('--panelH', `${panel.offsetHeight}px`); // Body grows by panel height so arena never resizes
     }
+
+    // Track panel rewraps while open (window resizes, settings re-renders)
+    new ResizeObserver(([entry]) => {
+        document.body.style.setProperty('--panelH', `${entry.borderBoxSize[0].blockSize}px`);
+    }).observe(document.getElementById('settingsPanel'));
 
     function selectCategory(button) {
         selectSegment('categorySegment', button);
         category = button.dataset.category;
-        renderGrid();
-        saveSession();
+        applyCategory();
     }
 
     function selectClass(button) {
         selectSegment('classSegment', button);
         classLevel = button.dataset.class;
         updateCategoryUI();
-        renderGrid();
-        saveSession();
+        newDeck();
     }
 
     function selectImageSet(button) {
         selectSegment('imageSetSegment', button);
         imageSet = button.dataset.imageset;
-        updateSourceButton();
-        updateDiagramMode();
-        renderGrid();
-        saveSession();
+        updateDisciplineUI();
+        hotSwapImages();
     }
 
     function selectIndoor(checkbox) {
         indoor = checkbox.checked;
-        renderGrid();
-        saveSession();
+        hotSwapImages();
+        if (indoor && activeImageSet(discipline, imageSet) === 'USPA') {
+            showToast('USPA does not publish an indoor set (USIS), so borrowing from FAI', true)
+        }
     }
 
     function selectTunnel(checkbox) {
         tunnel = checkbox.checked;
-        renderGrid();
-        saveSession();
+        newDeck();
     }
 
     function selectFusions(checkbox) {
         includeFusions = checkbox.checked;
-        renderGrid();
-        saveSession();
+        newDeck();
     }
 
     function selectTheme(checkbox) {
@@ -407,6 +832,13 @@
         saveSession();
     }
 
+    function selectQuizMode(button) {
+        selectSegment('answerSegment', button);
+        answerType = button.dataset.answer;
+        if (currentCard) renderAnswers(currentCard); // Relabel the board in place
+        saveSession();
+    }
+
     function selectSegment(groupId, button) {
         document.querySelectorAll(`#${groupId} button`)
             .forEach(otherButton => otherButton.classList.remove('active'));
@@ -417,16 +849,17 @@
     function syncSettingsUI() {
         document.querySelectorAll('#modeBar button').forEach(button =>
             button.classList.toggle('active', button.dataset.mode === discipline));
-        modeSelect.value = discipline;
+        statsModeSelect.value = discipline;
         document.querySelectorAll('#categorySegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.category === category));
-
         indoorToggle.checked = indoor;
         tunnelToggle.checked = tunnel;
         fusionsToggle.checked = includeFusions;
+        recycleToggle.checked = recycle;
         themeToggle.checked = theme === 'light';
         invertToggle.checked = invert;
 
+        syncEndlessUI();
         updateDisciplineUI();
     }
 
@@ -461,20 +894,182 @@
         if (viewSwitch.open) viewMenu.style.width = `${logo.getBoundingClientRect().width}px`;
     });
 </script>
+<!--Card flick + overlay (the swipe-off animation reused by grade)-->
+<script>
+    const MAX_ROT = 20; // Max degrees of card rotation
+    const SWIPE_DURATION = 300; // Number of milliseconds that the swipe animation will play
+
+    // Win/lose tint on the revealed card, used by the grade animation
+    function setOverlay(direction) {
+        const back = document.querySelector('.back');
+        back.classList.toggle('correctOverlay', direction);
+        back.classList.toggle('wrongOverlay',  !direction);
+    }
+</script>
+<!--Endless mode-->
+<script>
+    // Swap between a finite deck and an endless draw (defaults to random)
+    function toggleEndless() {
+        endless = endless ? false : 'random';
+        syncEndlessUI();
+        newDeck();
+    }
+
+    // Switch the endless draw strategy
+    function selectStrategy(button) {
+        selectSegment('strategyRow', button);
+        endless = button.dataset.strategy;
+        newDeck();
+    }
+
+    function syncEndlessUI() {
+        const toggle = document.getElementById('endlessToggle');
+        toggle.classList.toggle('active', endless);
+        toggle.setAttribute('aria-pressed', !!endless);
+
+        document.querySelectorAll('#strategyRow [data-strategy]').forEach(button =>
+            button.classList.toggle('active', button.dataset.strategy === endless));
+
+        // Recycle does not matter in endless mode
+        document.getElementById('recycleSetting')
+            .classList.toggle('hidden', endless);
+
+        fitStrategyRow();
+    }
+
+    // Keep endless strategy options inline with stats, otherwise fall back into a drawer
+    function fitStrategyRow() {
+        const row = document.getElementById('strategyRow');
+        const content = document.getElementById('drawerContent');
+        const drawer = document.getElementById('endlessDrawer');
+
+        if (!endless) { // Early exit
+            if (row.parentElement !== content) content.prepend(row);
+            drawer.classList.add('hidden');
+            return;
+        }
+
+        const statsRow = document.getElementById('statsRow');
+        const container = document.getElementById('progressContainer');
+
+        if (row.nextElementSibling !== container) document.getElementById('statsBar').insertBefore(row, container);
+        const fits = statsRow.scrollHeight <= statsRow.clientHeight + 1 // Early check - multi-lined stats (hidden overflow) = no room
+            && container.getBoundingClientRect().top < statsRow.getBoundingClientRect().bottom;
+        if (!fits && row.parentElement !== content) content.prepend(row);
+
+        drawer.classList.toggle('hidden', fits);
+    }
+    new ResizeObserver(fitStrategyRow).observe(document.body);
+    document.fonts?.ready.then(fitStrategyRow);
+
+    function setDrawer(open) {
+        document.getElementById('drawerContent').classList.toggle('hidden', !open);
+        document.getElementById('drawerCaret').setAttribute('aria-expanded', open);
+    }
+
+    function toggleDrawer() {
+        setDrawer(document.getElementById('drawerContent').classList.contains('hidden'));
+    }
+
+    // Body grows by the open drawer's height so the arena never resizes (mirrors --panelH)
+    new ResizeObserver(([entry]) => {
+        document.body.style.setProperty('--drawerH', `${entry.borderBoxSize[0].blockSize}px`);
+    }).observe(document.getElementById('drawerContent'));
+
+    // Strategy tunables
+    const MASTERY_STREAK = 2;
+    const UNLEARNED_WEIGHT = 3;
+    const MISS_MULTIPLIER = 2.2;
+    const HIT_MULTIPLIER = 0.55;
+    const WEIGHT_MIN = 0.4, WEIGHT_MAX = 6;
+
+    const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
+
+    // Engine state
+    let weights = {};
+    let learnKeys = [];
+    let unlockedCount = 6;
+    let masteredKeys = {}; // reset key's value on miss
+
+    function rebuildEndlessState() {
+        weights = {};
+        masteredKeys = {};
+
+        // Initialize learn props
+        if (endless === 'learn') {
+            learnKeys = deck.map(card => card.key).sort((a, b) => isBlock(a) - isBlock(b));
+            unlockedCount = Math.min(6, learnKeys.length);
+        }
+    }
+
+    // Pick the next card by the active strategy
+    function pickEndlessCard() {
+        switch (endless) {
+            case 'adaptive': return pickAdaptive();
+            case 'learn':    return pickLearn();
+            default:         return pickRandom();
+        }
+    }
+
+    // Fold a graded answer back into the active strategy's state
+    function endlessResult(key, correct) {
+        switch (endless) {
+            case 'adaptive': return adaptiveResult(key, correct);
+            case 'learn':    return learnResult(key, correct);
+        }
+    }
+
+    // No back-to-back repeats
+    const notLast = (pool) => pool.filter(card => card.key !== currentCard?.key);
+    const learned = (key) => (masteredKeys[key] ?? 0) >= MASTERY_STREAK;
+
+    function weightedPick(cards, weightOf) {
+        let r = Math.random() * cards.reduce((sum, card) => sum + weightOf(card), 0);
+        return cards.find(card => (r -= weightOf(card)) <= 0) ?? cards.at(-1);
+    }
+
+    // Random (uniform draw)
+    function pickRandom() {
+        const pool = notLast(deck);
+        return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    // Adaptive (weight toward missed cards)
+    function pickAdaptive() {
+        return weightedPick(notLast(deck), card => weights[card.key] ?? 1);
+    }
+    function adaptiveResult(key, correct) {
+        weights[key] = clamp((weights[key] ?? 1) * (correct ? HIT_MULTIPLIER : MISS_MULTIPLIER), WEIGHT_MIN, WEIGHT_MAX);
+    }
+
+    // Learn (draw from the unlocked cross-section and slowly add new cards to pool)
+    function pickLearn() {
+        const unlocked = new Set(learnKeys.slice(0, unlockedCount));
+        const live = deck.filter(card => unlocked.has(card.key));
+        return weightedPick(notLast(live), card => learned(card.key) ? 1 : UNLEARNED_WEIGHT);
+    }
+    function learnResult(key, correct) {
+        masteredKeys[key] = correct ? (masteredKeys[key] ?? 0) + 1 : 0;
+        if (!correct) return; // A miss only zeroes mastery, never completes the slice
+
+        // Expand the slice by one once the whole unlocked slice is learned
+        if (unlockedCount < learnKeys.length && learnKeys.slice(0, unlockedCount).every(learned)) unlockedCount++;
+    }
+</script>
 <!--Start-->
 <script>
-    loadSession();
     syncSettingsUI();
-    renderGrid();
+    loadSession() ? nextCard() : newDeck();
 </script>
 <!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
 <script>
     function buildIssueUrl() {
+        const card = currentCard;
         const body = [
             '**Describe the issue:**', '', '', '---',
 
             '_Replication info (auto-populated):_',
-            '- Page: Gallery',
+            '- Page: Quiz',
             '- Discipline: ' + discipline,
             '- Class: ' + classLevel,
             '- Diagram set: ' + imageSet,
@@ -482,6 +1077,14 @@
             `- 8-way tunnel: ${indoor}`,
             `- Include fusions: ${includeFusions}`,
             `- Invert colors: ${invert}`,
+            `- Endless: ${endless}`,
+            '\n',
+
+            '_State (auto-populated):_',
+            '- Answers: ' + answerType,
+            card ? `- Card: ${card.key} (${card.name})` : null,
+            card ? '- Diagram: ' + card.image : null,
+            card ? null : '- Game complete',
             '\n',
 
             '_Device info (auto-populated):_',
@@ -490,7 +1093,7 @@
             '- Screen: ' + screen.width + '×' + screen.height + ' @' + devicePixelRatio + 'x',
             '- User agent: ' + navigator.userAgent,
 
-        ].join('\n');
+        ].filter(Boolean).join('\n');
         return 'https://github.com/Andrewvlad/FSCards/issues/new?' + new URLSearchParams({body}).toString();
     }
 </script>

@@ -21,7 +21,7 @@
 }
 
 :root[data-theme="light"] {
-    --bg: #f5f3ee;
+    --bg: #eeeeec;
     --surface: #eceae3;
     --card: #ffffff;
     --border: #d6d2c8;
@@ -36,6 +36,7 @@
 
     /* Disable all highlighting/selection */
     user-select: none;
+    -webkit-tap-highlight-color: transparent; /* Kill the blue tap flash on touch */
 
     /* Form controls don't inherit the page font by default */
     font-family: inherit;
@@ -108,6 +109,8 @@ button.pill:not(.active):hover {
 
     button.active {pointer-events: none}
 }
+/* Override to show native title tooltip */
+#strategyRow button.active {pointer-events: auto}
 
 /* ------ */
 /* Shared */
@@ -801,10 +804,13 @@ figure {
             height: 45%;
         }
 
-        &:hover {
-            opacity: 1;
-            color: var(--accent);
-            border-color: var(--accent);
+        /* Gate hover to real-pointer devices so a tap doesn't leave it stuck-highlighted on touch */
+        @media (hover: hover) {
+            &:hover {
+                opacity: 1;
+                color: var(--accent);
+                border-color: var(--accent);
+            }
         }
     }
 
@@ -843,7 +849,7 @@ figure {
     width: 100%;
     aspect-ratio: 20 / 17;
     flex: 0 1 auto;
-    min-height: 0;
+    min-height: 200px;
     transform-style: preserve-3d;
     transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
     transform: perspective(1200px); /* 3D flip effect. A transform so the script easily override it */
@@ -1102,6 +1108,179 @@ body.gallery #modeBar {
     }
 }
 
+/* --------- */
+/* Quiz View */
+/* --------- */
+
+/* Card fills the arena like Flashcards; the board sits below in the same one-screen layout */
+body.quiz #arena {
+    padding-top: 1rem;
+    gap: 0.5rem;
+    position: relative; /* Anchor for the expand toggle */
+}
+
+/* Card yields before the board: it shrinks first so the board only scrolls once the card hits its 200px floor */
+body.quiz #card {flex-shrink: 1000}
+
+/* Tighter face gutter so the diagram fills the smaller quiz card */
+body.quiz .cardFace {padding: 0.25rem}
+
+/* Expand toggle: pinned to the card's top-right, anchored to the arena padding so it sits on the card corner */
+#expandToggle {
+    position: absolute;
+    top: 1rem; /* = arena padding-top, card's top edge */
+    right: 1.5rem; /* = arena padding-right, card's right edge */
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: clamp(2.25rem, 5vmin, 3rem); /* same box + 45% glyph as the FABs, so equal corner inset */
+    height: clamp(2.25rem, 5vmin, 3rem);
+    border: none;
+    background: none;
+    color: var(--muted);
+    cursor: pointer;
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9)); /* lift the naked icon off the card so it doesn't blend in */
+
+    svg {width: 45%; height: 45%}
+    .iconCompress {display: none} /* expand (outward) arrows show by default */
+    /* Gate hover to real-pointer devices so a tap doesn't leave it stuck-highlighted on touch */
+    @media (hover: hover) {
+        &:hover {color: var(--accent)}
+    }
+}
+
+/* Expanded view: strip the chrome down to the arena and the corner FABs */
+body.quiz.expand {
+    header, #modeBar, #statsBar, #endlessDrawer {display: none}
+
+    /* Swap to compress (inward) arrows instead of highlighting the button */
+    #expandToggle {
+        .iconExpand {display: none}
+        .iconCompress {display: block}
+    }
+}
+
+/* Each control positions itself against the arena, so the container is just a passthrough */
+body.quiz #cornerButtons {display: contents}
+
+/* Report flag: naked icon at the card's bottom-right corner, matching the expand toggle */
+body.quiz #reportIssue {
+    position: absolute;
+    z-index: 5;
+    width: clamp(2.25rem, 5vmin, 3rem);
+    height: clamp(2.25rem, 5vmin, 3rem);
+    border: none;
+    background: none;
+    opacity: 1;
+    right: 1.5rem; /* = arena padding-right, card's right edge */
+    top: calc(1rem + var(--cardH, 0px)); /* arena padding-top + card height = card's bottom edge */
+    transform: translateY(-100%); /* lift the flag just inside the card bottom */
+    filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.9)); /* lift the naked icon off the card so it doesn't blend in */
+}
+
+/* The card-anchored icons would hover in empty space as the card flies off - hide them instantly with it */
+#arena.swiping #expandToggle,
+#arena.swiping #reportIssue {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Source moves to bottom-right (less chance of overlap) */
+body.quiz #sourceLink {
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+    z-index: 100;
+}
+
+/* Results screen has no card: stack source and the card-anchored report at the fixed bottom-right */
+body.quiz:has(#done) #cornerButtons {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    position: fixed;
+    right: 1rem;
+    bottom: 1rem;
+}
+body.quiz:has(#done) #sourceLink,
+body.quiz:has(#done) #reportIssue {
+    position: static;
+    inset: auto;
+    transform: none;
+}
+
+#answerGrid {
+    width: 100%;
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(8rem, 1fr));
+    gap: 0.5rem;
+
+    /* Board hugs its content (grow 0, no row stretch); shrinks and scrolls only when it can't fit after the card yields */
+    flex: 0 1 auto;
+    min-height: 100px;
+    overflow: hidden auto; /* hidden x avoids the y-scroll coercing x to auto */
+
+    /* Symbols fixed to 4-columns */
+    &[data-answer="symbol"] {grid-template-columns: repeat(4, 1fr)}
+
+    /* Freeze the board after a pick */
+    &.answered {pointer-events: none}
+}
+
+.answerOption {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    letter-spacing: 0.04em;
+    text-transform: capitalize;
+    text-align: center;
+    padding: 0.5rem 2px;
+    min-height: 2.5rem;
+    border: 1px solid var(--border);
+    background: var(--card);
+    color: var(--text);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+
+    /* Block names split start/end across a dividing rule that bisects the button */
+    hr {
+        align-self: stretch;
+        margin: 0.25rem -2px; /* Bleed into the padding so the rule meets the edges */
+        border: 0;
+        border-top: 1px solid currentColor;
+        opacity: 0.25;
+    }
+
+    /* Bisect block answer buttons */
+    &:has(hr) {min-height: calc(2lh + 1rem + 0.5rem + 3px)} /* 2 lines + rule margins + padding + borders */
+
+    /* Gate hover to real-pointer devices so a tap-scroll doesn't leave a button stuck-highlighted on touch */
+    @media (hover: hover) {
+        &:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+    }
+
+    /* Color the verdict after a pick */
+    &.correct,
+    &.revealCorrect {
+        border-color: var(--success);
+        color: var(--success);
+        background: color-mix(in srgb, var(--success) 14%, var(--card));
+    }
+
+    &.wrong {
+        border-color: var(--error);
+        color: var(--error);
+        background: color-mix(in srgb, var(--error) 14%, var(--card));
+    }
+}
+
 /* -------------- */
 /* Mobile support */
 /* -------------- */
@@ -1144,10 +1323,14 @@ body:not(:has(#modeBar.collapsed)) #statsModeSelect {display: none} /* Hide mode
     #statsBar #progressContainer:not(:has(#endlessToggle.active)) {flex-basis: 100%}
 }
 
-/* Expand card height on mobile */
+/* Mobile: card grows to fill the leftover (board hugs its content via the shared rule) */
 @media (max-width: 600px) {
     #card {
         aspect-ratio: auto;
         flex: 1;
     }
+
+    /* Card-anchored controls follow the arena padding (1rem here); source FAB is already viewport-fixed */
+    #expandToggle {right: 1rem}
+    body.quiz #reportIssue {right: 1rem}
 }

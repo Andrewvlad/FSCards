@@ -1,5 +1,5 @@
 # FSCards
-A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, with diagrams from every provider.
+A fast, lightweight app to learn the Formation Skydiving dive pools through flashcards, quizzes, and gallery overview, with diagrams from every major source.
 
 ## Disciplines
 
@@ -32,7 +32,12 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
 
 ## Features
 - Gallery view (`/gallery/`) to study the whole pool at a glance
+- Quiz view (`/quiz/`) to test your knowledge with multiple-choice
 - Filters
+- Endless mode
+  - Random: Fully random
+  - Adaptive: See incorrect/correct cards more/less
+  - Learn: Learn a handful of formations at a time
 - Video demonstrations (compiled by Axis)
 - Auto-saved session, stats, and settings to localStorage
 - Dark mode
@@ -65,8 +70,8 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
 
 ## Nerd Flex
 - Entirely clientside using legible HTML/CSS/JS. Clean, fast, and no dependencies/libraries/frameworks.
-- GitHub Actions pipeline to automatically update Axis image sets.
-- 404 hack to enable URL forwarding (shortens "anagrammatic" query param links, e.g. /mfs, /2waycf, /speed6, /8, etc. all work).
+- GitHub Actions pipeline to automatically update Axis and USPA image sets whenever a new PDF is automatically found online.
+- 404 hack to enable URL forwarding (shortens "anagrammatic" query param links, e.g. /mfs, /2waycf, /speed-6, /8, etc. all work).
 - Blocks get split horizontally on landscape devices (except Rhythm, which isn't a trifold).
 - Filters are dynamic and hide when they don't apply.
 - Sourced images are of lossless, max quality.
@@ -80,6 +85,8 @@ A fast, lightweight flashcard app to learn the Formation Skydiving dive pools, w
   - `/panel-cuts.js` contains the trifold cuts for each figure.
 - `/tools` contains the image extraction pipelines (mainly AI generated).
 - `/.github/workflows` contains the GitHub Actions pipeline that keeps the image sets up to date.
-  - `/update-axis-sources.yml` fetches the latest Axis image set PDFs from the Axis website, and PRs per dicipline ([example](https://github.com/Andrewvlad/FSCards/pull/2)).
+  - `/update-axis-sources.yml` checks and fetches the latest Axis image set PDFs from the Axis website, and PRs per dicipline ([example](https://github.com/Andrewvlad/FSCards/pull/2)).
   - `/extract-axis-images.yml` is triggered by an updated Axis PDF, and cuts out only updated images for PR ([example](https://github.com/Andrewvlad/FSCards/pull/5)).
-  - `/reject-extracted-images.yml` allows for rejecting image updates using PR comments ([example](https://github.com/Andrewvlad/FSCards/pull/5)).
+  - `/update-uspa-sources.yml` and `/extract-uspa-images.yml` are equivalents for USPA.
+  - `/extract-fai-images.yml` are equivalents for FAI (no fetch as the URL format is inconsistent).
+  - `/reject-extracted-images.yml` allows for rejecting image updates (Axis, USPA, or FAI) using PR comments ([example](https://github.com/Andrewvlad/FSCards/pull/5)).
