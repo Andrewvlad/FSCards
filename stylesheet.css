@@ -664,6 +664,12 @@ body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) 
     object-fit: contain;
 }
 
+/* Thumbnail matches size of original (no swap jitter) */
+.cardContent > .diagram {
+    width: auto;
+    height: 100%;
+}
+
 /* Transparent line-art SVGs (the CF USPA sets) float on the card; without this the
    global white img background boxes them in (and inverts to a black box in dark) */
 :root[data-diagram="dark"] :is(.diagram, #gallery img) {background: transparent}

@@ -89,6 +89,9 @@ function panelCutsFor(src) {
 // Text-free card variant used for the front
 const figureFor = (path) => path.replace(/\/([^/]+)$/, '/figures/$1');
 
+// Low-res thumbnail sibling (tools/thumbnails); figures nest under thumbs/figures/, no thumb for SVG sets
+const thumbFor = (path) => path.replace(/\/(figures\/)?([^/]+)$/, '/thumbs/$1$2');
+
 function imageSetsFor(discipline) {
     return Object.keys(DATA[discipline].sets);
 }

@@ -75,6 +75,8 @@ jobs:
                   echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
                   # Changed disciplines (3rd path segment) scope the panel-cut re-measure
                   echo "disciplines=$(echo "$changed" | cut -c4- | cut -d/ -f3 | sort -u | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+                  # Staged image paths (status prefix stripped) scope thumbnail regen to just the changed keys
+                  echo "images=$(echo "$changed" | cut -c4- | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
                   {
                       echo '### FAI re-cut'
                       tail -1 "$RUNNER_TEMP/install.log"
@@ -103,6 +105,10 @@ jobs:
               with:
                   name: panel-cut-audit-sheets
                   path: tools/panel-cuts/audit-*.png
+
+            - name: Generate diagram thumbnails
+              if: steps.commit.outputs.changed == 'true'
+              run: python3 tools/thumbnails/generate.py ${{ steps.commit.outputs.images }}
 
             - name: Compose PR body
               if: steps.commit.outputs.changed == 'true'

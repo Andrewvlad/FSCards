@@ -200,6 +200,26 @@
         }
     }
 
+    // Full-res URLs confirmed local (downloaded set, or already swapped in) - rendered without a thumb flash
+    const loadedFulls = new Set();
+    // Full already local - showing the thumb would only flash
+    const fullReady = (src) => loadedFulls.has(src);
+
+    // Thumbnail: render the low-res thumb first only when the full isn't cached yet, else skip the flash
+    const lazySrc = (src) => src.endsWith('.svg')
+        ? `src="${src}"` // vector sets have no thumb
+        : fullReady(src)
+        ? `src="${src}"` // full already local - no thumb, no flash
+        : `src="${thumbFor(src)}" data-full="${src}" onload="swapToFullImage(this)" onerror="swapToFullImage(this)"`;
+
+    function swapToFullImage(img) {
+        const full = img.dataset.full;
+        if (!full) return; // already upgraded (swapping src re-fires onload)
+        const f = new Image();
+        f.onload = () => { img.src = full; delete img.dataset.full; loadedFulls.add(full); };
+        f.src = full;
+    }
+
     function renderGrid() {
         const pool = Object.values(buildPool(poolSettings()));
         // Pools without the blocks/randoms split show everything
@@ -207,7 +227,7 @@
         const captioned = includeCaption(discipline);
 
         gallery.innerHTML = formations.map(formation => {
-            const diagram = `<img src="${formation.image}" alt="${formation.name}" loading="lazy">`;
+            const diagram = `<img ${lazySrc(formation.image)} alt="${formation.name}" loading="lazy">`;
             const media = formation.video
                 ? `<a href="${formation.video}" target="_blank" rel="noopener noreferrer">${diagram}</a>`
                 : diagram;

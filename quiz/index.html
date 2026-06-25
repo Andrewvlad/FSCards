@@ -444,12 +444,24 @@
 
     // Warm each diagram URL at most once a session (resize splits and set swaps re-call this)
     const warmed = new Set();
+    // Full-res URLs confirmed local (warmed ok, or already swapped in) - rendered without a thumb flash
+    const loadedFulls = new Set();
     function prefetchDeck() {
-        const fresh = [];
-        for (const card of deck) for (const url of [card.image, card.figure])
-            if (!warmed.has(url)) { warmed.add(url); fresh.push(url); }
-        if (!fresh.length) return;
-        const warm = () => fresh.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
+        // Current card loads at render (swapToFullImage); warm the rest upcoming-first, all thumbs then all full-res
+        const idx = currentCard ? deck.findIndex(c => c.key === currentCard.key) : -1;
+        const ordered = [...deck.slice(idx + 1), ...deck.slice(0, Math.max(idx, 0))];
+        const fullsOf = (card) => [card.image, card.figure];
+        const thumbsOf = (card) => fullsOf(card).filter(u => !u.endsWith('.svg')).map(thumbFor);
+        const queue = [...ordered.flatMap(thumbsOf), ...ordered.flatMap(fullsOf)].filter(u => !warmed.has(u));
+        if (!queue.length) return;
+        queue.forEach(u => warmed.add(u));
+        // Sequential so the ordering holds and a flaky link warms one at a time instead of flooding
+        const warm = async () => {
+            for (const url of queue) {
+                const res = await fetch(url, {priority: 'low'}).catch(() => null);
+                if (res?.ok && !url.includes('/thumbs/')) loadedFulls.add(url); // full now cached, no thumb needed
+            }
+        };
         if (window.requestIdleCallback) requestIdleCallback(warm);
         else setTimeout(warm);
     }
@@ -484,6 +496,24 @@
     const SPLIT_RATIO = 2; // Cards at least twice as wide as tall show blocks as side-by-side panels
     const SEAM_MARGIN = 0.0035;
 
+    // Thumbnail: render the low-res thumb first only when the full isn't cached yet, else skip the flash
+    const lazySrc = (src) => src.endsWith('.svg')
+        ? `src="${src}"` // vector sets have no thumb
+        : fullReady(src)
+        ? `src="${src}"` // full already local - no thumb, no flash
+        : `src="${thumbFor(src)}" data-full="${src}" onload="swapToFullImage(this)" onerror="swapToFullImage(this)"`;
+
+    // Full already local (downloaded set, or warmed/seen this session) - showing the thumb would only flash
+    const fullReady = (src) => loadedFulls.has(src);
+
+    function swapToFullImage(img) {
+        const full = img.dataset.full;
+        if (!full) return; // already upgraded (swapping src re-fires onload)
+        const f = new Image();
+        f.onload = () => { img.src = full; delete img.dataset.full; loadedFulls.add(full); };
+        f.src = full;
+    }
+
     // Add captions to images
     function diagramFace(src, formation, hideCaption) {
         if (!includeCaption(discipline)) {
@@ -495,14 +525,14 @@
                 const windows = [[0, d1t - SEAM_MARGIN], [d1b + SEAM_MARGIN, d2t - SEAM_MARGIN], [d2b + SEAM_MARGIN, 1]];
                 const grows = windows.map(([t, b]) => 1 / (b - t));
                 const panels = windows.map(([t, b], i) =>
-                    `<img class="diagram" src="${src}" alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
+                    `<img class="diagram" ${lazySrc(src)} alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
                 return `<div class="splitDiagram"${fallback && invert ? ' data-diagram="dark"' : ''} role="img" aria-label="${formation.key}"
                             style="aspect-ratio: ${(ar * grows.reduce((s, g) => s + g)).toFixed(4)}">${panels}</div>`;
             }
-            return `<img class="diagram" src="${src}" alt="${formation.key}">`;
+            return `<img class="diagram" ${lazySrc(src)} alt="${formation.key}">`;
         }
         return `<figure class="captionedDiagram">
-                    <img class="diagram" src="${src}" alt="${formation.key}">
+                    <img class="diagram" ${lazySrc(src)} alt="${formation.key}">
                     <figcaption${hideCaption ? ' class="captionHidden"' : ''}>${formation.name}</figcaption>
                 </figure>`;
     }

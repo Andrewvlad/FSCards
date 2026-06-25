@@ -66,6 +66,8 @@ jobs:
                       # /reject reverts the shipped card (and/or its figure) to main
                       if [ "$cmd" = /reject ]; then
                           grep -E "^assets/diagrams/[^/]+/(Axis|USPA|FAI)/$sub$key\.webp$" "$RUNNER_TEMP/changed.txt" >> "$RUNNER_TEMP/targets.txt" && hit=1
+                          # Thumb sibling rides with its parent image - revert/drop it the same way
+                          grep -E "^assets/diagrams/[^/]+/(Axis|USPA|FAI)/thumbs/$sub$key\.webp$" "$RUNNER_TEMP/changed.txt" >> "$RUNNER_TEMP/targets.txt" || true
                       fi
                       # Both commands drop the diagram's _dep- archive (figures are no longer archived). A :figure
                       # scope leaves it alone: only the figure was rejected, the diagram change still stands.
@@ -151,7 +153,8 @@ jobs:
                       gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "$ERROR"
                       exit 0
                   fi
-                  list=$(sed 's|^|- `|; s|$|`|' <<<"$TARGETS")
+                  # Thumbs revert silently with their parent - keep them out of the human-facing list
+                  list=$(grep -v '/thumbs/' <<<"$TARGETS" | sed 's|^|- `|; s|$|`|')
                   if [ "$CHANGED" != true ]; then
                       body='Nothing to change, targets already match `main`'
                   elif [ "$CMD" = /upscale ]; then
