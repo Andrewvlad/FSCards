@@ -31,8 +31,10 @@ A fast, lightweight app to learn the Formation Skydiving dive pools through flas
 | 4-Way      | 17 randoms + 8 blocks | Rhythm, USPA, Axis, FAI |
 
 ## Features
-- Gallery view (`/gallery/`) to study the whole pool at a glance
-- Quiz view (`/quiz/`) to test your knowledge with multiple-choice
+- Pick how you learn
+  - Flashcards (`/cards/`) to drill the pool card by card
+  - Gallery (`/gallery/`) to study the whole pool at a glance
+  - Quiz (`/quiz/`) to test your knowledge with multiple-choice
 - Filters
 - Endless mode
   - Random: Fully random
@@ -76,6 +78,12 @@ A fast, lightweight app to learn the Formation Skydiving dive pools through flas
 - Filters are dynamic and hide when they don't apply.
 - Sourced images are of lossless, max quality.
 - UI scales at every size (down to ~200px wide, or ~300px tall, to be tested on ultrawide screens).
+
+## FAQ
+- Why not use the Rhythm 101 app? 
+  - The Rhythm App only has flashcards of the 4-way randoms.
+    This app is not a replacement, and I will never add any of the other flashcards from the Rhythm app.
+    If you'd like to learn about body flight or study for a license exam, I highly recommend getting the Rhythm app on the [Android](https://play.google.com/store/apps/details?id=com.rhythm.android) or [Apple App Store](https://apps.apple.com/us/app/rhythm-skydiving-101/id1054896853).
 
 ## Code Walk
 - Core app is just your standard HTML/CSS/JS.

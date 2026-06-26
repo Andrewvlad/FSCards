@@ -2,14 +2,15 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="description" content="Formation skydiving dive pool flashcards">
+    <meta name="description" content="Learn the formation skydiving dive pool using flashcards, gallery, and quiz views">
     <meta name="author" content="Andrew Vladelshchikov">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!--Prevent swiped cards from expanding the viewport-->
-    <title>FSCards - Flashcards</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FSCards</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
-    <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@700&family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" type="text/css" href="stylesheet.css">
+    <meta name="theme-color" content="#0d0d0f">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eeeeec">
+    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
     <script>
         // Resolve the active theme before first paint
         let savedTheme;
@@ -17,1173 +18,163 @@
         document.documentElement.dataset.theme =
             savedTheme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     </script>
+    <!--Standalone styles - the shared sheet carries no landing rules, like 404.html-->
+    <style>
+        :root {
+            --bg: #0d0d0f;
+            --border: #2a2a35;
+            --accent: #f0c040;
+            --text: #f0ede8;
+            --muted: #7a7a8a;
+            --blackText: #0d0d0f;
+        }
+        :root[data-theme="light"] {
+            --bg: #eeeeec;
+            --border: #d6d2c8;
+            --text: #1c1b19;
+        }
+        * {box-sizing: border-box; margin: 0; padding: 0; user-select: none}
+        body {
+            min-height: 100dvh;
+            display: grid;
+            place-items: center;
+            padding: 2rem;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'DM Mono', monospace;
+            text-align: center;
+        }
+        main {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            font-family: 'Playfair Display', serif;
+            font-weight: 900;
+            font-size: clamp(2.4rem, 12vmin, 3.6rem);
+
+            span {
+                display: inline-block;
+                color: var(--accent);
+                transform-origin: 50% 50% -0.55em;  /* Pivot behind the text so it rolls on a cylinder, not flips on its midline */
+            }
+        }
+        #tagline {
+            margin-top: 0.6rem;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--muted);
+        }
+        nav {
+            margin-top: 2.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            width: min(20rem, 80vw);
+        }
+        nav a {
+            padding: 0.95rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.8rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            transition: all 0.2s;
+
+            &:hover {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: var(--blackText);
+            }
+        }
+    </style>
 </head>
 <body>
-
-<!--Floating corner buttons (bottom-left, stacked): diagram-source logo on top, report-issue below-->
-<div id="cornerButtons">
-    <!--Diagram source: links to the active image set's source site; href/icon set by updateSourceButton()-->
-    <a id="sourceLink" target="_blank" rel="noopener noreferrer"></a>
-    <!--Report issue: repo's new-issue page, prefilled with current state-->
-    <a id="reportIssue" href="https://github.com/Andrewvlad/FSCards/issues/new" target="_blank" rel="noopener noreferrer" title="Report an issue on GitHub" aria-label="Report an issue on GitHub" onclick="this.href = buildIssueUrl()">
-        <svg viewBox="0 0 24 24" width="27" height="27" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M5 21V4"/>
-            <path d="M5 4h13l-2.5 4 2.5 4H5"/>
-        </svg>
-    </a>
-</div>
-
-<!--Content-->
-<header>
-    <div id="headerTitle">
-        <!--The logo doubles as a view switcher-->
-        <details id="viewSwitch">
-            <summary id="logo">FS<span>Cards</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
-            <nav class="viewMenu" aria-label="Switch view">
-                <a href="./" aria-current="page"><strong>Flashcards</strong></a>
-                <a href="quiz/"><strong>Quiz</strong></a>
-                <a href="gallery/"><strong>Gallery</strong></a>
-            </nav>
-        </details>
-        <div id="tagline">Learn the skydiving formation dive pool</div>
-    </div>
-    <button id="settingsToggle" class="pill" onclick="toggleSettings()"><span class="cog">⚙</span>Settings</button>
-</header>
-
-<div id="settingsPanel" class="hidden">
-    <div class="settingsGroup" id="categoryGroup">
-        <div class="settingsLabel"><span>Category</span></div>
-        <div class="segmented" id="categorySegment">
-            <button type="button" data-category="randoms" class="pill" onclick="selectCategory(this)">Randoms</button>
-            <button type="button" data-category="blocks" class="pill" onclick="selectCategory(this)">Blocks</button>
-            <button type="button" data-category="all" class="pill active" onclick="selectCategory(this)">All</button>
-        </div>
-    </div>
-
-    <div class="settingsGroup" id="classGroup">
-        <div class="settingsLabel"><span>Class</span></div>
-        <div class="segmented" id="classSegment"></div>
-    </div>
-
-    <div class="settingsGroup">
-        <div class="settingsLabel"><span>Card Front</span></div>
-        <div class="segmented" id="frontSegment">
-            <button type="button" data-front="diagram" class="pill active" onclick="selectFront(this)">Diagram</button>
-            <button type="button" data-front="label" class="pill" onclick="selectFront(this)">Symbol</button>
-            <button type="button" data-front="name" class="pill" onclick="selectFront(this)">Name</button>
-        </div>
-    </div>
-
-    <div class="settingsGroup" id="imageSetGroup">
-        <div class="settingsLabel"><span>Diagram Set</span></div>
-        <div class="segmented" id="imageSetSegment"></div>
-    </div>
-
-    <div class="toggleGroup">
-        <label class="toggleSetting hidden" id="indoorSetting">
-            <input type="checkbox" id="indoorToggle" onchange="selectIndoor(this)">
-            <span class="toggle"></span>
-            Indoor diagrams
-        </label>
-
-        <label class="toggleSetting hidden" id="tunnelSetting">
-            <input type="checkbox" id="tunnelToggle" onchange="selectTunnel(this)">
-            <span class="toggle"></span>
-            12-Foot Tunnel
-        </label>
-
-        <div class="toggleRow hidden" id="fusionsSetting">
-            <label class="toggleSetting">
-                <input type="checkbox" id="fusionsToggle" checked onchange="selectFusions(this)">
-                <span class="toggle"></span>
-                Include Fusions
-            </label>
-            <button type="button" class="infoTip" aria-label="About Fusions and Singles" aria-describedby="fusionsTip">
-                <svg class="infoIcon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-                    <circle cx="8" cy="8" r="6.6"/>
-                    <line x1="8" y1="7.2" x2="8" y2="11.4" stroke-linecap="round"/>
-                    <circle cx="8" cy="4.7" r="0.55" fill="currentColor" stroke="none"/>
-                </svg>
-                <span class="tipBubble" id="fusionsTip" role="tooltip">Not all Fusions & Singles have posted diagrams</span>
-            </button>
-        </div>
-
-        <label class="toggleSetting" id="recycleSetting">
-            <input type="checkbox" id="recycleToggle" onchange="recycle = checked; saveSession()">
-            <span class="toggle"></span>
-            Recycle wrong cards
-        </label>
-
-        <label class="toggleSetting">
-            <input type="checkbox" id="themeToggle" onchange="selectTheme(this)">
-            <span class="toggle"></span>
-            Light mode
-        </label>
-
-        <label class="toggleSetting hidden" id="invertSetting">
-            <input type="checkbox" id="invertToggle" checked onchange="selectInvert(this)">
-            <span class="toggle"></span>
-            Invert colors
-        </label>
-    </div>
-</div>
-
-<div id="modeBar">
-    <button data-mode="2-way" class="pill">2-Way</button>
-    <button data-mode="4-way" class="pill active">4-Way</button>
-    <button data-mode="6-way-speed" class="pill">6-Way Speed</button>
-    <button data-mode="8-way" class="pill">8-Way</button>
-    <button data-mode="10-way-speed" class="pill">10-Way Speed</button>
-    <button data-mode="16-way" class="pill">16-Way</button>
-    <button data-mode="2-way-vfs" class="pill">VFS 2-Way</button>
-    <button data-mode="4-way-vfs" class="pill">VFS 4-Way</button>
-    <button data-mode="2-way-mfs" class="pill">MFS 2-Way</button>
-    <button data-mode="2-way-cf" class="pill">CF 2-Way</button>
-    <button data-mode="4-way-cf" class="pill">CF 4-Way</button>
-    <button data-mode="cp-freestyle" class="pill">CP Freestyle</button>
-</div>
-
-<div id="statsBar">
-    <!--Split so that they can overflow hidden on narrow widths-->
-    <div id="statsRow">
-        <!--Hidden, see CSS-->
-        <select id="statsModeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
-        <div class="stat">
-            <label>Card</label>
-            <p id="statCard">—</p>
-        </div>
-        <div class="stat">
-            <label>Correct</label>
-            <p class="good" id="statCorrect">0</p>
-        </div>
-        <div class="stat">
-            <label>Wrong</label>
-            <p class="bad" id="statWrong">0</p>
-        </div>
-        <div class="stat">
-            <label>Streak</label>
-            <p id="statStreak">0</p>
-        </div>
-    </div>
-    <div class="stat" id="progressContainer">
-        <div class="stat" id="progressMain">
-            <!--progressCount only shown on very narrow devices-->
-            <label>Progress <span id="progressCount"></span></label>
-            <div id="progressBar"><div id="progressFill"></div></div>
-        </div>
-        <button type="button" id="endlessToggle" class="pill" onclick="toggleEndless()" aria-pressed="false" aria-label="Endless mode" title="Endless mode"><span><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 5c2.5 1 3.5 5 6 6s3.5-1.5 3.5-3-1-4-3.5-3-3.5 5-6 6-3.5-1.5-3.5-3 1-4 3.5-3"/></svg></span></button>
-    </div>
-</div>
-
-<!--Endless drawer for endless-specific settings-->
-<div id="endlessDrawer" class="hidden">
-    <div id="drawerContent" class="hidden">
-        <!--Inline with the stats when it fits (fitStrategyRow)-->
-        <div class="segmented" id="strategyRow">
-            <button type="button" data-strategy="random" class="pill active" onclick="selectStrategy(this)" title="Your basic, random draw">Random</button>
-            <button type="button" data-strategy="adaptive" class="pill" onclick="selectStrategy(this)" title="Draw missed cards more often">Adaptive</button>
-            <button type="button" data-strategy="learn" class="pill" onclick="selectStrategy(this)" title="Smaller deck, unlocking more as you succeed">Learn</button>
-        </div>
-        <button type="button" id="drawerClose" onclick="setDrawer(false)" aria-label="Collapse" title="Collapse">
-            <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M2.75 2.75l6.5 6.5M9.25 2.75l-6.5 6.5"/></svg>
-        </button>
-    </div>
-    <button type="button" id="drawerCaret" onclick="toggleDrawer()" aria-expanded="false" aria-controls="drawerContent" aria-label="Card order" title="Card order">
-        <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.25 6 7.75l3.5-3.5"/></svg>
-    </button>
-</div>
-
-<div id="arena"></div>
-
-
-<!--Per-discipline info-->
-<script src="assets/diagrams/2-way/index.js"></script>
-<script src="assets/diagrams/4-way/index.js"></script>
-<script src="assets/diagrams/6-way-speed/index.js"></script>
-<script src="assets/diagrams/8-way/index.js"></script>
-<script src="assets/diagrams/10-way-speed/index.js"></script>
-<script src="assets/diagrams/16-way/index.js"></script>
-<script src="assets/diagrams/2-way-vfs/index.js"></script>
-<script src="assets/diagrams/4-way-vfs/index.js"></script>
-<script src="assets/diagrams/2-way-mfs/index.js"></script>
-<script src="assets/diagrams/2-way-cf/index.js"></script>
-<script src="assets/diagrams/4-way-cf/index.js"></script>
-<script src="assets/diagrams/cp-freestyle/index.js"></script>
-<script src="assets/diagrams/panel-cuts.js"></script>
-
-<script src="index.js"></script>
+<main>
+    <h1>FS<span>Cards</span></h1>
+    <p id="tagline">Learn the skydiving formation dive pool</p>
+    <nav aria-label="Choose a view">
+        <a href="cards/" data-word="Cards">Flashcards</a>
+        <a href="gallery/" data-word="Gallery">Gallery</a>
+        <a href="quiz/" data-word="Quiz">Quiz</a>
+    </nav>
+</main>
 <script>
-    // Initialize stats
-    const correct = document.getElementById('statCorrect');
-    const wrong = document.getElementById('statWrong');
-    const streak = document.getElementById('statStreak');
-    const progress = document.getElementById('statCard');
-    const progressCount = document.getElementById('progressCount');
-    const getIndex = () => +correct.textContent + +wrong.textContent;
-    const runComplete = () => !endless && getIndex() >= deck.length; // Endless never completes
+    // Hovering a view button rolls the wordmark's gold span to that view's word on a cylinder reel.
+    // One rAF loop drives a single progress p, so a hover can reverse or retarget the roll mid-flight.
+    const reel = document.querySelector('h1 span');
+    const defaultWord = reel.textContent;
+    const ROLL = 150; // ms per half-turn (roll the current word out, then the next in)
+    const dirOf = word => word === defaultWord ? -1 : 1; // Views roll up, the default rolls back down
+    let shown = defaultWord; // word currently painted
+    let pending = defaultWord; // latest hovered target
+    let roll = null; // active transition, or null at rest
+    let running = false, last = 0;
 
-    function setProgress(text) {
-        progress.textContent = text;
-        progressCount.textContent = `(${text})`;
+    // Width of a word at the reel's font, read by swapping the text in place
+    function wordWidth(word) {
+        const text = reel.textContent, width = reel.style.width;
+        reel.style.width = 'auto';
+        reel.textContent = word;
+        const px = reel.offsetWidth;
+        reel.textContent = text;
+        reel.style.width = width;
+        return px;
     }
 
-    // Initialize state
-    let discipline = '4-way';
-    let category = 'all';
-    let classLevel = 'open';
-    let frontContent = 'diagram';
-    let indoor = false;
-    let tunnel = false;
-    let includeFusions = true;
-    let imageSet = 'Rhythm';
-    let fullDeck = [];
-    let deck = [];
-    let flipped = false;
-    let recycle = false;
-    let theme = document.documentElement.dataset.theme;
-    let invert = true;
-    let endless = false;
-    let currentCard = null; // The formation on screen (needed for endless)
+    function frame(now) {
+        const dt = now - (last || now);
+        last = now;
 
-    // The settings object every deck/image build takes. Split tracks the viewport at call time
-    const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
-</script>
-<!--Save progress-->
-<script>
-    const SAVE_KEY = 'fscards';
+        if (!roll && pending !== shown)
+            roll = {a: shown, b: pending, dir: dirOf(pending), p: 0, goal: 1,
+                    wa: wordWidth(shown), wb: wordWidth(pending)};
 
-    // Save after each grading
-    function saveSession() {
-        if (!runComplete()) try {
-            localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
-                deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
-                correct: correct.textContent,
-                wrong:   wrong.textContent,
-                streak:  streak.textContent,
-                discipline,
-                category,
-                classLevel,
-                frontContent,
-                indoor,
-                tunnel,
-                includeFusions,
-                imageSet,
-                recycle,
-                endless,
-            }));
-        } catch(e) {} // Fail silently if storage full or unavailable
+        if (roll) {
+            // Steer the in-flight roll at the latest hover: drive toward whichever end it wants
+            if (pending === roll.b) roll.goal = 1;
+            else if (pending === roll.a) roll.goal = 0; // Reverse straight back the way it came
+            else if (roll.p < 0.5) { // Retarget before the next word shows
+                roll.b = pending; roll.wb = wordWidth(pending); roll.goal = 1;
+            } // A third word after the swap rides out, then chains below
 
-        // Mirror the pool/image filters into the cross-page store the gallery also reads
-        saveShared({discipline, category, classLevel, indoor, tunnel, includeFusions, imageSet, invert});
-    }
+            roll.p = Math.max(0, Math.min(1, roll.p + (roll.goal ? 1 : -1) * dt / (2 * ROLL)));
 
-    function loadSession() {
-        try {
-            let data = null;
-            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Flashcards run
+            const front = roll.p < 0.5; // Outgoing half (a) shown, vs incoming (b)
+            const word = front ? roll.a : roll.b;
+            if (reel.textContent !== word) reel.textContent = word; // Swap while edge-on and invisible
+            reel.style.width = `${roll.wa + (roll.wb - roll.wa) * roll.p}px`; // Glide width across the roll so FS slides, not jumps
+            const vis = Math.abs(2 * roll.p - 1); // 1 at rest, 0 edge-on
+            reel.style.transform = `rotateX(${roll.dir * 180 * (front ? roll.p : roll.p - 1)}deg)`;
+            reel.style.opacity = vis;
+            reel.style.filter = `brightness(${0.5 + 0.5 * vis})`;
 
-            const shared = loadShared(); // Filters, also written by the gallery
-
-            // Flashcard-only settings
-            if (data) {
-                frontContent = data.frontContent ?? 'diagram';
-                recycle      = data.recycle ?? false;
-                endless      = data.endless === true ? 'random' : data.endless || false; // Migration from true -> random
+            if (roll.p === roll.goal) { // Settled at the end it was driving toward
+                shown = word;
+                reel.style.width = reel.style.transform = reel.style.opacity = reel.style.filter = '';
+                roll = null;
             }
-
-            const src = shared ?? data;
-            if (src) {
-                discipline = src.discipline in DATA ? src.discipline : '4-way'; // Disciplines fall back (in case of rename)
-                category   = src.category ?? 'all';
-                classLevel = src.classLevel ?? 'open';
-                indoor     = src.indoor ?? false;
-                tunnel     = src.tunnel ?? false;
-                includeFusions = src.includeFusions ?? true;
-                imageSet   = src.imageSet ?? 'Rhythm';
-                invert     = src.invert ?? true;
-            }
-
-            syncSettingsUI();
-
-            const samePool = data
-                && data.discipline === discipline
-                && data.classLevel === classLevel
-                && data.tunnel === tunnel
-                && data.includeFusions === includeFusions
-                && data.category === category;
-            if (!data || !data.deck?.length || (shared && !samePool)) return false;
-
-            // Rebuild the full pool (for category switching), then restore the played deck
-            fullDeck = buildDeck(poolSettings());
-            deck = deckFromKeys(data.deck, poolSettings());
-            if (!deck.length) return false; // If deck no longer valid (pool revised)
-            rebuildEndlessState();
-            prefetchDeck();
-
-            // Populate stats
-            correct.textContent = data.correct;
-            wrong.textContent   = data.wrong;
-            streak.textContent  = data.streak;
-
-            showToast('Resumed');
-
-            return true;
-        } catch(e) {return false;}
-    }
-
-    function showToast(message, long = false) {
-        const toast = document.createElement('output');
-        toast.role = 'status';
-        toast.className = long ? 'toast long' : 'toast';
-        toast.textContent = message;
-        toast.addEventListener('animationend', e => e.animationName === 'hideToast' && toast.remove());
-        document.body.appendChild(toast);
-    }
-
-    // Only clear when game complete. Progress in a new mode will override
-    function clearSession() {
-        try {
-            localStorage.removeItem(SAVE_KEY);
-        } catch(e) {} // Fail silently if storage unavailable
-    }
-</script>
-<!--Define deck-->
-<script>
-    function newDeck() {
-        fullDeck = buildDeck(poolSettings());
-        applyCategory();
-    }
-
-    // Derive the played deck from fullDeck by category (no reshuffle) and restart the run
-    function applyCategory() {
-        // Pools without the blocks/randoms split show everything
-        deck = categorized(poolSettings()) ? fullDeck.filter(matchesCategory) : [...fullDeck];
-        rebuildEndlessState();
-        prefetchDeck();
-
-        correct.textContent = '0';
-        wrong.textContent = '0';
-        streak.textContent = '0';
-
-        saveSession();
-        nextCard();
-    }
-
-    function matchesCategory(card) {
-        switch (category) {
-            case 'blocks':
-            case 'randoms':
-                return isBlock(card.key) === (category === 'blocks');
-            case 'all':
-            default:
-                return true;
-        }
-    }
-
-    function prefetchDeck() {
-        const urls = new Set();
-        for (const card of deck) {
-            urls.add(card.image);
-            if (frontContent === 'diagram') urls.add(card.figure);
-        }
-        const warm = () => urls.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
-        if (window.requestIdleCallback) requestIdleCallback(warm);
-        else setTimeout(warm);
-    }
-
-    // Re-point every card's diagram at the current set/indoor without rebuilding the deck
-    function hotSwapImages() {
-        const images = poolImages(poolSettings());
-        for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
-        for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
-
-        if (currentCard && !lock) renderCardFaces(currentCard);
-        prefetchDeck(); // re-warm the cache for the swapped-in set
-
-        saveSession();
-    }
-</script>
-<script>
-    // Constants that get swapped between
-    const frontActionBar = `<button id="flip" onclick="flipCard()">Reveal Answer</button>`;
-    const backActionBar = `<button id="wrong" onclick="grade(false)">✗ Wrong</button><button id="correct" onclick="grade(true)">✓ Correct</button>`;
-    const restartActionBar = `<button id="restart" onclick="newDeck()">↺ New Session</button>`;
-
-    const youTubeIcon = `<svg viewBox="0 3.5 24 17" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
-
-    const watchBarFor = (formation) => formation.video
-        ? `<a id="watchLink" href="${formation.video}" target="_blank" rel="noopener noreferrer">${youTubeIcon}<span>Watch</span></a>`
-        : '';
-
-    const frontKeyboardHints = `<span class="skip" onclick="grade(false)">← skip</span><span onclick="flipCard()">⌴ flip</span><span class="skip" onclick="grade(true)">→ skip</span>`;
-    const backKeyboardHints = `<span class="bad" onclick="grade(false)">← wrong</span><span onclick="flipCard()">⌴ flip</span><span class="good" onclick="grade(true)">→ correct</span>`;
-</script>
-<!--Flip card-->
-<script>
-    function flipCard() {
-        const card = document.getElementById('card');
-
-        flipped = !flipped;
-        card.classList.toggle('flipped', flipped);
-
-        // Release in-flight mouse/touch interaction
-        card.dispatchEvent(new MouseEvent('mouseup',  {bubbles: true}));
-        card.dispatchEvent(new TouchEvent('touchend', {bubbles: true}));
-
-        // Update action bar and keyboard hints (the watch link is per-card, set once in nextCard)
-        document.getElementById('actionBar').innerHTML     = flipped ? backActionBar : frontActionBar;
-        document.getElementById('keyboardHints').innerHTML = flipped ? backKeyboardHints : frontKeyboardHints;
-    }
-</script>
-<!--Create card-->
-<script>
-    const arena = document.getElementById('arena');
-
-    const SPLIT_RATIO = 2; // Cards at least twice as wide as tall show blocks as side-by-side panels
-    const SEAM_MARGIN = 0.0035;
-
-    // Add captions to images
-    function diagramFace(src, formation, hideCaption) {
-        if (!includeCaption(discipline)) {
-            // When the card renders wide, show a block's three panels as separate horizontally arranged images
-            const cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
-            if (cuts) {
-                const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
-                const [ar, d1t, d1b, d2t, d2b] = cuts;
-                const windows = [[0, d1t - SEAM_MARGIN], [d1b + SEAM_MARGIN, d2t - SEAM_MARGIN], [d2b + SEAM_MARGIN, 1]];
-                const grows = windows.map(([t, b]) => 1 / (b - t));
-                const panels = windows.map(([t, b], i) =>
-                    `<img class="diagram" src="${src}" alt="" style="flex-grow: ${grows[i].toFixed(4)}; object-position: 50% ${(100 * t / (1 - b + t)).toFixed(3)}%">`).join('');
-                return `<div class="splitDiagram"${fallback && invert ? ' data-diagram="dark"' : ''} role="img" aria-label="${formation.key}"
-                            style="aspect-ratio: ${(ar * grows.reduce((s, g) => s + g)).toFixed(4)}">${panels}</div>`;
-            }
-            return `<img class="diagram" src="${src}" alt="${formation.key}">`;
-        }
-        return `<figure class="captionedDiagram">
-                    <img class="diagram" src="${src}" alt="${formation.key}">
-                    <figcaption${hideCaption ? ' class="captionHidden"' : ''}>${formation.name}</figcaption>
-                </figure>`;
-    }
-
-    // The prompt shown on the front of the card, per the Card Front setting
-    function frontFace(formation) {
-        switch (frontContent) {
-            case 'name':
-                return `<div class="cardContent"><h1 class="formationName">${formation.name}</h1></div>`;
-            case 'diagram':
-                return `<div class="cardContent">${diagramFace(formation.figure, formation, true)}</div>`;
-            case 'label':
-            default:
-                return `<div class="cardContent">
-                            <div class="formationLabel">
-                                <span class="labelKey">${formation.key}</span>
-                            </div>
-                        </div>`;
-        }
-    }
-
-    // Build the two card faces. Re-render split-block images
-    function renderCardFaces(formation) {
-        document.querySelector('#card .front').innerHTML = frontFace(formation);
-        document.querySelector('#card .back').innerHTML = `
-            <div class="cardContent">
-                ${diagramFace(formation.image, formation, false)}
-            </div>
-        `;
-
-        // Pre-decode the backside image
-        document.querySelector('#card .back .diagram')?.decode?.().catch(() => {});
-    }
-
-    // Crossing the threshold changes split markup and, for single-panel sets, image resolution
-    let splitView = false;
-    const cardObserver = new ResizeObserver(([entry]) => {
-        const {width, height} = entry.contentRect;
-        if (!height) return; // Detached card on results screen reports zero
-
-        const split = width >= SPLIT_RATIO * height;
-        if (split === splitView) return;
-
-        splitView = split;
-        hotSwapImages();
-    });
-
-    // Grading does the actual shifting of the index
-    function nextCard() {
-        if (runComplete()) return finish();
-
-        flipped = false;
-        setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
-        if (endless) fitStrategyRow(); // Counter-width growth can push the inline fit over the edge
-        else document.getElementById('progressFill').style.width = `${getIndex() / deck.length * 100}%`;
-
-        currentCard = endless ? pickEndlessCard() : deck[getIndex()];
-
-        arena.innerHTML = `
-            <div id="card">
-                <div class="cardFace front"></div>
-                <div class="cardFace back"></div>
-            </div>
-            <p id="keyboardHints">${frontKeyboardHints}</p>
-            <div id="actionBar">${frontActionBar}</div>
-            <div id="watchBar">${watchBarFor(currentCard)}</div>
-        `;
-        // Re-observe: the old card went out with the arena markup
-        cardObserver.disconnect();
-        cardObserver.observe(document.getElementById('card'));
-        renderCardFaces(currentCard);
-
-        attachSwipe();
-    }
-</script>
-<!--Finish game-->
-<script>
-    function finish() {
-        clearSession();
-        currentCard = null;
-
-        const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
-
-        const message =
-            pct === 100 ? 'Perfect score!' :
-            pct >= 80   ? 'Impressive!' :
-            pct >= 60   ? 'Nice try!' :
-                          'Keep at it!';
-
-        setProgress('✓');
-        document.getElementById('progressFill').style.width = '100%';
-        arena.innerHTML = `
-            <div id="done">
-                <div class="label">Session Complete</div>
-                <div id="score">${pct}%</div>
-                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong</div>
-                <div id="message">${message}</div>
-                <div id="actionBar">${restartActionBar}</div>
-            </div>
-        `;
-    }
-</script>
-<!--Grade card-->
-<script>
-    let lock = false;
-
-    function grade(direction) {
-        if (lock++) return; // Prevents multiple grades being queued up during timeout
-
-        swipeController?.abort(); // Release all card listeners
-
-        const card = document.getElementById('card');
-
-        setOverlay(direction);
-
-        const flyX = (flipped ^ direction ? 0.75 : -0.75) * window.innerWidth;
-        const rot  = flipped ^ direction ? MAX_ROT : -MAX_ROT;
-        card.style.transition = ''; // Remove "none" transition
-        // Removes perspective transition to prevent warping
-        card.style.transform  = `${flipped ? 'rotateY(180deg)' : ''} translateX(${flyX}px) rotate(${rot}deg)`;
-        setTimeout(() => addGrade(flipped), SWIPE_DURATION);
-
-        function addGrade(value) {
-            if (value) {
-                if (direction) { // Correct
-                    correct.textContent++;
-                    streak.textContent++;
-                } else { // Wrong
-                    if (!endless && recycle) deck.push(currentCard);
-                    wrong.textContent++;
-                    streak.textContent = '0';
-                }
-                if (endless) endlessResult(currentCard.key, direction);
-            } else { // Skip
-                if (!endless) deck.push(...deck.splice(getIndex(), 1));
-            }
-
-            saveSession();
-            nextCard();
-            lock = false;
-        }
-    }
-</script>
-<!--Switch discipline buttons-->
-<script>
-    const modeButtons = document.querySelectorAll('#modeBar button');
-    const statsModeSelect = document.getElementById('statsModeSelect');
-
-    for (const button of modeButtons) {
-        button.addEventListener('click', () => {
-            if (button.classList.contains('active')) return;
-
-            modeButtons.forEach(otherButton => otherButton.classList.remove('active'));
-            button.classList.add('active');
-
-            discipline = button.dataset.mode;
-            statsModeSelect.value = discipline;
-            updateDisciplineUI();
-            newDeck();
-        });
-
-        // Mirror each mode into the collapsed-state dropdown
-        statsModeSelect.add(new Option(button.textContent, button.dataset.mode));
-    }
-    statsModeSelect.value = discipline;
-
-    // Selecting from the dropdown routes through the matching pill's click handler
-    statsModeSelect.addEventListener('change', () =>
-        [...modeButtons].find(button => button.dataset.mode === statsModeSelect.value)?.click());
-
-    // Swap whenever the modes can't fit on one line
-    const modeBar = document.getElementById('modeBar');
-    const COLLAPSE_BELOW_HEIGHT = 900; // Collapse the mode bar into the dropdown below this viewport height (px)
-    function fitModeBar() {
-        modeBar.classList.remove('collapsed'); // measure with the modes expanded
-        const overflowing = modeBar.scrollWidth > modeBar.clientWidth + 1;
-        modeBar.classList.toggle('collapsed', overflowing || innerHeight < COLLAPSE_BELOW_HEIGHT);
-    }
-    fitModeBar();
-    new ResizeObserver(fitModeBar).observe(document.body);
-    document.fonts?.ready.then(fitModeBar);
-
-    function updateDisciplineUI() {
-        renderImageSetButtons();
-        renderClassButtons();
-
-        // 8-way is the only discipline with different indoor pools
-        document.getElementById('indoorSetting').classList
-            .toggle('hidden', discipline !== '8-way');
-
-        // 4-way is the only discipline with a 12-foot tunnel pool restriction
-        document.getElementById('tunnelSetting').classList
-            .toggle('hidden', !tunnelFor(discipline));
-
-        // Only CP Freestyle has fusions
-        document.getElementById('fusionsSetting').classList
-            .toggle('hidden', !fusionsFor(discipline));
-
-        updateCategoryUI();
-    }
-
-    // The category filter only exists when the class-scoped pool carries both kinds
-    function updateCategoryUI() {
-        document.getElementById('categoryGroup').classList
-            .toggle('hidden', !categorized(poolSettings()));
-    }
-
-    function renderClassButtons() {
-        const classes = classesFor(discipline);
-        if (classes.length && !classes.some(c => c.key === classLevel))
-            classLevel = (classes.find(c => c.key === 'open') ?? classes[classes.length - 1]).key;
-
-        // Only worth showing when there's an actual choice between classes
-        document.getElementById('classGroup').classList
-            .toggle('hidden', classes.length <= 1);
-
-        document.getElementById('classSegment').innerHTML = classes.map(c =>
-            `<button type="button" data-class="${c.key}" class="pill${c.key === classLevel ? ' active' : ''}" onclick="selectClass(this)">${c.label}</button>`
-        ).join('');
-    }
-
-    function renderImageSetButtons() {
-        const sets = imageSetsFor(discipline);
-        const active = activeImageSet(discipline, imageSet); // the set actually shown (default USPA)
-
-        // Only worth showing when there's an actual choice between sets
-        document.getElementById('imageSetGroup')
-            .classList.toggle('hidden', sets.length <= 1);
-
-        document.getElementById('imageSetSegment').innerHTML = sets.map(set =>
-            `<button type="button" data-imageset="${set}" class="pill${set === active ? ' active' : ''}" onclick="selectImageSet(this)">${set}</button>`
-        ).join('');
-
-        updateSourceButton();
-        updateDiagramMode();
-    }
-
-    const sourceIcon = (vb, d) => `<svg viewBox="${vb}" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="${d}"/></svg>`;
-    const IMAGE_SET_SOURCES = {
-        Rhythm: {url: 'https://rhythmskydiving.com/',      label: 'SDC Rhythm XP',                      icon: sourceIcon('4 -15.4 204.8 169.4', 'M32.0 0.0L71.0 53.0 75.0 61.0 5.0 83.0 4.0 80.0 8.0 76.0 41.0 50.0 29.0 7.0 32.0 0.0ZM71.0 6.0L76.0 6.0 114.0 31.0 117.0 31.0 152.0 7.0 158.0 7.0 115.0 66.0 71.0 6.0ZM166.0 11.0L168.0 14.0 156.0 60.0 191.0 88.0 193.0 93.0 123.0 70.0 166.0 11.0ZM109.0 80.0L109.0 154.0 105.0 149.0 91.0 110.0 88.0 107.0 46.0 106.0 39.0 103.0 109.0 80.0ZM120.0 80.0L190.0 103.0 188.0 105.0 181.0 106.0 140.0 108.0 125.0 148.0 120.0 154.0 120.0 80.0Z')},
-        USPA:   {url: 'https://www.uspa.org/scm',          label: "USPA Skydiver's Competition Manual", icon: sourceIcon('0 0 257 260', 'M112.0 0.0L119.0 0.0 107.0 1.0 90.0 6.0 77.0 12.0 68.0 18.0 53.0 33.0 46.0 45.0 44.0 52.0 48.0 55.0 50.0 53.0 53.0 43.0 57.0 36.0 63.0 28.0 72.0 20.0 93.0 8.0 108.0 4.0 96.0 8.0 85.0 14.0 78.0 19.0 66.0 31.0 61.0 39.0 58.0 47.0 58.0 51.0 62.0 54.0 68.0 37.0 72.0 31.0 83.0 20.0 97.0 11.0 112.0 5.0 96.0 15.0 84.0 27.0 80.0 33.0 74.0 47.0 74.0 51.0 78.0 53.0 80.0 51.0 80.0 46.0 82.0 40.0 90.0 26.0 101.0 15.0 119.0 4.0 107.0 15.0 99.0 26.0 95.0 34.0 91.0 49.0 96.0 53.0 99.0 37.0 106.0 22.0 111.0 15.0 123.0 3.0 124.0 5.0 127.0 1.0 129.0 2.0 136.0 17.0 139.0 31.0 140.0 50.0 141.0 51.0 145.0 49.0 144.0 35.0 139.0 17.0 132.0 3.0 144.0 15.0 149.0 22.0 155.0 34.0 159.0 53.0 163.0 50.0 163.0 44.0 160.0 34.0 152.0 20.0 136.0 4.0 154.0 15.0 165.0 26.0 173.0 40.0 175.0 51.0 177.0 53.0 181.0 51.0 181.0 48.0 179.0 41.0 171.0 27.0 159.0 15.0 143.0 5.0 158.0 11.0 172.0 20.0 183.0 31.0 187.0 37.0 193.0 54.0 197.0 51.0 197.0 47.0 194.0 39.0 189.0 31.0 177.0 19.0 170.0 14.0 159.0 8.0 147.0 4.0 162.0 8.0 183.0 20.0 196.0 33.0 202.0 43.0 205.0 53.0 207.0 55.0 211.0 52.0 209.0 45.0 202.0 33.0 187.0 18.0 178.0 12.0 165.0 6.0 152.0 2.0 136.0 0.0 143.0 0.0 166.0 5.0 178.0 10.0 191.0 18.0 208.0 35.0 218.0 53.0 218.0 59.0 216.0 64.0 168.0 151.0 169.0 153.0 171.0 153.0 171.0 188.0 172.0 189.0 181.0 175.0 186.0 162.0 191.0 140.0 195.0 113.0 226.0 72.0 237.0 54.0 244.0 40.0 247.0 31.0 249.0 29.0 249.0 41.0 246.0 52.0 249.0 55.0 249.0 64.0 246.0 75.0 247.0 76.0 252.0 69.0 253.0 80.0 252.0 81.0 252.0 86.0 249.0 93.0 250.0 96.0 253.0 92.0 253.0 90.0 255.0 89.0 255.0 105.0 253.0 109.0 253.0 111.0 254.0 112.0 255.0 111.0 255.0 125.0 249.0 139.0 250.0 140.0 255.0 134.0 255.0 141.0 251.0 153.0 248.0 157.0 249.0 159.0 252.0 156.0 252.0 163.0 247.0 175.0 248.0 177.0 247.0 184.0 241.0 198.0 233.0 207.0 235.0 208.0 233.0 214.0 222.0 226.0 215.0 230.0 217.0 231.0 215.0 235.0 209.0 240.0 201.0 244.0 190.0 246.0 189.0 247.0 190.0 248.0 193.0 248.0 180.0 255.0 172.0 257.0 154.0 257.0 139.0 253.0 131.0 258.0 125.0 258.0 116.0 253.0 101.0 257.0 83.0 257.0 70.0 253.0 62.0 248.0 65.0 248.0 66.0 247.0 65.0 246.0 54.0 244.0 43.0 238.0 38.0 232.0 38.0 231.0 39.0 232.0 42.0 231.0 32.0 225.0 25.0 218.0 20.0 210.0 20.0 208.0 22.0 207.0 14.0 198.0 8.0 183.0 7.0 178.0 8.0 175.0 3.0 162.0 3.0 156.0 5.0 158.0 6.0 155.0 3.0 150.0 0.0 140.0 0.0 134.0 5.0 140.0 6.0 139.0 1.0 128.0 0.0 123.0 0.0 111.0 1.0 112.0 2.0 111.0 0.0 104.0 0.0 89.0 1.0 89.0 3.0 94.0 5.0 96.0 6.0 95.0 2.0 81.0 2.0 71.0 3.0 69.0 7.0 75.0 8.0 76.0 9.0 75.0 6.0 64.0 6.0 55.0 9.0 52.0 6.0 40.0 6.0 29.0 8.0 31.0 12.0 42.0 24.0 64.0 61.0 115.0 63.0 134.0 70.0 165.0 78.0 182.0 83.0 189.0 84.0 188.0 84.0 154.0 87.0 151.0 38.0 62.0 37.0 53.0 41.0 44.0 47.0 35.0 64.0 18.0 73.0 12.0 89.0 5.0 112.0 0.0ZM128.0 152.0L135.0 156.0 145.0 159.0 165.0 160.0 164.0 161.0 165.0 162.0 165.0 181.0 91.0 181.0 91.0 160.0 110.0 159.0 120.0 156.0 128.0 152.0ZM91.0 186.0L99.0 186.0 99.0 224.0 93.0 208.0 92.0 198.0 91.0 197.0 91.0 186.0ZM104.0 186.0L112.0 186.0 112.0 241.0 109.0 239.0 104.0 232.0 104.0 186.0ZM117.0 186.0L125.0 186.0 125.0 250.0 117.0 245.0 117.0 186.0ZM130.0 186.0L138.0 186.0 138.0 246.0 130.0 251.0 130.0 186.0ZM143.0 186.0L151.0 186.0 151.0 233.0 144.0 241.0 143.0 241.0 143.0 186.0ZM156.0 186.0L164.0 186.0 163.0 205.0 156.0 225.0 156.0 186.0ZM198.0 246.0L202.0 248.0 202.0 252.0 200.0 254.0 197.0 254.0 195.0 252.0 195.0 248.0 198.0 246.0ZM143.0 2.0L152.0 3.0 165.0 7.0 178.0 13.0 187.0 19.0 201.0 33.0 208.0 45.0 210.0 52.0 207.0 54.0 206.0 53.0 203.0 43.0 197.0 33.0 183.0 19.0 162.0 7.0 150.0 3.0 146.0 4.0 159.0 9.0 170.0 15.0 177.0 20.0 188.0 31.0 193.0 39.0 196.0 47.0 196.0 51.0 193.0 53.0 192.0 47.0 188.0 37.0 184.0 31.0 172.0 19.0 158.0 10.0 143.0 4.0 142.0 5.0 144.0 7.0 149.0 9.0 159.0 16.0 170.0 27.0 179.0 44.0 180.0 51.0 177.0 52.0 174.0 40.0 169.0 30.0 154.0 14.0 138.0 4.0 143.0 2.0ZM120.0 4.0L121.0 4.0 107.0 19.0 99.0 34.0 97.0 41.0 96.0 52.0 92.0 49.0 96.0 34.0 104.0 20.0 120.0 4.0ZM134.0 4.0L147.0 15.0 155.0 26.0 159.0 34.0 162.0 44.0 162.0 50.0 159.0 52.0 158.0 41.0 156.0 37.0 156.0 34.0 150.0 22.0 145.0 15.0 134.0 4.0ZM122.0 7.0L116.0 25.0 114.0 50.0 113.0 50.0 111.0 49.0 113.0 30.0 117.0 17.0 122.0 7.0ZM8.0 37.0L19.0 60.0 29.0 77.0 56.0 115.0 60.0 146.0 67.0 172.0 74.0 186.0 85.0 201.0 87.0 214.0 95.0 232.0 100.0 239.0 112.0 250.0 111.0 252.0 96.0 255.0 81.0 254.0 70.0 250.0 81.0 248.0 84.0 246.0 83.0 245.0 64.0 244.0 48.0 238.0 45.0 235.0 51.0 236.0 60.0 234.0 57.0 232.0 52.0 232.0 43.0 229.0 31.0 221.0 26.0 214.0 36.0 218.0 43.0 218.0 44.0 219.0 47.0 218.0 45.0 216.0 39.0 215.0 27.0 208.0 19.0 200.0 12.0 188.0 12.0 186.0 22.0 194.0 33.0 200.0 43.0 203.0 46.0 202.0 33.0 196.0 23.0 189.0 13.0 179.0 6.0 165.0 7.0 164.0 20.0 176.0 30.0 183.0 38.0 187.0 41.0 186.0 27.0 177.0 14.0 164.0 8.0 155.0 4.0 146.0 4.0 144.0 5.0 144.0 32.0 168.0 37.0 171.0 39.0 170.0 32.0 165.0 18.0 151.0 9.0 139.0 3.0 125.0 3.0 122.0 20.0 141.0 34.0 153.0 36.0 152.0 19.0 135.0 9.0 120.0 3.0 106.0 2.0 97.0 18.0 118.0 31.0 131.0 33.0 130.0 21.0 116.0 13.0 104.0 7.0 91.0 5.0 83.0 5.0 76.0 26.0 109.0 40.0 124.0 42.0 123.0 36.0 117.0 21.0 95.0 12.0 76.0 9.0 66.0 9.0 62.0 21.0 81.0 47.0 116.0 48.0 133.0 53.0 157.0 51.0 154.0 50.0 149.0 48.0 148.0 47.0 149.0 47.0 160.0 45.0 157.0 44.0 158.0 44.0 171.0 46.0 175.0 46.0 176.0 45.0 175.0 44.0 176.0 44.0 184.0 47.0 190.0 47.0 191.0 46.0 190.0 45.0 191.0 47.0 199.0 56.0 211.0 53.0 210.0 52.0 212.0 63.0 223.0 68.0 226.0 64.0 225.0 61.0 226.0 70.0 235.0 86.0 244.0 99.0 248.0 104.0 249.0 106.0 248.0 101.0 243.0 84.0 239.0 68.0 230.0 67.0 229.0 89.0 236.0 94.0 237.0 96.0 236.0 92.0 231.0 79.0 228.0 62.0 219.0 58.0 215.0 78.0 225.0 87.0 228.0 91.0 227.0 89.0 224.0 77.0 221.0 65.0 215.0 50.0 200.0 49.0 196.0 66.0 210.0 83.0 219.0 86.0 220.0 87.0 219.0 86.0 213.0 74.0 198.0 63.0 175.0 54.0 140.0 51.0 113.0 33.0 91.0 19.0 70.0 10.0 51.0 8.0 37.0ZM247.0 38.0L247.0 43.0 244.0 54.0 236.0 70.0 225.0 87.0 204.0 113.0 202.0 135.0 192.0 175.0 180.0 200.0 169.0 213.0 168.0 219.0 169.0 220.0 172.0 219.0 184.0 213.0 200.0 202.0 206.0 196.0 206.0 198.0 200.0 207.0 193.0 213.0 183.0 219.0 166.0 224.0 164.0 228.0 165.0 229.0 177.0 225.0 196.0 216.0 193.0 219.0 181.0 226.0 166.0 231.0 163.0 231.0 159.0 236.0 162.0 237.0 188.0 229.0 187.0 230.0 171.0 239.0 154.0 243.0 149.0 248.0 151.0 249.0 169.0 244.0 185.0 235.0 194.0 226.0 191.0 225.0 186.0 227.0 191.0 224.0 203.0 212.0 202.0 210.0 199.0 211.0 204.0 206.0 209.0 197.0 210.0 191.0 209.0 190.0 208.0 191.0 208.0 190.0 211.0 184.0 211.0 178.0 212.0 177.0 210.0 175.0 211.0 158.0 210.0 157.0 208.0 160.0 208.0 149.0 207.0 148.0 205.0 149.0 205.0 152.0 202.0 158.0 207.0 134.0 209.0 114.0 234.0 81.0 246.0 62.0 245.0 71.0 238.0 88.0 226.0 108.0 213.0 124.0 214.0 125.0 229.0 109.0 250.0 77.0 249.0 88.0 241.0 106.0 231.0 120.0 221.0 131.0 223.0 132.0 238.0 117.0 253.0 97.0 252.0 106.0 245.0 122.0 240.0 128.0 239.0 131.0 232.0 140.0 219.0 152.0 221.0 153.0 232.0 144.0 253.0 121.0 252.0 126.0 246.0 139.0 237.0 151.0 223.0 165.0 216.0 170.0 218.0 171.0 227.0 165.0 251.0 143.0 251.0 146.0 246.0 157.0 241.0 164.0 228.0 177.0 214.0 186.0 217.0 187.0 227.0 182.0 248.0 164.0 249.0 165.0 246.0 173.0 237.0 185.0 222.0 196.0 209.0 202.0 212.0 203.0 222.0 200.0 230.0 196.0 243.0 186.0 243.0 188.0 237.0 199.0 227.0 209.0 216.0 215.0 210.0 216.0 208.0 218.0 209.0 219.0 219.0 218.0 229.0 214.0 223.0 222.0 210.0 230.0 203.0 232.0 198.0 232.0 195.0 234.0 204.0 236.0 210.0 235.0 207.0 238.0 191.0 244.0 173.0 245.0 172.0 246.0 174.0 248.0 185.0 250.0 174.0 254.0 159.0 255.0 144.0 252.0 143.0 251.0 156.0 238.0 163.0 227.0 169.0 211.0 170.0 202.0 178.0 191.0 188.0 172.0 192.0 160.0 196.0 141.0 199.0 115.0 228.0 74.0 247.0 38.0ZM127.0 50.0L132.0 51.0 135.0 54.0 131.0 146.0 129.0 145.0 124.0 146.0 123.0 115.0 122.0 114.0 122.0 92.0 121.0 91.0 121.0 69.0 120.0 68.0 120.0 54.0 123.0 51.0 127.0 50.0ZM107.0 51.0L112.0 52.0 115.0 55.0 115.0 63.0 116.0 64.0 116.0 77.0 117.0 78.0 117.0 91.0 118.0 92.0 120.0 133.0 121.0 134.0 121.0 148.0 116.0 150.0 112.0 122.0 111.0 121.0 111.0 115.0 109.0 108.0 108.0 95.0 106.0 88.0 106.0 82.0 104.0 75.0 104.0 69.0 102.0 62.0 102.0 54.0 107.0 51.0ZM146.0 51.0L151.0 52.0 153.0 54.0 153.0 62.0 151.0 69.0 151.0 75.0 149.0 82.0 148.0 95.0 146.0 102.0 145.0 115.0 144.0 116.0 139.0 150.0 134.0 148.0 134.0 135.0 135.0 134.0 135.0 121.0 136.0 120.0 140.0 55.0 143.0 52.0 146.0 51.0ZM88.0 52.0L94.0 53.0 96.0 55.0 97.0 59.0 102.0 84.0 102.0 89.0 104.0 95.0 104.0 100.0 106.0 106.0 106.0 111.0 108.0 117.0 108.0 122.0 110.0 128.0 110.0 133.0 112.0 139.0 112.0 144.0 114.0 150.0 110.0 152.0 108.0 150.0 108.0 147.0 106.0 143.0 102.0 124.0 98.0 113.0 84.0 57.0 85.0 54.0 88.0 52.0ZM163.0 52.0L169.0 53.0 171.0 58.0 146.0 152.0 142.0 151.0 142.0 145.0 144.0 139.0 144.0 134.0 146.0 128.0 146.0 123.0 148.0 117.0 148.0 112.0 150.0 106.0 150.0 101.0 152.0 95.0 157.0 63.0 159.0 55.0 163.0 52.0ZM72.0 53.0L77.0 54.0 79.0 56.0 81.0 62.0 96.0 118.0 98.0 121.0 98.0 124.0 106.0 149.0 105.0 153.0 102.0 153.0 101.0 151.0 78.0 83.0 68.0 58.0 68.0 56.0 72.0 53.0ZM180.0 53.0L185.0 54.0 187.0 56.0 187.0 58.0 177.0 83.0 154.0 151.0 153.0 153.0 150.0 153.0 149.0 149.0 151.0 145.0 157.0 121.0 162.0 108.0 175.0 59.0 176.0 56.0 180.0 53.0ZM56.0 54.0L60.0 54.0 64.0 59.0 100.0 153.0 96.0 153.0 93.0 148.0 84.0 125.0 55.0 61.0 54.0 56.0 56.0 54.0ZM195.0 54.0L199.0 54.0 201.0 56.0 201.0 59.0 197.0 66.0 184.0 98.0 178.0 109.0 162.0 148.0 159.0 153.0 155.0 153.0 162.0 137.0 163.0 132.0 170.0 116.0 191.0 59.0 195.0 54.0ZM42.0 55.0L48.0 56.0 93.0 153.0 89.0 152.0 77.0 127.0 64.0 104.0 63.0 100.0 61.0 98.0 41.0 59.0 42.0 55.0ZM209.0 55.0L213.0 55.0 214.0 59.0 191.0 104.0 189.0 106.0 189.0 108.0 179.0 125.0 166.0 152.0 162.0 153.0 178.0 119.0 178.0 117.0 202.0 68.0 202.0 66.0 206.0 58.0 209.0 55.0ZM128.0 148.0L135.0 152.0 144.0 155.0 157.0 156.0 158.0 157.0 167.0 156.0 168.0 157.0 168.0 198.0 164.0 216.0 158.0 229.0 151.0 239.0 144.0 246.0 130.0 255.0 123.0 254.0 115.0 249.0 106.0 241.0 99.0 232.0 92.0 218.0 87.0 196.0 87.0 157.0 88.0 156.0 93.0 156.0 94.0 157.0 107.0 156.0 118.0 153.0 128.0 148.0ZM206.0 155.0L205.0 164.0 202.0 173.0 203.0 174.0 205.0 172.0 209.0 163.0 208.0 172.0 202.0 185.0 194.0 196.0 195.0 197.0 209.0 181.0 204.0 193.0 194.0 203.0 177.0 212.0 188.0 197.0 195.0 182.0 199.0 168.0 206.0 155.0ZM49.0 156.0L56.0 168.0 60.0 182.0 67.0 197.0 78.0 212.0 64.0 205.0 50.0 191.0 47.0 185.0 47.0 182.0 59.0 196.0 61.0 195.0 55.0 188.0 47.0 172.0 46.0 164.0 50.0 172.0 52.0 174.0 53.0 173.0 50.0 164.0 49.0 156.0Z')},
-        Axis:   {url: 'https://www.axisflightschool.com/', label: 'AXIS Flight School',                 icon: sourceIcon('0 0 200 87', 'M149.0 0.0L199.0 0.0 159.0 86.0 110.0 86.0 102.0 70.0 131.0 69.0 151.0 27.0 150.0 25.0 45.0 86.0 1.0 86.0 149.0 0.0Z')},
-        FAI:    {url: 'https://www.fai.org/page/competition-rules-section-5', label: 'FAI Skydiving Competition Rules', icon: sourceIcon('0 0 200 213.8', 'M47.2 0.0 L112.3 37.8 L120.0 44.1 L121.4 48.6 L121.1 64.6 L123.0 79.2 L126.3 89.7 L129.9 96.3 L133.0 99.3 L138.2 101.5 L149.2 101.8 L167.2 99.0 L175.4 99.0 L179.3 100.1 L181.5 101.8 L185.1 102.1 L189.2 103.7 L191.7 106.2 L193.1 110.3 L192.3 113.9 L190.9 113.7 L189.8 111.7 L182.9 111.7 L169.4 117.5 L160.8 122.5 L156.4 128.8 L151.7 133.0 L148.4 134.6 L139.0 137.4 L127.7 145.4 L114.5 149.2 L116.4 150.3 L113.9 155.3 L112.8 159.7 L112.6 165.8 L113.7 170.2 L116.1 158.9 L118.9 153.1 L121.1 150.3 L128.0 149.5 L126.1 158.1 L122.8 163.0 L120.6 168.8 L119.4 174.1 L119.7 175.7 L123.0 179.0 L130.8 184.0 L134.1 188.4 L134.9 194.5 L138.2 197.0 L136.8 199.7 L146.8 209.7 L141.5 209.7 L139.3 206.1 L135.2 201.9 L134.1 203.0 L139.6 209.7 L130.2 211.0 L122.2 213.8 L121.7 213.5 L123.9 209.4 L123.6 208.8 L121.4 210.2 L119.4 213.2 L118.6 209.7 L117.2 209.9 L117.5 211.9 L115.0 209.4 L113.7 209.4 L115.3 212.4 L101.0 206.6 L102.6 199.7 L99.6 197.5 L98.2 197.8 L96.6 194.2 L100.1 195.6 L105.4 193.9 L109.0 189.2 L108.1 188.4 L105.4 188.1 L95.4 188.4 L95.4 185.9 L96.3 185.4 L105.4 184.8 L105.9 181.8 L103.4 179.0 L101.8 179.0 L101.2 181.2 L98.8 180.1 L96.8 182.1 L95.2 181.8 L94.1 179.3 L89.9 180.4 L88.3 180.4 L87.2 179.6 L87.2 177.9 L88.3 176.0 L86.1 176.3 L85.0 175.7 L85.0 174.9 L87.4 168.8 L87.4 164.1 L90.2 160.3 L74.8 163.6 L70.3 168.3 L62.3 174.3 L47.7 184.6 L43.0 187.0 L36.7 186.8 L33.9 185.7 L33.1 183.2 L34.5 181.2 L32.8 180.1 L32.8 178.2 L37.8 172.7 L34.2 171.3 L33.4 169.9 L42.5 162.5 L37.2 162.8 L36.7 161.1 L37.8 159.2 L41.4 157.0 L68.1 146.5 L70.1 142.9 L82.2 131.0 L83.6 127.2 L83.0 121.4 L80.0 115.0 L74.5 107.9 L68.1 101.5 L61.2 95.7 L51.6 89.1 L47.7 87.4 L41.7 87.2 L49.1 78.9 L44.4 79.7 L36.4 79.4 L43.0 72.3 L42.8 71.7 L39.2 72.8 L33.9 72.8 L25.1 71.4 L44.7 62.9 L32.0 64.3 L23.2 64.3 L12.4 63.2 L11.9 62.9 L12.4 62.6 L35.3 53.8 L14.3 51.3 L6.3 48.8 L3.0 46.6 L37.8 41.7 L17.9 36.1 L0.0 29.8 L41.1 33.1 L43.9 32.8 L34.8 30.3 L25.4 26.5 L11.3 19.0 L4.1 14.1 L58.5 25.4 L38.3 14.3 L29.2 8.0 L23.4 2.8 L73.1 24.3 L73.7 24.0 L56.3 11.6 L50.2 5.5 L47.2 0.3Z M138.8 32.0 L149.2 42.5 L165.2 54.1 L165.8 53.8 L153.1 41.4 L149.5 36.1 L149.5 35.0 L155.6 39.7 L165.5 45.8 L178.2 52.1 L193.7 57.9 L197.8 60.1 L200.0 62.9 L199.4 65.1 L198.1 66.5 L187.9 73.7 L178.2 83.0 L168.3 95.7 L152.0 97.9 L143.2 97.9 L136.6 97.1 L132.4 92.7 L132.1 92.1 L133.2 90.5 L138.5 85.8 L145.7 83.0 L151.4 79.4 L145.7 77.2 L144.3 75.9 L144.0 74.2 L148.7 74.5 L155.3 72.6 L146.5 69.2 L143.7 66.5 L143.2 63.4 L157.2 67.3 L158.1 67.0 L150.1 61.8 L145.1 57.1 L143.2 54.1 L142.6 50.2 L155.6 57.4 L162.2 60.4 L162.8 60.1 L150.6 50.2 L144.3 43.6 L139.9 37.0 L138.8 32.3Z')},
-    };
-
-    // Point the floating source button at the active image set's site (hidden if the set has no known source)
-    function updateSourceButton() {
-        const link = document.getElementById('sourceLink');
-        const source = IMAGE_SET_SOURCES[activeImageSet(discipline, imageSet)];
-        link.classList.toggle('hidden', !source);
-        if (!source) return;
-        link.href = source.url;
-        link.title = 'Diagram source: ' + source.label;
-        link.setAttribute('aria-label', 'Diagram source: ' + source.label);
-        link.innerHTML = source.icon;
-    }
-
-    // Show dark-mode diagrams unless the user opted out of inversion
-    function updateDiagramMode() {
-        const mode = diagramMode(discipline, imageSet);
-        const inverting = theme === 'dark' && mode === 'dark';
-        document.documentElement.dataset.diagram = inverting && !invert ? 'light' : mode;
-        // Opt-out toggle only shown while inversion would apply
-        document.getElementById('invertSetting').classList.toggle('hidden', !inverting);
-    }
-</script>
-<!--Settings panel-->
-<script>
-    const indoorToggle = document.getElementById('indoorToggle');
-    const tunnelToggle = document.getElementById('tunnelToggle');
-    const fusionsToggle = document.getElementById('fusionsToggle');
-    const recycleToggle = document.getElementById('recycleToggle');
-    const themeToggle = document.getElementById('themeToggle');
-    const invertToggle = document.getElementById('invertToggle');
-
-    function toggleSettings() {
-        const panel = document.getElementById('settingsPanel');
-        panel.classList.toggle('hidden');
-        document.getElementById('settingsToggle').classList.toggle('active');
-        document.body.style.setProperty('--panelH', `${panel.offsetHeight}px`); // Body grows by panel height so arena never resizes
-    }
-
-    // Track panel rewraps while open (window resizes, settings re-renders)
-    new ResizeObserver(([entry]) => {
-        document.body.style.setProperty('--panelH', `${entry.borderBoxSize[0].blockSize}px`);
-    }).observe(document.getElementById('settingsPanel'));
-
-    function selectCategory(button) {
-        selectSegment('categorySegment', button);
-        category = button.dataset.category;
-        applyCategory();
-    }
-
-    function selectClass(button) {
-        selectSegment('classSegment', button);
-        classLevel = button.dataset.class;
-        updateCategoryUI();
-        newDeck();
-    }
-
-    function selectImageSet(button) {
-        selectSegment('imageSetSegment', button);
-        imageSet = button.dataset.imageset;
-        updateDisciplineUI();
-        hotSwapImages();
-    }
-
-    function selectIndoor(checkbox) {
-        indoor = checkbox.checked;
-        hotSwapImages();
-        if (indoor && activeImageSet(discipline, imageSet) === 'USPA') {
-            showToast('USPA does not publish an indoor set (USIS), so borrowing from FAI', true)
-        }
-    }
-
-    function selectTunnel(checkbox) {
-        tunnel = checkbox.checked;
-        newDeck();
-    }
-
-    function selectFusions(checkbox) {
-        includeFusions = checkbox.checked;
-        newDeck();
-    }
-
-    function selectTheme(checkbox) {
-        theme = checkbox.checked ? 'light' : 'dark';
-        document.documentElement.dataset.theme = theme;
-        updateDiagramMode(); // Inversion and its opt-out toggle follow the theme
-        try { localStorage.setItem('fscards-theme', theme); } catch (e) {} // Storage may be unavailable
-    }
-
-    function selectInvert(checkbox) {
-        invert = checkbox.checked;
-        updateDiagramMode();
-        saveSession();
-    }
-
-    function selectFront(button) {
-        selectSegment('frontSegment', button);
-        frontContent = button.dataset.front;
-        if (endless) renderCardFaces(currentCard);
-        else if (!runComplete()) nextCard();
-        saveSession();
-    }
-
-    function selectSegment(groupId, button) {
-        document.querySelectorAll(`#${groupId} button`)
-            .forEach(otherButton => otherButton.classList.remove('active'));
-        button.classList.add('active');
-    }
-
-    // Sync every settings control to the current state
-    function syncSettingsUI() {
-        document.querySelectorAll('#modeBar button').forEach(button =>
-            button.classList.toggle('active', button.dataset.mode === discipline));
-        statsModeSelect.value = discipline;
-        document.querySelectorAll('#categorySegment button').forEach(button =>
-            button.classList.toggle('active', button.dataset.category === category));
-        document.querySelectorAll('#frontSegment button').forEach(button =>
-            button.classList.toggle('active', button.dataset.front === frontContent));
-
-        indoorToggle.checked = indoor;
-        tunnelToggle.checked = tunnel;
-        fusionsToggle.checked = includeFusions;
-        recycleToggle.checked = recycle;
-        themeToggle.checked = theme === 'light';
-        invertToggle.checked = invert;
-
-        syncEndlessUI();
-        updateDisciplineUI();
-    }
-
-    // Place info-tooltip bubbles within the viewport (otherwise they overflow off-screen on mobile)
-    function positionTip(tip) {
-        const bubble = tip.querySelector('.tipBubble');
-        const r = tip.getBoundingClientRect();
-        const edge = 16, gap = 8;
-        const w = bubble.offsetWidth, h = bubble.offsetHeight;
-        bubble.style.left = Math.max(edge, Math.min(r.left + r.width / 2 - w / 2, innerWidth - w - edge)) + 'px';
-        bubble.style.top = (r.top - h - gap >= edge ? r.top - h - gap : r.bottom + gap) + 'px';
-    }
-    document.querySelectorAll('.infoTip').forEach(tip => {
-        tip.addEventListener('mouseenter', () => positionTip(tip));
-        tip.addEventListener('focus', () => positionTip(tip));
-    });
-</script>
-<!--Keybindings-->
-<script>
-    document.addEventListener('keydown', e => {
-        // TODO: disable keybindings on finish screen
-        if (e.code === 'Space') {e.preventDefault(); flipCard();}
-        if (e.code === 'ArrowRight') grade(true);
-        if (e.code === 'ArrowLeft')  grade(false);
-    });
-</script>
-<!--Handle View Navigation-->
-<script>
-    const viewSwitch = document.getElementById('viewSwitch');
-    const viewMenu = viewSwitch.querySelector('.viewMenu');
-    const logo = viewSwitch.querySelector('summary');
-    document.addEventListener('click', e => {
-        if (viewSwitch.open && !viewSwitch.contains(e.target)) viewSwitch.open = false;
-    });
-    document.addEventListener('keydown', e => {
-        if (e.key === 'Escape' && viewSwitch.open) viewSwitch.open = false;
-    });
-
-    // Set the view dropdown width to match the logo
-    viewSwitch.addEventListener('toggle', () => {
-        if (viewSwitch.open) viewMenu.style.width = `${logo.getBoundingClientRect().width}px`;
-    });
-</script>
-<!--Swipe/drag card-->
-<script>
-    // TODO: Switch thresholds to be relative to window size (alongside Math.min())
-    const THRESHOLD = 80; // How many pixels of translation before swipe can be released
-    const SWIPE_THRESHOLD = 20; // How many pixels of translation before considered a swipe
-    const MAX_ROT = 20; // Max degrees of card rotation
-    const OVERLAY_THRESHOLD = THRESHOLD * 0.8; // When the overlay should appear
-    const SWIPE_DURATION = 300; // Number of milliseconds that the swipe animation will play
-
-    // Win/lose/skip tint on the card — shared by drag tracking and the grade animation
-    function setOverlay(direction) {
-        const front = document.querySelector('.front');
-        const back = document.querySelector('.back');
-        front.classList.toggle('skipOverlay',   !flipped);
-        back.classList.toggle('correctOverlay',  flipped && direction);
-        back.classList.toggle('wrongOverlay',    flipped && !direction);
-    }
-
-    function clearOverlay() {
-        document.querySelector('.front').classList.remove('skipOverlay');
-        document.querySelector('.back').classList.remove('correctOverlay', 'wrongOverlay');
-    }
-
-    let swipeController; // AbortController for current card's listeners
-
-    function attachSwipe() {
-        swipeController = new AbortController();
-        const {signal} = swipeController;
-
-        const card = document.getElementById('card');
-        const front = document.querySelector('.front');
-        const back = document.querySelector('.back');
-
-        let startX, startY, curX = 0;
-        let isDragging = false;
-        let startFlipped;
-
-        // Add listeners
-        card.addEventListener('mousedown',  onStart, {signal});
-        card.addEventListener('touchstart', onStart, {signal});
-
-        // Split to eat click on flip
-        front.addEventListener('click', flipCard, {signal});
-        back.addEventListener('click',  flipCard, {signal});
-
-        const pos = (e, calcOffset = false) => {
-            const p = e.touches?.[0] ?? e;
-            return calcOffset ? [p.clientX - startX, p.clientY - startY] : [p.clientX, p.clientY];
-        };
-
-        function onStart(e) {
-            startFlipped = flipped;
-
-            curX = 0;
-            isDragging = false;
-            [startX, startY] = pos(e);
-
-            // Start tracking movement
-            document.addEventListener('mousemove', onMove, {signal});
-            document.addEventListener('touchmove', onMove, {signal, passive: false}); // False for Safari default
-            document.addEventListener('mouseup',   onEnd, {signal});
-            document.addEventListener('touchend',  onEnd, {signal});
         }
 
-        function onMove(e) {
-            const [changeX, changeY] = pos(e, true);
-            e.preventDefault(); // Mobile devices slow down significantly if scrolling is allowed
-
-            // Abort if scrolling vertically
-            if (!isDragging && Math.abs(changeY) > SWIPE_THRESHOLD) return cleanup();
-
-            if (Math.abs(changeX) > SWIPE_THRESHOLD) isDragging = true;
-            if (!isDragging) return;
-
-            // Prevent drag click from flipping
-            front.removeEventListener('click', flipCard);
-            back.removeEventListener('click', flipCard);
-
-            card.style.transition = 'none'; // Prevents lag when dragging the element
-
-            const flipMult = flipped ? -1 : 1;
-            curX = changeX;
-            const rot = (changeX / window.innerWidth) * MAX_ROT * 0.5; // 0.5x so it keeps rotating after release
-            // Card follows behind cursor at 0.5x
-            card.style.transform = `${flipped ? 'rotateY(180deg)' : ''} translateX(${changeX * 0.5 * flipMult}px) rotate(${rot * flipMult}deg)`;
-
-            if (changeX > OVERLAY_THRESHOLD) return setOverlay(true);
-            if (changeX < -OVERLAY_THRESHOLD) return setOverlay(false);
-            clearOverlay();
-        }
-
-        function onEnd() {
-            cleanup();
-
-            if (Math.abs(curX) > THRESHOLD && flipped === startFlipped) return grade(curX > 0);
-
-            // Reset color and position
-            clearOverlay();
-            card.style.transform = '';
-        }
-
-        function cleanup() {
-            card.style.transition = ''; // Remove "none" transition
-
-            // Release listeners
-            document.removeEventListener('mousemove', onMove);
-            document.removeEventListener('touchmove', onMove);
-            document.removeEventListener('mouseup',   onEnd);
-            document.removeEventListener('touchend',  onEnd);
-
-            // Re-enable only after the card stops moving
-            requestAnimationFrame(() => {
-                front.addEventListener('click', flipCard, {signal});
-                back.addEventListener('click',  flipCard, {signal});
-            });
-        }
+        if (roll || pending !== shown) requestAnimationFrame(frame);
+        else { running = false; last = 0; }
     }
+
+    function start() {
+        if (running) return;
+        running = true;
+        requestAnimationFrame(frame);
+    }
+
+    // Track hover on the nav, not each button, so crossing the gaps doesn't bounce through the default
+    const nav = document.querySelector('nav');
+    nav.querySelectorAll('a').forEach(a =>
+        a.addEventListener('mouseenter', () => { pending = a.dataset.word; start(); }));
+    nav.addEventListener('mouseleave', () => { pending = defaultWord; start(); });
 </script>
-<!--Endless mode-->
-<script>
-    // Swap between a finite deck and an endless draw (defaults to random)
-    function toggleEndless() {
-        endless = endless ? false : 'random';
-        syncEndlessUI();
-        newDeck();
-    }
-
-    // Switch the endless draw strategy
-    function selectStrategy(button) {
-        selectSegment('strategyRow', button);
-        endless = button.dataset.strategy;
-        newDeck();
-    }
-
-    function syncEndlessUI() {
-        const toggle = document.getElementById('endlessToggle');
-        toggle.classList.toggle('active', endless);
-        toggle.setAttribute('aria-pressed', !!endless);
-
-        document.querySelectorAll('#strategyRow [data-strategy]').forEach(button =>
-            button.classList.toggle('active', button.dataset.strategy === endless));
-
-        // Recycle does not matter in endless mode
-        document.getElementById('recycleSetting')
-            .classList.toggle('hidden', endless);
-
-        fitStrategyRow();
-    }
-
-    // Keep endless strategy options inline with stats, otherwise fall back into a drawer
-    function fitStrategyRow() {
-        const row = document.getElementById('strategyRow');
-        const content = document.getElementById('drawerContent');
-        const drawer = document.getElementById('endlessDrawer');
-
-        if (!endless) { // Early exit
-            if (row.parentElement !== content) content.prepend(row);
-            drawer.classList.add('hidden');
-            return;
-        }
-
-        const statsRow = document.getElementById('statsRow');
-        const container = document.getElementById('progressContainer');
-
-        if (row.nextElementSibling !== container) document.getElementById('statsBar').insertBefore(row, container);
-        const fits = statsRow.scrollHeight <= statsRow.clientHeight + 1 // Early check - multi-lined stats (hidden overflow) = no room
-            && container.getBoundingClientRect().top < statsRow.getBoundingClientRect().bottom;
-        if (!fits && row.parentElement !== content) content.prepend(row);
-
-        drawer.classList.toggle('hidden', fits);
-    }
-    new ResizeObserver(fitStrategyRow).observe(document.body);
-    document.fonts?.ready.then(fitStrategyRow);
-
-    function setDrawer(open) {
-        document.getElementById('drawerContent').classList.toggle('hidden', !open);
-        document.getElementById('drawerCaret').setAttribute('aria-expanded', open);
-    }
-
-    function toggleDrawer() {
-        setDrawer(document.getElementById('drawerContent').classList.contains('hidden'));
-    }
-
-    // Body grows by the open drawer's height so the arena never resizes (mirrors --panelH)
-    new ResizeObserver(([entry]) => {
-        document.body.style.setProperty('--drawerH', `${entry.borderBoxSize[0].blockSize}px`);
-    }).observe(document.getElementById('drawerContent'));
-
-    // Strategy tunables
-    const MASTERY_STREAK = 2;
-    const UNLEARNED_WEIGHT = 3;
-    const MISS_MULTIPLIER = 2.2;
-    const HIT_MULTIPLIER = 0.55;
-    const WEIGHT_MIN = 0.4, WEIGHT_MAX = 6;
-
-    const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
-
-    // Engine state
-    let weights = {};
-    let learnKeys = [];
-    let unlockedCount = 6;
-    let masteredKeys = {}; // reset key's value on miss
-
-    function rebuildEndlessState() {
-        weights = {};
-        masteredKeys = {};
-
-        // Initialize learn props
-        if (endless === 'learn') {
-            learnKeys = deck.map(card => card.key).sort((a, b) => isBlock(a) - isBlock(b));
-            unlockedCount = Math.min(6, learnKeys.length);
-        }
-    }
-
-    // Pick the next card by the active strategy
-    function pickEndlessCard() {
-        switch (endless) {
-            case 'adaptive': return pickAdaptive();
-            case 'learn':    return pickLearn();
-            default:         return pickRandom();
-        }
-    }
-
-    // Fold a graded answer back into the active strategy's state
-    function endlessResult(key, correct) {
-        switch (endless) {
-            case 'adaptive': return adaptiveResult(key, correct);
-            case 'learn':    return learnResult(key, correct);
-        }
-    }
-
-    // No back-to-back repeats
-    const notLast = (pool) => pool.filter(card => card.key !== currentCard?.key);
-    const learned = (key) => (masteredKeys[key] ?? 0) >= MASTERY_STREAK;
-
-    function weightedPick(cards, weightOf) {
-        let r = Math.random() * cards.reduce((sum, card) => sum + weightOf(card), 0);
-        return cards.find(card => (r -= weightOf(card)) <= 0) ?? cards.at(-1);
-    }
-
-    // Random (uniform draw)
-    function pickRandom() {
-        const pool = notLast(deck);
-        return pool[Math.floor(Math.random() * pool.length)];
-    }
-
-    // Adaptive (weight toward missed cards)
-    function pickAdaptive() {
-        return weightedPick(notLast(deck), card => weights[card.key] ?? 1);
-    }
-    function adaptiveResult(key, correct) {
-        weights[key] = clamp((weights[key] ?? 1) * (correct ? HIT_MULTIPLIER : MISS_MULTIPLIER), WEIGHT_MIN, WEIGHT_MAX);
-    }
-
-    // Learn (draw from the unlocked cross-section and slowly add new cards to pool)
-    function pickLearn() {
-        const unlocked = new Set(learnKeys.slice(0, unlockedCount));
-        const live = deck.filter(card => unlocked.has(card.key));
-        return weightedPick(notLast(live), card => learned(card.key) ? 1 : UNLEARNED_WEIGHT);
-    }
-    function learnResult(key, correct) {
-        masteredKeys[key] = correct ? (masteredKeys[key] ?? 0) + 1 : 0;
-        if (!correct) return; // A miss only zeroes mastery, never completes the slice
-
-        // Expand the slice by one once the whole unlocked slice is learned
-        if (unlockedCount < learnKeys.length && learnKeys.slice(0, unlockedCount).every(learned)) unlockedCount++;
-    }
-</script>
-<!--Start-->
-<script>
-    syncSettingsUI();
-    loadSession() ? nextCard() : newDeck();
-</script>
-<!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
-<script>
-    function buildIssueUrl() {
-        const card = currentCard;
-        const body = [
-            '**Describe the issue:**', '', '', '---',
-
-            '_Replication info (auto-populated):_',
-            '- Page: Flashcards',
-            '- Discipline: ' + discipline,
-            '- Class: ' + classLevel,
-            '- Diagram set: ' + imageSet,
-            `- 12ft tunnel: ${tunnel}`,
-            `- 8-way tunnel: ${indoor}`,
-            `- Include fusions: ${includeFusions}`,
-            `- Invert colors: ${invert}`,
-            `- Endless: ${endless}`,
-            '\n',
-
-            '_State (auto-populated):_',
-            '- Card front: ' + frontContent,
-            card ? `- Card: ${card?.key} (${card?.name})` : null,
-            card ? '- Diagram: ' + card.image : null,
-            card ? null : '- Game complete',
-            '\n',
-
-            '_Device info (auto-populated):_',
-            `- Light mode: ${themeToggle.checked}`,
-            '- Viewport: ' + innerWidth + '×' + innerHeight,
-            '- Screen: ' + screen.width + '×' + screen.height + ' @' + devicePixelRatio + 'x',
-            '- User agent: ' + navigator.userAgent,
-
-        ].filter(Boolean).join('\n');
-        return 'https://github.com/Andrewvlad/FSCards/issues/new?' + new URLSearchParams({body}).toString();
-    }
-</script>
-<noscript>To use this tool, please enable JavaScript.</noscript>
-
 </body>
 </html>

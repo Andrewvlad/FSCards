@@ -27,6 +27,7 @@
             mfs: '2-way-mfs',
             vfs: '4-way-vfs',
             cf: '4-way-cf',
+            crw: '4-way-cf',
             speed: '10-way-speed',
             cp: 'cp-freestyle',
             10: '10-way-speed',
@@ -35,10 +36,20 @@
         const norm = s => s.toLowerCase().replace(/[^a-z0-9]/g, '');
         const deway = s => norm(s).replace(/way/g, ''); // "way" is implied so /2vfs = /2-way-vfs
         const sig = s => [...s].sort().join(''); // Char anagram tolerates word reorders so /vfs2 = /2vfs
-        const seg = deway(location.pathname.split('/').filter(Boolean).at(-1));
-        const key = KEYS.find(k => deway(k) === seg) ?? DEFAULTS[seg] ?? KEYS.find(k => sig(deway(k)) === sig(seg));
+        const segs = location.pathname.split('/').filter(Boolean);
+        const seg = deway(segs.at(-1));
         // Relative target resolves one level up per hop, so stray nesting terminates instead of looping
-        if (key) location.replace((location.pathname.endsWith('/') ? '../' : './') + '?discipline=' + key);
+        const up = location.pathname.endsWith('/') ? '../' : './';
+        // Flashcards-view path aliases forward to the cards/ view
+        const CARD_ALIASES = ['card', 'flashcard', 'flashcards'];
+        if (CARD_ALIASES.includes(seg)) {
+            location.replace(up + 'cards/');
+        } else {
+            const key = KEYS.find(k => deway(k) === seg) ?? DEFAULTS[seg] ?? KEYS.find(k => sig(deway(k)) === sig(seg));
+            // Root keys route to the flashcards at cards/, gallery/quiz keys stay in place
+            const base = (segs.at(-2) === 'gallery' || segs.at(-2) === 'quiz') ? '' : 'cards/';
+            if (key) location.replace(up + base + '?discipline=' + key);
+        }
     </script>
     <script>
         // Resolve the active theme before first paint

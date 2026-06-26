@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <base href="../">
-    <meta name="description" content="Formation skydiving dive pool quiz">
+    <meta name="description" content="Formation skydiving dive pool flashcards">
     <meta name="author" content="Andrew Vladelshchikov">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no"> <!--Prevent swiped cards from expanding the viewport-->
-    <title>FSCards - Quiz</title>
+    <title>FSCards - Flashcards</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@700&family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -19,7 +19,7 @@
             savedTheme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
     </script>
 </head>
-<body class="quiz">
+<body>
 
 <!--Floating corner buttons (bottom-left, stacked): diagram-source logo on top, report-issue below-->
 <div id="cornerButtons">
@@ -39,10 +39,10 @@
     <div id="headerTitle">
         <!--The logo doubles as a view switcher-->
         <details id="viewSwitch">
-            <summary id="logo">FS<span>Quiz</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
+            <summary id="logo">FS<span>Cards</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
             <nav class="viewMenu" aria-label="Switch view">
-                <a href="cards/"><strong>Flashcards</strong></a>
-                <a href="quiz/" aria-current="page"><strong>Quiz</strong></a>
+                <a href="cards/" aria-current="page"><strong>Flashcards</strong></a>
+                <a href="quiz/"><strong>Quiz</strong></a>
                 <a href="gallery/"><strong>Gallery</strong></a>
             </nav>
         </details>
@@ -66,11 +66,12 @@
         <div class="segmented" id="classSegment"></div>
     </div>
 
-    <div class="settingsGroup" id="answerGroup">
-        <div class="settingsLabel"><span>Answers</span></div>
-        <div class="segmented" id="answerSegment">
-            <button type="button" data-answer="symbol" class="pill active" onclick="selectQuizMode(this)">Symbol</button>
-            <button type="button" data-answer="name" class="pill" onclick="selectQuizMode(this)">Name</button>
+    <div class="settingsGroup">
+        <div class="settingsLabel"><span>Card Front</span></div>
+        <div class="segmented" id="frontSegment">
+            <button type="button" data-front="diagram" class="pill active" onclick="selectFront(this)">Diagram</button>
+            <button type="button" data-front="label" class="pill" onclick="selectFront(this)">Symbol</button>
+            <button type="button" data-front="name" class="pill" onclick="selectFront(this)">Name</button>
         </div>
     </div>
 
@@ -231,7 +232,7 @@
     let discipline = '4-way';
     let category = 'all';
     let classLevel = 'open';
-    let answerType = 'symbol';
+    let frontContent = 'diagram';
     let indoor = false;
     let tunnel = false;
     let includeFusions = true;
@@ -243,18 +244,14 @@
     let theme = document.documentElement.dataset.theme;
     let invert = true;
     let endless = false;
-    let expandMode = false; // Only show arena
     let currentCard = null; // The formation on screen (needed for endless)
 
     // The settings object every deck/image build takes. Split tracks the viewport at call time
     const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
-
-    // Report FAB moves inside the card in quiz
-    const cornerButtons = document.getElementById('cornerButtons');
 </script>
 <!--Save progress-->
 <script>
-    const SAVE_KEY = 'fscards-quiz';
+    const SAVE_KEY = 'fscards';
 
     // Save after each grading
     function saveSession() {
@@ -267,7 +264,7 @@
                 discipline,
                 category,
                 classLevel,
-                answerType,
+                frontContent,
                 indoor,
                 tunnel,
                 includeFusions,
@@ -284,13 +281,13 @@
     function loadSession() {
         try {
             let data = null;
-            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Quiz run
+            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Flashcards run
 
             const shared = loadShared(); // Filters, also written by the gallery
 
             // Flashcard-only settings
             if (data) {
-                answerType   = data.answerType ?? 'symbol';
+                frontContent = data.frontContent ?? 'diagram';
                 recycle      = data.recycle ?? false;
                 endless      = data.endless === true ? 'random' : data.endless || false; // Migration from true -> random
             }
@@ -384,14 +381,13 @@
         }
     }
 
-    // Warm each diagram URL at most once a session (resize splits and set swaps re-call this)
-    const warmed = new Set();
     function prefetchDeck() {
-        const fresh = [];
-        for (const card of deck) for (const url of [card.image, card.figure])
-            if (!warmed.has(url)) { warmed.add(url); fresh.push(url); }
-        if (!fresh.length) return;
-        const warm = () => fresh.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
+        const urls = new Set();
+        for (const card of deck) {
+            urls.add(card.image);
+            if (frontContent === 'diagram') urls.add(card.figure);
+        }
+        const warm = () => urls.forEach(url => fetch(url, {priority: 'low'}).catch(() => {}));
         if (window.requestIdleCallback) requestIdleCallback(warm);
         else setTimeout(warm);
     }
@@ -402,21 +398,42 @@
         for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
         for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
 
-        if (currentCard && !flipped) renderCardFaces(currentCard);
+        if (currentCard && !lock) renderCardFaces(currentCard);
         prefetchDeck(); // re-warm the cache for the swapped-in set
 
         saveSession();
     }
 </script>
 <script>
-    // Finish-screen action
+    // Constants that get swapped between
+    const frontActionBar = `<button id="flip" onclick="flipCard()">Reveal Answer</button>`;
+    const backActionBar = `<button id="wrong" onclick="grade(false)">✗ Wrong</button><button id="correct" onclick="grade(true)">✓ Correct</button>`;
     const restartActionBar = `<button id="restart" onclick="newDeck()">↺ New Session</button>`;
+
+    const youTubeIcon = `<svg viewBox="0 3.5 24 17" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>`;
+
+    const watchBarFor = (formation) => formation.video
+        ? `<a id="watchLink" href="${formation.video}" target="_blank" rel="noopener noreferrer">${youTubeIcon}<span>Watch</span></a>`
+        : '';
+
+    const frontKeyboardHints = `<span class="skip" onclick="grade(false)">← skip</span><span onclick="flipCard()">⌴ flip</span><span class="skip" onclick="grade(true)">→ skip</span>`;
+    const backKeyboardHints = `<span class="bad" onclick="grade(false)">← wrong</span><span onclick="flipCard()">⌴ flip</span><span class="good" onclick="grade(true)">→ correct</span>`;
 </script>
 <!--Flip card-->
 <script>
     function flipCard() {
+        const card = document.getElementById('card');
+
         flipped = !flipped;
-        document.getElementById('card').classList.toggle('flipped', flipped);
+        card.classList.toggle('flipped', flipped);
+
+        // Release in-flight mouse/touch interaction
+        card.dispatchEvent(new MouseEvent('mouseup',  {bubbles: true}));
+        card.dispatchEvent(new TouchEvent('touchend', {bubbles: true}));
+
+        // Update action bar and keyboard hints (the watch link is per-card, set once in nextCard)
+        document.getElementById('actionBar').innerHTML     = flipped ? backActionBar : frontActionBar;
+        document.getElementById('keyboardHints').innerHTML = flipped ? backKeyboardHints : frontKeyboardHints;
     }
 </script>
 <!--Create card-->
@@ -449,9 +466,26 @@
                 </figure>`;
     }
 
+    // The prompt shown on the front of the card, per the Card Front setting
+    function frontFace(formation) {
+        switch (frontContent) {
+            case 'name':
+                return `<div class="cardContent"><h1 class="formationName">${formation.name}</h1></div>`;
+            case 'diagram':
+                return `<div class="cardContent">${diagramFace(formation.figure, formation, true)}</div>`;
+            case 'label':
+            default:
+                return `<div class="cardContent">
+                            <div class="formationLabel">
+                                <span class="labelKey">${formation.key}</span>
+                            </div>
+                        </div>`;
+        }
+    }
+
     // Build the two card faces. Re-render split-block images
     function renderCardFaces(formation) {
-        document.querySelector('#card .front').innerHTML = `<div class="cardContent">${diagramFace(formation.figure, formation, true)}</div>`;
+        document.querySelector('#card .front').innerHTML = frontFace(formation);
         document.querySelector('#card .back').innerHTML = `
             <div class="cardContent">
                 ${diagramFace(formation.image, formation, false)}
@@ -468,8 +502,6 @@
         const {width, height} = entry.contentRect;
         if (!height) return; // Detached card on results screen reports zero
 
-        arena.style.setProperty('--cardH', height + 'px'); // Anchors the report FAB to the card's bottom edge
-
         const split = width >= SPLIT_RATIO * height;
         if (split === splitView) return;
 
@@ -479,8 +511,6 @@
 
     // Grading does the actual shifting of the index
     function nextCard() {
-        arena.classList.remove('swiping'); // Fresh card brings icons back
-
         if (runComplete()) return finish();
 
         flipped = false;
@@ -491,26 +521,20 @@
         currentCard = endless ? pickEndlessCard() : deck[getIndex()];
 
         arena.innerHTML = `
-            <button type="button" id="expandToggle" title="Expand" aria-label="Toggle expand mode" aria-pressed="${expandMode}" onclick="toggleExpand()">
-                <svg class="iconExpand" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M8 6l4-4 4 4"/><path d="M8 18l4 4 4-4"/><path d="M12 2v20"/>
-                </svg>
-                <svg class="iconCompress" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                    <path d="M12 2v8"/><path d="M8 6l4 4 4-4"/><path d="M12 22v-8"/><path d="M8 18l4-4 4 4"/>
-                </svg>
-            </button>
             <div id="card">
                 <div class="cardFace front"></div>
                 <div class="cardFace back"></div>
             </div>
-            <div id="answerGrid"></div>
+            <p id="keyboardHints">${frontKeyboardHints}</p>
+            <div id="actionBar">${frontActionBar}</div>
+            <div id="watchBar">${watchBarFor(currentCard)}</div>
         `;
         // Re-observe: the old card went out with the arena markup
         cardObserver.disconnect();
         cardObserver.observe(document.getElementById('card'));
         renderCardFaces(currentCard);
-        renderAnswers(currentCard);
-        arena.append(cornerButtons); // arena.innerHTML wiped cornerButtons - re-add as an arena sibling of #card so the controls anchor to the arena and don't flip with the card
+
+        attachSwipe();
     }
 </script>
 <!--Finish game-->
@@ -518,7 +542,6 @@
     function finish() {
         clearSession();
         currentCard = null;
-        toggleExpand(false); // Results screen needs its chrome back. The toggle button lives on the card
 
         const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
 
@@ -539,91 +562,47 @@
                 <div id="actionBar">${restartActionBar}</div>
             </div>
         `;
-        arena.append(cornerButtons); // Keep the FABs in the arena. The result's screen returns them to normal positions
-    }
-</script>
-<!--Expand mode-->
-<script>
-    function toggleExpand(force) {
-        expandMode = typeof force === 'boolean' ? force : !expandMode;
-        document.body.classList.toggle('expand', expandMode);
-        document.getElementById('expandToggle')?.setAttribute('aria-pressed', expandMode);
     }
 </script>
 <!--Grade card-->
 <script>
+    let lock = false;
+
     function grade(direction) {
+        if (lock++) return; // Prevents multiple grades being queued up during timeout
+
+        swipeController?.abort(); // Release all card listeners
+
         const card = document.getElementById('card');
 
         setOverlay(direction);
 
-        // The card is always flipped to the answer here (answer() flips before grading), so it flies off showing the diagram
-        const flyX = (direction ? -0.75 : 0.75) * window.innerWidth;
-        const rot  = direction ? -MAX_ROT : MAX_ROT;
+        const flyX = (flipped ^ direction ? 0.75 : -0.75) * window.innerWidth;
+        const rot  = flipped ^ direction ? MAX_ROT : -MAX_ROT;
         card.style.transition = ''; // Remove "none" transition
-        card.style.transform  = `rotateY(180deg) translateX(${flyX}px) rotate(${rot}deg)`;
-        arena.classList.add('swiping'); // Hide the card-anchored icons while the card flies off
+        // Removes perspective transition to prevent warping
+        card.style.transform  = `${flipped ? 'rotateY(180deg)' : ''} translateX(${flyX}px) rotate(${rot}deg)`;
+        setTimeout(() => addGrade(flipped), SWIPE_DURATION);
 
-        setTimeout(() => {
-            if (direction) { // Correct
-                correct.textContent++;
-                streak.textContent++;
-            } else { // Wrong
-                if (!endless && recycle) deck.push(currentCard);
-                wrong.textContent++;
-                streak.textContent = '0';
+        function addGrade(value) {
+            if (value) {
+                if (direction) { // Correct
+                    correct.textContent++;
+                    streak.textContent++;
+                } else { // Wrong
+                    if (!endless && recycle) deck.push(currentCard);
+                    wrong.textContent++;
+                    streak.textContent = '0';
+                }
+                if (endless) endlessResult(currentCard.key, direction);
+            } else { // Skip
+                if (!endless) deck.push(...deck.splice(getIndex(), 1));
             }
-            if (endless) endlessResult(currentCard.key, direction);
 
             saveSession();
             nextCard();
-        }, SWIPE_DURATION);
-    }
-</script>
-<!--Answer grid-->
-<script>
-    const REVEAL_DELAY = 850; // ms the revealed answer shows before the card auto-advances
-
-    // Which answer label types a discipline offers
-    function answerTypesFor(discipline) {
-        if (includeCaption(discipline)) return ['name']; // CP: the numeric key is doc order, not a real label
-        const {names} = DATA[discipline];
-        const symbolIsName = Object.keys(names).every(k => names[k] === k); // CF 2-way letters
-        return symbolIsName ? ['symbol'] : ['symbol', 'name'];
-    }
-
-    function answerLabel(formation) {
-        if (answerType === 'symbol') return formation.key;
-        const parts = formation.name.split(' - '); // Split block names and add a horizontal rule
-        return parts.length === 2 ? `<span>${parts[0]}</span><hr><span>${parts[1]}</span>` : formation.name;
-    }
-
-    // Every same-category formation in the pool, sorted, forms the answer board
-    function boardFor(formation) {
-        const block = isBlock(formation.key);
-        return fullDeck.filter(f => isBlock(f.key) === block).sort((a, b) => keyOrder(a.key, b.key));
-    }
-
-    function renderAnswers(formation) {
-        const grid = document.getElementById('answerGrid');
-        grid.dataset.answer = answerType; // Sets columns to 4 for symbols
-        grid.innerHTML = boardFor(formation).map(f =>
-            `<button type="button" class="answerOption" data-key="${f.key}" onclick="answer('${f.key}')">${answerLabel(f)}</button>`
-        ).join('');
-    }
-
-    // Mark the board, flip to the named diagram, then auto-advance through grade()
-    function answer(key) {
-        if (flipped) return;
-
-        const right = key === currentCard.key;
-        const grid = document.getElementById('answerGrid');
-        grid.classList.add('answered');
-        grid.querySelector(`[data-key="${key}"]`).classList.add(right ? 'correct' : 'wrong');
-        if (!right) grid.querySelector(`[data-key="${currentCard.key}"]`).classList.add('revealCorrect');
-
-        flipCard();
-        setTimeout(() => grade(right), REVEAL_DELAY);
+            lock = false;
+        }
     }
 </script>
 <!--Switch discipline buttons-->
@@ -668,7 +647,6 @@
     function updateDisciplineUI() {
         renderImageSetButtons();
         renderClassButtons();
-        renderAnswerButtons();
 
         // 8-way is the only discipline with different indoor pools
         document.getElementById('indoorSetting').classList
@@ -703,16 +681,6 @@
         document.getElementById('classSegment').innerHTML = classes.map(c =>
             `<button type="button" data-class="${c.key}" class="pill${c.key === classLevel ? ' active' : ''}" onclick="selectClass(this)">${c.label}</button>`
         ).join('');
-    }
-
-    // The Symbol/Name choice only exists when the discipline has both a distinct symbol AND name
-    function renderAnswerButtons() {
-        const types = answerTypesFor(discipline);
-        if (!types.includes(answerType)) answerType = types.includes('name') ? 'name' : types[0];
-
-        document.getElementById('answerGroup').classList.toggle('hidden', types.length <= 1);
-        document.querySelectorAll('#answerSegment button').forEach(button =>
-            button.classList.toggle('active', button.dataset.answer === answerType));
     }
 
     function renderImageSetButtons() {
@@ -832,10 +800,11 @@
         saveSession();
     }
 
-    function selectQuizMode(button) {
-        selectSegment('answerSegment', button);
-        answerType = button.dataset.answer;
-        if (currentCard) renderAnswers(currentCard); // Relabel the board in place
+    function selectFront(button) {
+        selectSegment('frontSegment', button);
+        frontContent = button.dataset.front;
+        if (endless) renderCardFaces(currentCard);
+        else if (!runComplete()) nextCard();
         saveSession();
     }
 
@@ -852,6 +821,9 @@
         statsModeSelect.value = discipline;
         document.querySelectorAll('#categorySegment button').forEach(button =>
             button.classList.toggle('active', button.dataset.category === category));
+        document.querySelectorAll('#frontSegment button').forEach(button =>
+            button.classList.toggle('active', button.dataset.front === frontContent));
+
         indoorToggle.checked = indoor;
         tunnelToggle.checked = tunnel;
         fusionsToggle.checked = includeFusions;
@@ -877,6 +849,15 @@
         tip.addEventListener('focus', () => positionTip(tip));
     });
 </script>
+<!--Keybindings-->
+<script>
+    document.addEventListener('keydown', e => {
+        // TODO: disable keybindings on finish screen
+        if (e.code === 'Space') {e.preventDefault(); flipCard();}
+        if (e.code === 'ArrowRight') grade(true);
+        if (e.code === 'ArrowLeft')  grade(false);
+    });
+</script>
 <!--Handle View Navigation-->
 <script>
     const viewSwitch = document.getElementById('viewSwitch');
@@ -894,16 +875,122 @@
         if (viewSwitch.open) viewMenu.style.width = `${logo.getBoundingClientRect().width}px`;
     });
 </script>
-<!--Card flick + overlay (the swipe-off animation reused by grade)-->
+<!--Swipe/drag card-->
 <script>
+    // TODO: Switch thresholds to be relative to window size (alongside Math.min())
+    const THRESHOLD = 80; // How many pixels of translation before swipe can be released
+    const SWIPE_THRESHOLD = 20; // How many pixels of translation before considered a swipe
     const MAX_ROT = 20; // Max degrees of card rotation
+    const OVERLAY_THRESHOLD = THRESHOLD * 0.8; // When the overlay should appear
     const SWIPE_DURATION = 300; // Number of milliseconds that the swipe animation will play
 
-    // Win/lose tint on the revealed card, used by the grade animation
+    // Win/lose/skip tint on the card — shared by drag tracking and the grade animation
     function setOverlay(direction) {
+        const front = document.querySelector('.front');
         const back = document.querySelector('.back');
-        back.classList.toggle('correctOverlay', direction);
-        back.classList.toggle('wrongOverlay',  !direction);
+        front.classList.toggle('skipOverlay',   !flipped);
+        back.classList.toggle('correctOverlay',  flipped && direction);
+        back.classList.toggle('wrongOverlay',    flipped && !direction);
+    }
+
+    function clearOverlay() {
+        document.querySelector('.front').classList.remove('skipOverlay');
+        document.querySelector('.back').classList.remove('correctOverlay', 'wrongOverlay');
+    }
+
+    let swipeController; // AbortController for current card's listeners
+
+    function attachSwipe() {
+        swipeController = new AbortController();
+        const {signal} = swipeController;
+
+        const card = document.getElementById('card');
+        const front = document.querySelector('.front');
+        const back = document.querySelector('.back');
+
+        let startX, startY, curX = 0;
+        let isDragging = false;
+        let startFlipped;
+
+        // Add listeners
+        card.addEventListener('mousedown',  onStart, {signal});
+        card.addEventListener('touchstart', onStart, {signal});
+
+        // Split to eat click on flip
+        front.addEventListener('click', flipCard, {signal});
+        back.addEventListener('click',  flipCard, {signal});
+
+        const pos = (e, calcOffset = false) => {
+            const p = e.touches?.[0] ?? e;
+            return calcOffset ? [p.clientX - startX, p.clientY - startY] : [p.clientX, p.clientY];
+        };
+
+        function onStart(e) {
+            startFlipped = flipped;
+
+            curX = 0;
+            isDragging = false;
+            [startX, startY] = pos(e);
+
+            // Start tracking movement
+            document.addEventListener('mousemove', onMove, {signal});
+            document.addEventListener('touchmove', onMove, {signal, passive: false}); // False for Safari default
+            document.addEventListener('mouseup',   onEnd, {signal});
+            document.addEventListener('touchend',  onEnd, {signal});
+        }
+
+        function onMove(e) {
+            const [changeX, changeY] = pos(e, true);
+            e.preventDefault(); // Mobile devices slow down significantly if scrolling is allowed
+
+            // Abort if scrolling vertically
+            if (!isDragging && Math.abs(changeY) > SWIPE_THRESHOLD) return cleanup();
+
+            if (Math.abs(changeX) > SWIPE_THRESHOLD) isDragging = true;
+            if (!isDragging) return;
+
+            // Prevent drag click from flipping
+            front.removeEventListener('click', flipCard);
+            back.removeEventListener('click', flipCard);
+
+            card.style.transition = 'none'; // Prevents lag when dragging the element
+
+            const flipMult = flipped ? -1 : 1;
+            curX = changeX;
+            const rot = (changeX / window.innerWidth) * MAX_ROT * 0.5; // 0.5x so it keeps rotating after release
+            // Card follows behind cursor at 0.5x
+            card.style.transform = `${flipped ? 'rotateY(180deg)' : ''} translateX(${changeX * 0.5 * flipMult}px) rotate(${rot * flipMult}deg)`;
+
+            if (changeX > OVERLAY_THRESHOLD) return setOverlay(true);
+            if (changeX < -OVERLAY_THRESHOLD) return setOverlay(false);
+            clearOverlay();
+        }
+
+        function onEnd() {
+            cleanup();
+
+            if (Math.abs(curX) > THRESHOLD && flipped === startFlipped) return grade(curX > 0);
+
+            // Reset color and position
+            clearOverlay();
+            card.style.transform = '';
+        }
+
+        function cleanup() {
+            card.style.transition = ''; // Remove "none" transition
+
+            // Release listeners
+            document.removeEventListener('mousemove', onMove);
+            document.removeEventListener('touchmove', onMove);
+            document.removeEventListener('mouseup',   onEnd);
+            document.removeEventListener('touchend',  onEnd);
+
+            // Re-enable only after the card stops moving
+            requestAnimationFrame(() => {
+                front.addEventListener('click', flipCard, {signal});
+                back.addEventListener('click',  flipCard, {signal});
+            });
+        }
     }
 </script>
 <!--Endless mode-->
@@ -1069,7 +1156,7 @@
             '**Describe the issue:**', '', '', '---',
 
             '_Replication info (auto-populated):_',
-            '- Page: Quiz',
+            '- Page: Flashcards',
             '- Discipline: ' + discipline,
             '- Class: ' + classLevel,
             '- Diagram set: ' + imageSet,
@@ -1081,8 +1168,8 @@
             '\n',
 
             '_State (auto-populated):_',
-            '- Answers: ' + answerType,
-            card ? `- Card: ${card.key} (${card.name})` : null,
+            '- Card front: ' + frontContent,
+            card ? `- Card: ${card?.key} (${card?.name})` : null,
             card ? '- Diagram: ' + card.image : null,
             card ? null : '- Game complete',
             '\n',
