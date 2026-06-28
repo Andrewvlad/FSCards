@@ -152,6 +152,11 @@
             <label>Card</label>
             <p id="statCard">—</p>
         </div>
+        <!--Hidden in endless, see CSS-->
+        <div class="stat">
+            <label>Time</label>
+            <p id="statTime">0:00</p>
+        </div>
         <div class="stat">
             <label>Correct</label>
             <p class="good" id="statCorrect">0</p>
@@ -274,6 +279,7 @@
                 imageSet,
                 recycle,
                 endless,
+                time: timerElapsed(),
             }));
         } catch(e) {} // Fail silently if storage full or unavailable
 
@@ -328,6 +334,8 @@
             correct.textContent = data.correct;
             wrong.textContent   = data.wrong;
             streak.textContent  = data.streak;
+            elapsedMs = data.time ?? 0; // Resume the stopwatch where it left off
+            timerStart = null;
 
             showToast('Resumed');
 
@@ -351,6 +359,55 @@
         } catch(e) {} // Fail silently if storage unavailable
     }
 </script>
+<!--Quiz timer: total run time, hidden and paused in endless-->
+<script>
+    const statTime = document.getElementById('statTime');
+    let elapsedMs = 0;     // Accumulated run time, persisted across reloads
+    let timerStart = null; // Timestamp the live segment began (null = paused)
+    let timerHandle = null;
+
+    const timerElapsed = () => elapsedMs + (timerStart ? Date.now() - timerStart : 0);
+
+    function formatTime(ms) {
+        const total = Math.floor(ms / 1000);
+        const pad = (n) => String(n).padStart(2, '0');
+        const h = Math.floor(total / 3600);
+        const m = Math.floor(total / 60) % 60;
+        const s = total % 60;
+        return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`; // Drop the hours field under an hour
+    }
+
+    function renderTimer() {
+        statTime.textContent = formatTime(timerElapsed());
+    }
+
+    // Idempotent - skips in endless, once complete, or while already ticking
+    function startTimer() {
+        if (timerStart || endless || runComplete()) return;
+        timerStart = Date.now();
+        timerHandle = setInterval(renderTimer, 1000);
+        renderTimer();
+    }
+
+    // Fold the live segment into the total and stop ticking
+    function stopTimer() {
+        if (!timerStart) return;
+        elapsedMs = timerElapsed();
+        timerStart = null;
+        clearInterval(timerHandle);
+        timerHandle = null;
+        renderTimer(); // Paint the frozen value so a throttled tab can't leave it stale
+    }
+
+    function resetTimer() {
+        stopTimer();
+        elapsedMs = 0;
+        renderTimer();
+    }
+
+    // Capture the live segment before the tab unloads so a resume stays exact
+    window.addEventListener('pagehide', saveSession);
+</script>
 <!--Define deck-->
 <script>
     function newDeck() {
@@ -368,6 +425,7 @@
         correct.textContent = '0';
         wrong.textContent = '0';
         streak.textContent = '0';
+        resetTimer();
 
         saveSession();
         nextCard();
@@ -482,6 +540,7 @@
         arena.classList.remove('swiping'); // Fresh card brings icons back
 
         if (runComplete()) return finish();
+        startTimer(); // Idempotent - resumes after a reload, no-op in endless
 
         flipped = false;
         setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
@@ -516,6 +575,7 @@
 <!--Finish game-->
 <script>
     function finish() {
+        stopTimer();
         clearSession();
         currentCard = null;
         toggleExpand(false); // Results screen needs its chrome back. The toggle button lives on the card
@@ -534,7 +594,7 @@
             <div id="done">
                 <div class="label">Session Complete</div>
                 <div id="score">${pct}%</div>
-                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong</div>
+                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong · ${formatTime(timerElapsed())}</div>
                 <div id="message">${message}</div>
                 <div id="actionBar">${restartActionBar}</div>
             </div>

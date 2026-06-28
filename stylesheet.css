@@ -508,8 +508,9 @@ body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) 
             gap: 0;
         }
 
-        /* Endless drops progress bar */
+        /* Endless drops progress bar and the stopwatch */
         #progressMain {display: none}
+        .stat:has(#statTime) {display: none}
     }
 
     /* Hides endless strategy if it doesn't fit*/
