@@ -198,3 +198,52 @@ function loadShared() {
     }
     return shared;
 }
+
+// The page's stored run, parsed fresh. Null if absent or corrupt
+function storedRun() {
+    try {
+        const run = JSON.parse(localStorage.getItem(SAVE_KEY));
+        if (run?.endless === true) run.endless = 'random'; // Migration from the pre-strategy boolean
+        return run;
+    } catch (e) { return null; } // Storage may be unavailable
+}
+
+// Stored run matches the current in-memory pool identity (discipline + pool-defining filters)
+function poolMatches(data) {
+    return data.discipline === discipline
+        && data.classLevel === classLevel
+        && data.tunnel === tunnel
+        && data.includeFusions === includeFusions
+        && data.category === category;
+}
+
+// Shared body of each page's restoreRun. False if the stored deck no longer builds (pool revised)
+function restoreRunCore(data) {
+    // Rebuild the full pool (for category switching), then restore the played deck
+    fullDeck = buildDeck(poolSettings());
+    deck = deckFromKeys(data.deck, poolSettings());
+    if (!deck.length) return false;
+
+    // Endless before rebuildEndlessState so a counter past pool size isn't read as complete
+    recycle = data.recycle ?? recycle;
+    endless = data.endless ?? false;
+    rebuildEndlessState(data);
+    missed = data.missed ?? {};
+
+    correct.textContent = data.correct;
+    wrong.textContent   = data.wrong;
+    streak.textContent  = data.streak;
+    return true;
+}
+
+// A pool-filter switch resumes the stored run when it matches the new pool, else builds fresh
+function switchDeck(buildFresh, canResume = () => true) {
+    const run = storedRun();
+    if (run?.deck?.length && canResume(run) && poolMatches(run) && restoreRun(run)) {
+        syncSettingsUI(); // Reflect the resumed run's settings (endless, recycle, category, page-own)
+        nextCard();
+        saveSession(); // Rewrites the same run, but the cross-page filter mirror must see the switch
+    } else {
+        buildFresh();
+    }
+}

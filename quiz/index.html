@@ -226,6 +226,7 @@
     const progressCount = document.getElementById('progressCount');
     const getIndex = () => +correct.textContent + +wrong.textContent;
     const runComplete = () => !endless && getIndex() >= deck.length; // Endless never completes
+    const hasScored = () => getIndex() > 0; // A graded answer commits the run
 
     function setProgress(text) {
         progress.textContent = text;
@@ -261,9 +262,10 @@
 <script>
     const SAVE_KEY = 'fscards-quiz';
 
-    // Save after each grading
+    // Save after each grading. A run persists only once it has been played (hasScored), so browsing
+    // other modes never overwrites the stored run - the cross-page filter mirror below still runs
     function saveSession() {
-        if (!runComplete()) try {
+        if (hasScored() && !runComplete()) try {
             localStorage.setItem(SAVE_KEY, JSON.stringify({ // Can only store string data
                 deck:    deck.map(f => f.key), // Store formation keys (letters/numbers)
                 correct: correct.textContent,
@@ -279,6 +281,10 @@
                 imageSet,
                 recycle,
                 endless,
+                // Endless engine progress, so a strategy switch / resume keeps its weights + mastery
+                weights,
+                masteredKeys,
+                unlockedCount,
                 time: timerElapsed(),
             }));
         } catch(e) {} // Fail silently if storage full or unavailable
@@ -289,16 +295,15 @@
 
     function loadSession() {
         try {
-            let data = null;
-            try { data = JSON.parse(localStorage.getItem(SAVE_KEY)); } catch(e) {} // Quiz run
+            const data = storedRun(); // Quiz run
 
             const shared = loadShared(); // Filters, also written by the gallery
 
-            // Flashcard-only settings
+            // Quiz-only settings
             if (data) {
                 answerType   = data.answerType ?? 'symbol';
                 recycle      = data.recycle ?? false;
-                endless      = data.endless === true ? 'random' : data.endless || false; // Migration from true -> random
+                endless      = data.endless ?? false;
             }
 
             const src = shared ?? data;
@@ -315,32 +320,22 @@
 
             syncSettingsUI();
 
-            const samePool = data
-                && data.discipline === discipline
-                && data.classLevel === classLevel
-                && data.tunnel === tunnel
-                && data.includeFusions === includeFusions
-                && data.category === category;
-            if (!data || !data.deck?.length || (shared && !samePool)) return false;
-
-            // Rebuild the full pool (for category switching), then restore the played deck
-            fullDeck = buildDeck(poolSettings());
-            deck = deckFromKeys(data.deck, poolSettings());
-            if (!deck.length) return false; // If deck no longer valid (pool revised)
-            rebuildEndlessState();
-            prefetchDeck();
-
-            // Populate stats
-            correct.textContent = data.correct;
-            wrong.textContent   = data.wrong;
-            streak.textContent  = data.streak;
-            elapsedMs = data.time ?? 0; // Resume the stopwatch where it left off
-            timerStart = null;
+            // On load, shared (cross-page filters) overrides the run's pool, so resume only when they agree
+            if (!data || !data.deck?.length || (shared && !poolMatches(data)) || !restoreRun(data)) return false;
 
             showToast('Resumed');
-
             return true;
         } catch(e) {return false;}
+    }
+
+    // Load a stored run into memory, the shared core plus this page's own settings
+    function restoreRun(data) {
+        if (!restoreRunCore(data)) return false;
+        answerType = data.answerType ?? answerType;
+        elapsedMs = data.time ?? 0; // Resume the stopwatch where it left off
+        timerStart = null;
+        prefetchDeck();
+        return true;
     }
 
     function showToast(message, long = false) {
@@ -730,8 +725,11 @@
 
             discipline = button.dataset.mode;
             statsModeSelect.value = discipline;
+            // Land on the played class before updateDisciplineUI resets it to the discipline default
+            const run = storedRun();
+            if (run?.discipline === discipline) classLevel = run.classLevel;
             updateDisciplineUI();
-            newDeck();
+            switchDeck(newDeck);
         });
 
         // Mirror each mode into the collapsed-state dropdown
@@ -874,14 +872,14 @@
     function selectCategory(button) {
         selectSegment('categorySegment', button);
         category = button.dataset.category;
-        applyCategory();
+        switchDeck(applyCategory);
     }
 
     function selectClass(button) {
         selectSegment('classSegment', button);
         classLevel = button.dataset.class;
         updateCategoryUI();
-        newDeck();
+        switchDeck(newDeck);
     }
 
     function selectImageSet(button) {
@@ -901,12 +899,12 @@
 
     function selectTunnel(checkbox) {
         tunnel = checkbox.checked;
-        newDeck();
+        switchDeck(newDeck);
     }
 
     function selectFusions(checkbox) {
         includeFusions = checkbox.checked;
-        newDeck();
+        switchDeck(newDeck);
     }
 
     function selectTheme(checkbox) {
@@ -1002,14 +1000,16 @@
     function toggleEndless() {
         endless = endless ? false : 'random';
         syncEndlessUI();
-        newDeck();
+        // Resume stored run only if its endless-ness matches the new toggle
+        switchDeck(newDeck, run => !!run.endless === !!endless);
     }
 
     // Switch the endless draw strategy
     function selectStrategy(button) {
         selectSegment('strategyRow', button);
         endless = button.dataset.strategy;
-        newDeck();
+        // Resume only a stored run of the same strategy
+        switchDeck(newDeck, run => run.endless === endless);
     }
 
     function syncEndlessUI() {
@@ -1081,14 +1081,14 @@
     let unlockedCount = 6;
     let masteredKeys = {}; // reset key's value on miss
 
-    function rebuildEndlessState() {
-        weights = {};
-        masteredKeys = {};
+    function rebuildEndlessState(saved) {
+        weights = saved?.weights ?? {};
+        masteredKeys = saved?.masteredKeys ?? {};
 
-        // Initialize learn props
+        // Initialize learn props (or resume)
         if (endless === 'learn') {
             learnKeys = deck.map(card => card.key).sort((a, b) => isBlock(a) - isBlock(b));
-            unlockedCount = Math.min(6, learnKeys.length);
+            unlockedCount = saved?.unlockedCount ?? Math.min(6, learnKeys.length);
         }
     }
 
