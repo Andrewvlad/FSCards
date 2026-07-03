@@ -251,6 +251,7 @@
     let endless = false;
     let expandMode = false; // Only show arena
     let currentCard = null; // The formation on screen (needed for endless)
+    let missed = {};
 
     // The settings object every deck/image build takes. Split tracks the viewport at call time
     const poolSettings = () => ({discipline, indoor, classLevel, imageSet, tunnel, includeFusions, split: splitView});
@@ -285,6 +286,7 @@
                 weights,
                 masteredKeys,
                 unlockedCount,
+                missed,
                 time: timerElapsed(),
             }));
         } catch(e) {} // Fail silently if storage full or unavailable
@@ -357,7 +359,7 @@
 <!--Quiz timer: total run time, hidden and paused in endless-->
 <script>
     const statTime = document.getElementById('statTime');
-    let elapsedMs = 0;     // Accumulated run time, persisted across reloads
+    let elapsedMs = 0; // Accumulated run time, persisted across reloads
     let timerStart = null; // Timestamp the live segment began (null = paused)
     let timerHandle = null;
 
@@ -415,6 +417,7 @@
         // Pools without the blocks/randoms split show everything
         deck = categorized(poolSettings()) ? fullDeck.filter(matchesCategory) : [...fullDeck];
         rebuildEndlessState();
+        missed = {};
         prefetchDeck();
 
         correct.textContent = '0';
@@ -474,8 +477,9 @@
     }
 </script>
 <script>
-    // Finish-screen action
-    const restartActionBar = `<button id="restart" onclick="newDeck()">↺ New Session</button>`;
+    // Finish-screen actions
+    const restartActionBar = `<button id="restart" onclick="newDeck()">Play Again</button>`;
+    const replayActionBar = `<button id="replay" onclick="replayMissed()">Replay Missed</button>`;
 </script>
 <!--Flip card-->
 <script>
@@ -509,11 +513,11 @@
         f.src = full;
     }
 
-    // Add captions to images
-    function diagramFace(src, formation, hideCaption) {
+    // Add captions to images. noSplit forces a block to render whole (the carousel never trifolds)
+    function diagramFace(src, formation, hideCaption, noSplit) {
         if (!includeCaption(discipline)) {
             // When the card renders wide, show a block's three panels as separate horizontally arranged images
-            const cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
+            const cuts = !noSplit && splitView && isBlock(formation.key) && panelCutsFor(src);
             if (cuts) {
                 const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
                 const [ar, d1t, d1b, d2t, d2b] = cuts;
@@ -567,6 +571,7 @@
         if (runComplete()) return finish();
         startTimer(); // Idempotent - resumes after a reload, no-op in endless
 
+        missedCarousel = null; // Release the finished results carousel (its detached clones + images)
         flipped = false;
         setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
         if (endless) fitStrategyRow(); // Counter-width growth can push the inline fit over the edge
@@ -605,26 +610,36 @@
         currentCard = null;
         toggleExpand(false); // Results screen needs its chrome back. The toggle button lives on the card
 
-        const pct = deck.length ? Math.round(correct.textContent / deck.length * 100) : 0;
-
-        const message =
-            pct === 100 ? 'Perfect score!' :
-            pct >= 80   ? 'Impressive!' :
-            pct >= 60   ? 'Nice try!' :
-                          'Keep at it!';
+        const missedItems = collectMissed();
+        const perfect = !missedItems.length;
+        const items = perfect ? allDeckItems() : missedItems;
 
         setProgress('✓');
         document.getElementById('progressFill').style.width = '100%';
+        // Results screen
         arena.innerHTML = `
             <div id="done">
-                <div class="label">Session Complete</div>
-                <div id="score">${pct}%</div>
-                <div class="label">${correct.textContent} correct · ${wrong.textContent} wrong · ${formatTime(timerElapsed())}</div>
-                <div id="message">${message}</div>
-                <div id="actionBar">${restartActionBar}</div>
+                ${missedMarkup(items, perfect)}
+                <div id="actionBar">${perfect ? '' : replayActionBar}${restartActionBar}</div>
             </div>
         `;
         arena.append(cornerButtons); // Keep the FABs in the arena. The result's screen returns them to normal positions
+        initMissedCarousel(items);
+    }
+</script>
+<!--Replay missed-->
+<script>
+    // Replay just the missed cards as a fresh finite run
+    function replayMissed() {
+        const cards = collectMissed().map(entry => entry.card);
+        deck = randomizeDeck(cards);
+        missed = {};
+        rebuildEndlessState();
+        prefetchDeck();
+        correct.textContent = wrong.textContent = streak.textContent = '0';
+        resetTimer();
+        saveSession();
+        nextCard();
     }
 </script>
 <!--Expand mode-->
@@ -655,6 +670,7 @@
                 streak.textContent++;
             } else { // Wrong
                 if (!endless && recycle) deck.push(currentCard);
+                missed[currentCard.key] = (missed[currentCard.key] ?? 0) + 1;
                 wrong.textContent++;
                 streak.textContent = '0';
             }
@@ -751,7 +767,7 @@
     }
     fitModeBar();
     new ResizeObserver(fitModeBar).observe(document.body);
-    document.fonts?.ready.then(fitModeBar);
+    document.fonts.ready.then(fitModeBar);
 
     function updateDisciplineUI() {
         renderImageSetButtons();
@@ -1050,7 +1066,7 @@
         drawer.classList.toggle('hidden', fits);
     }
     new ResizeObserver(fitStrategyRow).observe(document.body);
-    document.fonts?.ready.then(fitStrategyRow);
+    document.fonts.ready.then(fitStrategyRow);
 
     function setDrawer(open) {
         document.getElementById('drawerContent').classList.toggle('hidden', !open);
@@ -1072,8 +1088,6 @@
     const MISS_MULTIPLIER = 2.2;
     const HIT_MULTIPLIER = 0.55;
     const WEIGHT_MIN = 0.4, WEIGHT_MAX = 6;
-
-    const clamp = (value, lo, hi) => Math.min(hi, Math.max(lo, value));
 
     // Engine state
     let weights = {};

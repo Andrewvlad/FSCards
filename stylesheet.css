@@ -993,35 +993,24 @@ figure {
         }
     }
 
-    #correct, #wrong {
+    #correct, #wrong, #restart, #replay {
         max-width: 180px;
 
         &:hover {color: var(--text)}
     }
 
-    #correct {
+    #correct, #restart {
         border-color: var(--success);
         color: var(--success);
 
         &:hover {background: var(--success)}
     }
 
-    #wrong {
+    #wrong, #replay {
         border-color: var(--error);
         color: var(--error);
 
         &:hover {background: var(--error)}
-    }
-
-    #restart {
-        border-color: var(--accent);
-        color: var(--accent);
-        max-width: 220px;
-
-        &:hover {
-            background: var(--accent);
-            color: var(--bg);
-        }
     }
 }
 
@@ -1052,14 +1041,26 @@ figure {
     }
 }
 
-/* Done screen */
+/* ----------- */
+/* Done Screen */
+/* ----------- */
+
 #done {
-    text-align: center;
+    width: 100%;
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 1.5rem;
-    padding: 2rem;
+}
+
+/* Missed-diagram carousel (results screen) */
+#missedSection {
+    --missedH: clamp(150px, 34dvh, 280px); /* Bounded so the results screen scrolls on mobile */
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
 
     .label {
         font-size: 0.75rem;
@@ -1067,20 +1068,92 @@ figure {
         letter-spacing: 0.15em;
         color: var(--muted);
     }
+}
 
-    #score {
-        font-family: var(--titleFont);
-        font-size: 5rem;
-        font-weight: 900;
-        line-height: 1;
-        color: var(--accent);
-    }
+/* Desktop leaves the cards uncapped */
+@media (min-width: 601px) {
+    #missedSection {--missedH: min(46vh, 460px)}
+}
 
-    #message {
-        font-size: 1.1rem;
+/* Key chips: one per missed card, the in-focus card's chip lit */
+#missedChips {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem;
+
+    .missedChip {
+        font-size: 0.72rem;
+        padding: 0.3rem 0.6rem;
+        border: 1px solid var(--border);
+        background: transparent;
         color: var(--muted);
-        max-width: 300px;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: color 0.15s, border-color 0.15s, background 0.15s;
+
+        &.lit {
+            border-color: var(--accent);
+            background: var(--accent);
+            color: var(--blackText);
+        }
     }
+}
+
+/* The strip: centered while it fits, left-aligned and scrollable once it overflows */
+#missedCarousel {
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    justify-content: center;
+    touch-action: pan-y; /* vertical gestures still scroll the page */
+
+    &.overflowing {
+        justify-content: flex-start;
+        cursor: grab;
+
+        &.grabbing {cursor: grabbing}
+    }
+}
+
+#missedTrack {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+    will-change: transform;
+
+    .missedCard {
+        height: var(--missedH);
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        .diagram {
+            height: 100%;
+            width: auto;
+        }
+
+        /* Captioned (CP Freestyle): width-bound, height follows the diagram plus caption */
+        &:has(.captionedDiagram) {
+            height: auto;
+            width: min(70vw, calc(var(--missedH) * 1.5));
+        }
+
+        .captionedDiagram {
+            width: 100%;
+            height: auto;
+        }
+    }
+}
+
+/* Results screen with the missed carousel scrolls instead of cramming one screen */
+body:not(.gallery):has(#missedSection) {
+    height: auto;
+    min-height: 100dvh;
+    overflow-y: auto;
+
+    #arena {flex-basis: auto} /* Floor the arena at content height so the carousel is not squeezed */
 }
 
 /* ------------ */
@@ -1241,7 +1314,6 @@ body.quiz:has(#done) #reportIssue {
     align-items: center;
     justify-content: center;
     font-size: 0.75rem;
-    letter-spacing: 0.04em;
     text-transform: capitalize;
     text-align: center;
     padding: 0.5rem 2px;

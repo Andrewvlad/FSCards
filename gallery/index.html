@@ -275,7 +275,7 @@
     }
     fitModeBar();
     new ResizeObserver(fitModeBar).observe(document.body);
-    document.fonts?.ready.then(fitModeBar);
+    document.fonts.ready.then(fitModeBar);
 
     function updateDisciplineUI() {
         renderImageSetButtons();
