@@ -157,6 +157,9 @@ function fusionsFor(discipline) {
     return DATA[discipline].fusions;
 }
 
+// Whole-collegiate discipline (collegiate: true) - dropped from the mode bar unless revealed on the landing page
+const isCollegiate = discipline => DATA[discipline].collegiate === true;
+
 function buildDeck(settings) {
     return randomizeDeck(Object.values(buildPool(settings)));
 }
@@ -169,6 +172,13 @@ function deckFromKeys(keys, settings) {
 
 const SHARED_STORE = 'fscards-shared';
 const SHARED_FIELDS = ['discipline', 'category', 'classLevel', 'indoor', 'tunnel', 'includeFusions', 'imageSet', 'invert'];
+
+// Standalone landing-page toggle (own key like the theme, not a shared filter): reveal collegiate disciplines in the views
+const COLLEGIATE_KEY = 'fscards-collegiate';
+function collegiateShown() {
+    try { return localStorage.getItem(COLLEGIATE_KEY) === '1'; }
+    catch (e) { return false; } // Storage may be unavailable
+}
 
 function saveShared(state) {
     try {

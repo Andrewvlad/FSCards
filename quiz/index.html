@@ -311,6 +311,7 @@
             const src = shared ?? data;
             if (src) {
                 discipline = src.discipline in DATA ? src.discipline : '4-way'; // Disciplines fall back (in case of rename)
+                if (isCollegiate(discipline) && !collegiateShown()) discipline = '4-way'; // Collegiate hidden -> never the active mode
                 category   = src.category ?? 'all';
                 classLevel = src.classLevel ?? 'open';
                 indoor     = src.indoor ?? false;
@@ -747,7 +748,13 @@
     const modeButtons = document.querySelectorAll('#modeBar button');
     const statsModeSelect = document.getElementById('statsModeSelect');
 
+    const collegiateOn = collegiateShown();
     for (const button of modeButtons) {
+        // Drop whole-collegiate disciplines from the bar + dropdown unless revealed on the landing page
+        if (!collegiateOn && isCollegiate(button.dataset.mode)) {
+            button.hidden = true;
+            continue;
+        }
         button.addEventListener('click', () => {
             if (button.classList.contains('active')) return;
 
