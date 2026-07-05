@@ -909,7 +909,36 @@ figure {
     display: flex;
     align-items: center;
     justify-content: center;
+
+    /* Loading indicators anchor to the positioned .cardFace: spinner dead-center, bar along the bottom edge.
+       loaderReveal delays them so a cached/instant paint never flashes them */
+    &.thumbLoading::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        margin: auto;
+        width: 2.4rem;
+        height: 2.4rem;
+        border: 3px solid var(--muted);
+        border-top-color: var(--accent);
+        border-radius: 50%;
+        animation: spin 0.7s linear infinite, loaderReveal 0.2s linear 0.15s both;
+    }
+
+    &.fullLoading::before {
+        content: "";
+        position: absolute;
+        bottom: 0;
+        left: -35%;
+        width: 35%;
+        height: 3px;
+        background: linear-gradient(90deg, transparent, var(--accent), transparent);
+        animation: barSlide 1.1s ease-in-out infinite, loaderReveal 0.2s linear 0.12s both;
+    }
 }
+@keyframes spin {to {transform: rotate(360deg)}}
+@keyframes barSlide {from {left: -35%} to {left: 100%}}
+@keyframes loaderReveal {from {opacity: 0} to {opacity: 1}}
 
 /* Letter / number prompt */
 .formationLabel {

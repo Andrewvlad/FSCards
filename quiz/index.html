@@ -497,19 +497,34 @@
 
     // Thumbnail: render the low-res thumb first only when the full isn't cached yet, else skip the flash
     const lazySrc = (src) => src.endsWith('.svg')
-        ? `src="${src}"` // vector sets have no thumb
+        ? `src="${src}" onload="diagramLoaded(this)" onerror="diagramLoaded(this)"` // vector sets have no thumb
         : fullReady(src)
-        ? `src="${src}"` // full already local - no thumb, no flash
+        ? `src="${src}" onload="diagramLoaded(this)" onerror="diagramLoaded(this)"` // full already local - no thumb, no flash
         : `src="${thumbFor(src)}" data-full="${src}" onload="swapToFullImage(this)" onerror="swapToFullImage(this)"`;
 
     // Full already local (downloaded set, or warmed/seen this session) - showing the thumb would only flash
     const fullReady = (src) => loadedFulls.has(src);
 
+    // Card loading indicator: 'thumb' spins until an image paints, 'full' bars along the bottom while the full loads behind the thumb
+    function setLoadState(img, state) {
+        const content = img.closest('.cardContent');
+        if (!content) return; // carousel clones / gallery tiles have none
+        content.classList.toggle('thumbLoading', state === 'thumb');
+        content.classList.toggle('fullLoading', state === 'full');
+    }
+
+    // A direct (cached or vector) image, or the swapped-in full, both mean done
+    function diagramLoaded(img) {
+        setLoadState(img, null);
+    }
+
     function swapToFullImage(img) {
         const full = img.dataset.full;
         if (!full) return; // already upgraded (swapping src re-fires onload)
+        setLoadState(img, 'full'); // thumb painted - bar while the full loads
         const f = new Image();
-        f.onload = () => { img.src = full; delete img.dataset.full; loadedFulls.add(full); };
+        f.onload = () => { img.src = full; delete img.dataset.full; loadedFulls.add(full); setLoadState(img, null); };
+        f.onerror = () => setLoadState(img, null);
         f.src = full;
     }
 
@@ -538,9 +553,9 @@
 
     // Build the two card faces. Re-render split-block images
     function renderCardFaces(formation) {
-        document.querySelector('#card .front').innerHTML = `<div class="cardContent">${diagramFace(formation.figure, formation, true)}</div>`;
+        document.querySelector('#card .front').innerHTML = `<div class="cardContent thumbLoading">${diagramFace(formation.figure, formation, true)}</div>`;
         document.querySelector('#card .back').innerHTML = `
-            <div class="cardContent">
+            <div class="cardContent thumbLoading">
                 ${diagramFace(formation.image, formation, false)}
             </div>
         `;
