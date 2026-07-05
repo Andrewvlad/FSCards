@@ -101,6 +101,29 @@
                 color: var(--blackText);
             }
         }
+        /* External companion-tool link */
+        #drawGen {
+            margin-top: 1.5rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4em;
+            color: var(--muted);
+            text-decoration: none;
+            font-size: 0.7rem;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            transition: color 0.2s;
+
+            /* Press feedback + pointer-only hover, same touch lesson as the toggle */
+            &:active {color: var(--accent)}
+            @media (hover: hover) {
+                &:hover {color: var(--accent)}
+            }
+            svg {
+                width: 0.85em;
+                height: 0.85em;
+            }
+        }
         /* Color theme toggle */
         #themeToggle {
             position: fixed;
@@ -183,6 +206,10 @@
         <a href="gallery/" data-word="Gallery">Gallery</a>
         <a href="quiz/" data-word="Quiz">Quiz</a>
     </nav>
+    <a id="drawGen" href="https://andrewvlad.github.io/draw_generator" target="_blank" rel="noopener">
+        Draw Generator
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
+    </a>
 </main>
 <footer aria-label="Social and website links">
     <a href="https://andrewv.com" target="_blank" rel="noopener" aria-label="Website">
