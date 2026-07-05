@@ -243,14 +243,15 @@ header {
         flex-shrink: 0;
         white-space: nowrap;
 
-        &.active {pointer-events: none}
+        /* Selected discipline is inert while a state toggle (e.g. gallery view switch) stays clickable */
+        &[data-mode].active {pointer-events: none}
     }
 
     /* Collapsed mode bar swaps the button row for dropdown (style in .modeDropdown) */
     #modeSelect {display: none}
 
     &.collapsed {
-        button {display: none}
+        button[data-mode] {display: none}
         #modeSelect {display: inline-block}
         /* Swaps to dropdown instead */
         body:not(.gallery) & {display: none}
@@ -1053,9 +1054,13 @@ figure {
     gap: 1.5rem;
 }
 
-/* Missed-diagram carousel (results screen) */
-#missedSection {
-    --missedH: clamp(150px, 34dvh, 280px); /* Bounded so the results screen scrolls on mobile */
+
+/* ------------- */
+/* Card Carousel */
+/* ------------- */
+#carouselSection {
+    /* Used by results screens + gallery carousel */
+    --carouselH: clamp(150px, 34dvh, 280px); /* Bounded so the results screen scrolls on mobile */
     width: 100%;
     display: flex;
     flex-direction: column;
@@ -1072,36 +1077,133 @@ figure {
 
 /* Desktop leaves the cards uncapped */
 @media (min-width: 601px) {
-    #missedSection {--missedH: min(46vh, 460px)}
+    #carouselSection {--carouselH: min(46vh, 460px)}
 }
 
-/* Key chips: one per missed card, the in-focus card's chip lit */
-#missedChips {
+/* Chips for each card in the carousel */
+#carouselChips {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.5rem;
+}
 
-    .missedChip {
-        font-size: 0.72rem;
-        padding: 0.3rem 0.6rem;
-        border: 1px solid var(--border);
-        background: transparent;
-        color: var(--muted);
-        border-radius: 4px;
-        cursor: pointer;
-        transition: color 0.15s, border-color 0.15s, background 0.15s;
+/* Chip button, shared by the key chips and the auto-scroll toggle */
+.carouselChip {
+    font-size: 0.72rem;
+    padding: 0.3rem 0.6rem;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s, background 0.15s;
 
-        &.lit {
+    /* Highlight the in-focus chip */
+    &.lit {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--blackText);
+    }
+}
+
+/* Holds the strip plus its overlaid carets */
+#carouselViewport {
+    position: relative; /* relative so the carets miss no width */
+    width: 100%;
+}
+
+/* Prev/next carets overlay the strip edges, shown only while it scrolls */
+.carouselCaret {
+    position: absolute;
+    top: 50%;
+    translate: 0 -50%;
+    z-index: 2; /* above the edge cards */
+    display: none; /* revealed when the strip overflows */
+    align-items: center;
+    justify-content: center;
+    height: 2.4rem;
+    aspect-ratio: 1;
+    padding: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 50%;
+    color: var(--muted);
+    cursor: pointer;
+    transition: color 0.2s, border-color 0.2s;
+
+    &.prev {
+        left: 0.5rem;
+        svg {transform: scaleX(-1)} /* One chevron path in the markup, mirrored here */
+    }
+    &.next {right: 0.5rem}
+
+    /* Pressed feedback that clears on release, so touch taps light up without sticking */
+    &:active {
+        color: var(--accent);
+        border-color: var(--accent);
+    }
+
+    /* Gate hover to real-pointer devices so a tap doesn't leave it stuck/highlighted on touch/focus */
+    @media (hover: hover) {
+        &:hover {
+            color: var(--accent);
             border-color: var(--accent);
-            background: var(--accent);
-            color: var(--blackText);
         }
     }
 }
 
+/* Auto-scroll toggle below the strip, a .carouselChip with an icon */
+#driftToggle {
+    display: none; /* revealed when the strip overflows */
+    align-items: center;
+    gap: 0.25rem; /* gap between SVG and text */
+    padding: 0.35rem 0.7rem;
+
+    svg {width: 0.8rem; height: 0.8rem}
+}
+
+/* One-line tap hint between the strip and the auto-scroll toggle */
+.carouselHint {
+    display: none; /* revealed when the strip overflows */
+    font-size: 0.72rem;
+    color: var(--muted);
+}
+
+/* Reveal the scroll chrome only while the strip overflows (edge carets still yield to .hidden) */
+#carouselSection:has(.overflowing) {
+    .carouselCaret {display: flex}
+    #driftToggle {display: inline-flex}
+    .carouselHint {display: block}
+}
+
+/* Card pop-out */
+#cardPopout {
+    position: fixed;
+    inset: 0;
+    z-index: 1000; /* highest z-index to appear above all */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5vmin;
+    background: rgba(0, 0, 0, 0.82);
+    cursor: zoom-out;
+    animation: popFade 0.15s ease;
+
+    .diagram {
+        max-width: 90vw;
+        max-height: 88vh;
+        width: auto;
+        height: auto;
+        border-radius: 8px;
+    }
+
+    .captionedDiagram {width: min(88vw, 640px)}
+}
+@keyframes popFade {from {opacity: 0} to {opacity: 1}}
+
 /* The strip: centered while it fits, left-aligned and scrollable once it overflows */
-#missedCarousel {
+#carouselStrip {
     width: 100%;
     overflow: hidden;
     display: flex;
@@ -1116,14 +1218,14 @@ figure {
     }
 }
 
-#missedTrack {
+#carouselTrack {
     display: flex;
     gap: 0.5rem;
     align-items: center;
     will-change: transform;
 
-    .missedCard {
-        height: var(--missedH);
+    .carouselCard {
+        height: var(--carouselH);
         flex: 0 0 auto;
         display: flex;
         align-items: center;
@@ -1137,7 +1239,7 @@ figure {
         /* Captioned (CP Freestyle): width-bound, height follows the diagram plus caption */
         &:has(.captionedDiagram) {
             height: auto;
-            width: min(70vw, calc(var(--missedH) * 1.5));
+            width: min(70vw, calc(var(--carouselH) * 1.5));
         }
 
         .captionedDiagram {
@@ -1147,8 +1249,8 @@ figure {
     }
 }
 
-/* Results screen with the missed carousel scrolls instead of cramming one screen */
-body:not(.gallery):has(#missedSection) {
+/* Results screen with the card carousel scrolls instead of cramming one screen */
+body:not(.gallery):has(#carouselSection) {
     height: auto;
     min-height: 100dvh;
     overflow-y: auto;
@@ -1171,11 +1273,18 @@ body.gallery {
 body.gallery #modeBar {
     padding-bottom: 1rem;
     border-bottom: 1px solid var(--border);
+
+    /* Left justify the Gallery carousel toggle on the mode bar */
+    #viewToggle {margin-left: auto}
+}
+
+/* Grid and carousel view shells share the same 10% side insets */
+#gallery, #galleryCarousel {
+    width: 100%;
+    padding: 1.5rem 10%;
 }
 
 #gallery {
-    width: 100%;
-    padding: 1.5rem 10%;
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(max(200px, (100% - 3rem) / 4), 1fr));
     gap: 1rem;
@@ -1371,7 +1480,7 @@ body:not(:has(#modeBar.collapsed)) #statsModeSelect {display: none} /* Hide mode
 /* On mobile devices */
 @media (max-width: 600px), (max-height: 600px) { /* Height = Landscape catch */
     /* Reduce spacing */
-    #arena, #gallery {padding: 1rem}
+    #arena, #gallery, #galleryCarousel {padding: 1rem}
     #arena {gap: 1rem}
 }
 

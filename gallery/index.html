@@ -129,9 +129,12 @@
     <button data-mode="cp-freestyle" class="pill">CP Freestyle</button>
     <!--Replaces buttons to fit width-->
     <select id="modeSelect" class="pill modeDropdown" aria-label="Discipline"></select>
+    <!--Toggle the diagram layout between grid and carousel-->
+    <button type="button" id="viewToggle" class="pill" aria-pressed="false" onclick="toggleView()">Carousel</button>
 </div>
 
 <div id="gallery"></div>
+<div id="galleryCarousel" class="hidden"></div>
 
 
 <!--Per-discipline info-->
@@ -186,6 +189,16 @@
 <!--Build the diagram grid-->
 <script>
     const gallery = document.getElementById('gallery');
+    const galleryCarousel = document.getElementById('galleryCarousel');
+    const viewToggle = document.getElementById('viewToggle');
+    const VIEW_KEY = 'fscards-gallery-view'; // Remember layout choice
+    let carouselView = loadView();
+    function loadView() {
+        try { return localStorage.getItem(VIEW_KEY) === 'carousel'; } catch (e) { return false; } // Storage may be unavailable
+    }
+    function saveView() {
+        try { localStorage.setItem(VIEW_KEY, carouselView ? 'carousel' : 'grid'); } catch (e) {} // Storage may be unavailable
+    }
 
     const byKey = (a, b) => keyOrder(a.key, b.key);
 
@@ -220,13 +233,15 @@
         f.src = full;
     }
 
-    function renderGrid() {
+    // The pool formations in display order, category filter applied (uncategorized pools show everything)
+    function galleryFormations() {
         const pool = Object.values(buildPool(poolSettings()));
-        // Pools without the blocks/randoms split show everything
-        const formations = (categorized(poolSettings()) ? pool.filter(matchesCategory) : pool).sort(byKey);
-        const captioned = includeCaption(discipline);
+        return (categorized(poolSettings()) ? pool.filter(matchesCategory) : pool).sort(byKey);
+    }
 
-        gallery.innerHTML = formations.map(formation => {
+    function renderGrid() {
+        const captioned = includeCaption(discipline);
+        gallery.innerHTML = galleryFormations().map(formation => {
             const diagram = `<img ${lazySrc(formation.image)} alt="${formation.name}" loading="lazy">`;
             const media = formation.video
                 ? `<a href="${formation.video}" target="_blank" rel="noopener noreferrer">${diagram}</a>`
@@ -236,10 +251,35 @@
                 : media;
         }).join('');
     }
+
+    function renderCarousel() {
+        const items = galleryFormations().map(card => ({card}));
+        galleryCarousel.innerHTML = carouselMarkup(items);
+        initCarousel(items);
+    }
+
+    // Render the active layout, clearing the other (a cleared carousel stops its drift loop)
+    function renderView() {
+        viewToggle.classList.toggle('active', carouselView);
+        viewToggle.setAttribute('aria-pressed', carouselView);
+        gallery.classList.toggle('hidden', carouselView);
+        galleryCarousel.classList.toggle('hidden', !carouselView);
+        if (carouselView) {
+            gallery.innerHTML = ''; renderCarousel();
+        } else {
+            galleryCarousel.innerHTML = ''; renderGrid();
+        }
+    }
+
+    function toggleView() {
+        carouselView = !carouselView;
+        saveView();
+        renderView();
+    }
 </script>
 <!--Switch discipline buttons-->
 <script>
-    const modeButtons = document.querySelectorAll('#modeBar button');
+    const modeButtons = document.querySelectorAll('#modeBar button[data-mode]');
     const modeSelect = document.getElementById('modeSelect');
 
     for (const button of modeButtons) {
@@ -252,7 +292,7 @@
             discipline = button.dataset.mode;
             modeSelect.value = discipline;
             updateDisciplineUI();
-            renderGrid();
+            renderView();
             saveSession();
         });
 
@@ -375,7 +415,7 @@
     function selectCategory(button) {
         selectSegment('categorySegment', button);
         category = button.dataset.category;
-        renderGrid();
+        renderView();
         saveSession();
     }
 
@@ -383,7 +423,7 @@
         selectSegment('classSegment', button);
         classLevel = button.dataset.class;
         updateCategoryUI();
-        renderGrid();
+        renderView();
         saveSession();
     }
 
@@ -392,25 +432,25 @@
         imageSet = button.dataset.imageset;
         updateSourceButton();
         updateDiagramMode();
-        renderGrid();
+        renderView();
         saveSession();
     }
 
     function selectIndoor(checkbox) {
         indoor = checkbox.checked;
-        renderGrid();
+        renderView();
         saveSession();
     }
 
     function selectTunnel(checkbox) {
         tunnel = checkbox.checked;
-        renderGrid();
+        renderView();
         saveSession();
     }
 
     function selectFusions(checkbox) {
         includeFusions = checkbox.checked;
-        renderGrid();
+        renderView();
         saveSession();
     }
 
@@ -435,7 +475,7 @@
 
     // Sync every settings control to the current state
     function syncSettingsUI() {
-        document.querySelectorAll('#modeBar button').forEach(button =>
+        document.querySelectorAll('#modeBar button[data-mode]').forEach(button =>
             button.classList.toggle('active', button.dataset.mode === discipline));
         modeSelect.value = discipline;
         document.querySelectorAll('#categorySegment button').forEach(button =>
@@ -485,7 +525,7 @@
 <script>
     loadSession();
     syncSettingsUI();
-    renderGrid();
+    renderView();
 </script>
 <!--Report issue: open GitHub's new-issue page prefilled with the current app state-->
 <script>
@@ -502,6 +542,8 @@
             `- 8-way tunnel: ${indoor}`,
             `- Include fusions: ${includeFusions}`,
             `- Invert colors: ${invert}`,
+            `- View: ${carouselView ? 'carousel' : 'grid'}`,
+            carouselView ? `- Auto-scroll: ${driftEnabled}` : null,
             '\n',
 
             '_Device info (auto-populated):_',

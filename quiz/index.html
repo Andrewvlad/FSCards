@@ -513,11 +513,11 @@
         f.src = full;
     }
 
-    // Add captions to images. noSplit forces a block to render whole (the carousel never trifolds)
-    function diagramFace(src, formation, hideCaption, noSplit) {
+    // Add captions to images
+    function diagramFace(src, formation, hideCaption) {
         if (!includeCaption(discipline)) {
             // When the card renders wide, show a block's three panels as separate horizontally arranged images
-            const cuts = !noSplit && splitView && isBlock(formation.key) && panelCutsFor(src);
+            const cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
             if (cuts) {
                 const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
                 const [ar, d1t, d1b, d2t, d2b] = cuts;
@@ -571,7 +571,7 @@
         if (runComplete()) return finish();
         startTimer(); // Idempotent - resumes after a reload, no-op in endless
 
-        missedCarousel = null; // Release the finished results carousel (its detached clones + images)
+        carousel = null; // Release the finished results carousel (its detached clones + images)
         flipped = false;
         setProgress(`${getIndex() + 1} / ${endless ? '∞' : deck.length}`);
         if (endless) fitStrategyRow(); // Counter-width growth can push the inline fit over the edge
@@ -619,12 +619,12 @@
         // Results screen
         arena.innerHTML = `
             <div id="done">
-                ${missedMarkup(items, perfect)}
+                ${carouselMarkup(items, perfect ? 'Perfect' : 'Missed Cards')}
                 <div id="actionBar">${perfect ? '' : replayActionBar}${restartActionBar}</div>
             </div>
         `;
         arena.append(cornerButtons); // Keep the FABs in the arena. The result's screen returns them to normal positions
-        initMissedCarousel(items);
+        initCarousel(items);
     }
 </script>
 <!--Replay missed-->
@@ -1189,6 +1189,7 @@
             card ? `- Card: ${card.key} (${card.name})` : null,
             card ? '- Diagram: ' + card.image : null,
             card ? null : '- Game complete',
+            card ? null :  `- Auto-scroll: ${driftEnabled}`,
             '\n',
 
             '_Device info (auto-populated):_',
