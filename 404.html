@@ -62,52 +62,21 @@
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
-    <!--Style sheet isn't used since it contains few relevant CSS rules, while missing h1, p, and a-->
-    <style>
-        :root {
-            --bg: #0d0d0f;
-            --accent: #f0c040;
-            --text: #f0ede8;
-            --muted: #7a7a8a;
-        }
-        :root[data-theme="light"] {
-            --bg: #f5f3ee;
-            --text: #1c1b19;
-        }
-        * {box-sizing: border-box; margin: 0; padding: 0}
-        body {
-            min-height: 100dvh;
-            display: grid;
-            place-items: center;
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'DM Mono', monospace;
-            text-align: center;
-        }
-        h1 {
-            font-family: 'Playfair Display', serif;
-            font-weight: 900;
-            font-size: 2.4rem;
-
-            span {color: var(--accent)}
-        }
-        p {
-            color: var(--muted);
-            margin: 0.75rem 0 1.5rem;
-        }
-        a {color: var(--accent)}
-    </style>
+    <script>
+        // Shared sheet (body.landing rules) by absolute path - this page serves at any URL depth, so a relative href would miss
+        const siteRoot = location.hostname.endsWith('.github.io') ? '/' + segs[0] + '/' : '/';
+        document.head.insertAdjacentHTML('beforeend', `<link rel="stylesheet" href="${siteRoot}stylesheet.css">`);
+    </script>
 </head>
-<body>
+<body class="landing notFound">
 <main>
     <h1>FS<span>Cards</span></h1>
     <p>Page not found</p>
     <a id="home" href="/">Back home</a>
 </main>
-<!--Dynamically adjust home link for GitHub Pages-->
+<!--Home link resolves to the project root computed for the stylesheet-->
 <script>
-    if (location.hostname.endsWith('.github.io'))
-        document.getElementById('home').href = '/' + location.pathname.split('/').filter(Boolean)[0] + '/';
+    document.getElementById('home').href = siteRoot;
 </script>
 </body>
 </html>

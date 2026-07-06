@@ -1508,6 +1508,186 @@ body.quiz:has(#done) #reportIssue {
     }
 }
 
+/* ----------------- */
+/* Landing/404 Pages */
+/* ----------------- */
+
+/* Standalone menu pages (root index + 404): swap the app shell's column flow for a centered grid */
+body.landing {
+    height: auto;
+    min-height: 100dvh;
+    display: grid;
+    grid-template-rows: 1fr auto; /* Center main in the top space, pin the footer to the bottom */
+    place-items: center;
+    padding: 2rem;
+    text-align: center;
+
+    main {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+    }
+
+    h1 {
+        font-family: var(--titleFont);
+        font-weight: 900;
+        font-size: clamp(2.4rem, 12vmin, 3.6rem);
+
+        span {
+            display: inline-block;
+            color: var(--accent);
+            transform-origin: 50% 50% -0.55em; /* Pivot behind the text so it rolls on a cylinder, not flips on its midline */
+        }
+    }
+
+    #tagline {
+        margin-top: 0.6rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
+
+    nav {
+        margin-top: 2.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        width: min(20rem, 80vw);
+
+        a {
+            padding: 0.95rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 4px;
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.8rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            transition: all 0.2s;
+
+            &:hover {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: var(--blackText);
+            }
+        }
+    }
+
+    /* Muted accessory controls: press feedback + pointer-only hover so a tap never sticks highlighted */
+    :is(#collegiate, #drawGen, footer a) {
+        color: var(--muted);
+        transition: color 0.2s;
+
+        &:active {color: var(--accent)}
+        @media (hover: hover) {
+            &:hover {color: var(--accent)}
+        }
+    }
+
+    /* Small-caps accessory rows under the nav */
+    #collegiate, #drawGen {
+        margin-top: 1.5rem;
+        display: inline-flex;
+        align-items: center;
+        font-size: 0.7rem;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+    }
+
+    /* Reveal collegiate disciplines in the app views */
+    #collegiate {
+        gap: 0.5em;
+        cursor: pointer;
+
+        input {
+            accent-color: var(--accent);
+            cursor: pointer;
+        }
+    }
+
+    /* External companion-tool link */
+    #drawGen {
+        gap: 0.4em;
+        text-decoration: none;
+
+        svg {
+            width: 0.85em;
+            height: 0.85em;
+        }
+    }
+
+    /* Color theme toggle */
+    #themeToggle {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        display: grid;
+        place-items: center;
+        border: 1px solid var(--border);
+        border-radius: 50px;
+        background: transparent;
+        color: var(--text);
+        cursor: pointer;
+        transition: all 0.2s;
+
+        /* Light up on press (touch + mouse), releasing on lift so it never sticks */
+        &:active {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: var(--blackText);
+        }
+
+        /* Gate hover to real-pointer devices so a tap doesn't leave it stuck/highlighted on touch/focus */
+        @media (hover: hover) {
+            &:hover {
+                background: var(--accent);
+                border-color: var(--accent);
+                color: var(--blackText);
+            }
+        }
+
+        svg {
+            display: none;
+            width: 1.1rem;
+            height: 1.1rem;
+        }
+    }
+
+    /* Social footer */
+    footer {
+        display: flex;
+        gap: 1rem;
+
+        a {
+            padding: 0.35rem; /* Bigger tap target than the bare icon */
+
+            svg {
+                display: block;
+                width: 1.3rem;
+                height: 1.3rem;
+                overflow: visible; /* Brand glyphs touch x=24, so the SVG viewport clips the last column without this */
+            }
+        }
+    }
+}
+
+/* Show the icon of the theme the tap switches to */
+:root[data-theme="dark"] .landing #themeToggle .sun {display: block}
+:root[data-theme="light"] .landing #themeToggle .moon {display: block}
+
+/* Not-found page (body.landing.notFound) */
+.notFound main {
+    p {
+        color: var(--muted);
+        margin: 0.75rem 0 1.5rem;
+    }
+
+    a {color: var(--accent)}
+}
+
 /* -------------- */
 /* Mobile support */
 /* -------------- */
