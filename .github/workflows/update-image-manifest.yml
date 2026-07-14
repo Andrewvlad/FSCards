@@ -1,0 +1,34 @@
+# Backstop for the offline image-identity manifests (lane C): the extract workflows
+# regenerate them inside their PRs, this catches everything else that lands on main
+# (hand edits, /reject reverts) and commits the regen. Idempotent - a manifest-only
+# push regenerates to no diff and stops, so it cannot loop.
+name: Update image manifests
+
+on:
+    push:
+        branches: [main]
+        paths: ['assets/diagrams/**']
+
+permissions:
+    contents: write
+
+jobs:
+    manifest:
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v6
+
+            - name: Regenerate image manifests
+              run: python3 tools/manifest/generate.py
+
+            - name: Commit drift
+              run: |
+                  if git diff --quiet -- 'assets/diagrams/*/manifest.json'; then
+                      echo "Manifests already current"
+                      exit 0
+                  fi
+                  git config user.name "github-actions[bot]"
+                  git config user.email "github-actions[bot]@users.noreply.github.com"
+                  git add 'assets/diagrams/*/manifest.json'
+                  git commit -m "chore: Regenerate image manifests"
+                  git push

@@ -67,6 +67,17 @@ function poolImages({discipline, indoor, imageSet, split}) {
     return images;
 }
 
+// Every image a set pairing can display (all keys incl. opt-ins, both indoor states, figure siblings) - for offline downloads
+function enumerateSetImages(discipline, set) {
+    const urls = new Set();
+    for (const indoor of [false, true])
+        for (const src of Object.values(poolImages({discipline, indoor, imageSet: set}))) {
+            urls.add(src);
+            urls.add(figureFor(src));
+        }
+    return [...urls];
+}
+
 // Not inversion-friendly
 // TODO: Try out different methods
 const LIGHT_USPA = new Set(['4-way-vfs', 'cp-freestyle']);

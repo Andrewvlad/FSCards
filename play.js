@@ -132,15 +132,16 @@ function newDeck() {
 function applyCategory() {
     // Pools without the blocks/randoms split show everything
     deck = categorized(poolSettings()) ? fullDeck.filter(matchesCategory) : [...fullDeck];
-    rebuildEndlessState();
+    startRun();
+}
+
+// Clear stats/misses, reset the endless engine + timer, then deal - a fresh finite run on the current deck
+function startRun() {
     missed = {};
+    rebuildEndlessState();
     prefetchDeck();
-
-    correct.textContent = '0';
-    wrong.textContent = '0';
-    streak.textContent = '0';
+    correct.textContent = wrong.textContent = streak.textContent = '0';
     window.resetTimer?.(); // Quiz stopwatch
-
     saveSession();
     nextCard();
 }
@@ -148,7 +149,7 @@ function applyCategory() {
 // Warm each diagram URL at most once a session (set swaps / resizes re-call this)
 const warmed = new Set();
 function prefetchDeck() {
-    // Current card loads at render (swapToFullImage); warm the rest upcoming-first, all thumbs then all full-res
+    // Current card loads at render (swapToFullImage) - warm the rest upcoming-first, all thumbs then all full-res
     const idx = currentCard ? deck.findIndex(c => c.key === currentCard.key) : -1;
     const ordered = [...deck.slice(idx + 1), ...deck.slice(0, Math.max(idx, 0))];
     const thumbsOf = (card) => fullsOf(card).filter(u => !u.endsWith('.svg')).map(thumbFor);
@@ -159,7 +160,9 @@ function prefetchDeck() {
     const warm = async () => {
         for (const url of queue) {
             const res = await fetch(url, {priority: 'low'}).catch(() => null);
-            if (res?.ok && !url.includes('/thumbs/')) loadedFulls.add(url); // full now cached, no thumb needed
+            if (!res?.ok) continue;
+            if (!url.includes('/thumbs/')) loadedFulls.add(url); // full now cached, no thumb needed
+            retainTouch(url); // warmed art counts as browse retention
         }
     };
     if (window.requestIdleCallback) requestIdleCallback(warm);
@@ -169,8 +172,8 @@ function prefetchDeck() {
 // Re-point every card's diagram at the current set/indoor without rebuilding the deck
 function hotSwapImages() {
     const images = poolImages(poolSettings());
-    for (const card of fullDeck) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
-    for (const card of deck)     { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
+    // fullDeck and deck share card refs on the common path, distinct only after a deckFromKeys restore
+    for (const card of new Set([...fullDeck, ...deck])) { card.image = images[card.key]; card.figure = figureFor(images[card.key]); }
 
     if (currentCard && cardIdle()) renderCardFaces(currentCard);
     prefetchDeck(); // re-warm the cache for the swapped-in set
@@ -188,9 +191,14 @@ const SEAM_MARGIN = 0.0035;
 function diagramFace(src, formation, hideCaption) {
     if (!includeCaption(discipline)) {
         // When the card renders wide, show a block's three panels as separate horizontally arranged images
-        const cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
+        let cuts = splitView && isBlock(formation.key) && panelCutsFor(src);
+        const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
+        // Offline without the split source: collapse to the whole diagram instead of broken panels
+        if (cuts && !navigator.onLine && !fullReady(src)) {
+            cuts = null;
+            if (fallback) src = poolImages({...poolSettings(), split: false})[formation.key]; // Rerouted sets fall back to their own art
+        }
         if (cuts) {
-            const fallback = SINGLE_PANEL_BLOCKS.has(activeImageSet(discipline, imageSet));
             const [ar, d1t, d1b, d2t, d2b] = cuts;
             const windows = [[0, d1t - SEAM_MARGIN], [d1b + SEAM_MARGIN, d2t - SEAM_MARGIN], [d2b + SEAM_MARGIN, 1]];
             const grows = windows.map(([t, b]) => 1 / (b - t));
@@ -275,15 +283,8 @@ function showResults() {
 
 // Replay just the missed cards as a fresh finite run
 function replayMissed() {
-    const cards = collectMissed().map(entry => entry.card);
-    deck = randomizeDeck(cards);
-    missed = {};
-    rebuildEndlessState();
-    prefetchDeck();
-    correct.textContent = wrong.textContent = streak.textContent = '0';
-    window.resetTimer?.(); // Quiz stopwatch
-    saveSession();
-    nextCard();
+    deck = randomizeDeck(collectMissed().map(entry => entry.card));
+    startRun();
 }
 
 /** Endless mode **/

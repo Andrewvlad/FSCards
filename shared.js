@@ -49,14 +49,14 @@ function showToast(message, long = false) {
 // Full-res URLs confirmed local (warmed ok, or already swapped in) - rendered without a thumb flash
 const loadedFulls = new Set();
 
-// Full already local - showing the thumb would only flash
-const fullReady = (src) => loadedFulls.has(src);
+// Full already local (network-confirmed or registry-covered) - showing the thumb would only flash
+const fullReady = (src) => loadedFulls.has(src) || savedUrls.has(absUrl(src));
 
 // Thumbnail: render the low-res thumb first only when the full isn't cached yet, else skip the flash
 const lazySrc = (src) => src.endsWith('.svg')
-    ? `src="${src}" onload="diagramLoaded(this)" onerror="diagramLoaded(this)"` // vector sets have no thumb
+    ? `src="${src}" onload="diagramLoaded(this)" onerror="diagramFailed(this)"` // vector sets have no thumb
     : fullReady(src)
-    ? `src="${src}" onload="diagramLoaded(this)" onerror="diagramLoaded(this)"` // full already local - no thumb, no flash
+    ? `src="${src}" onload="diagramLoaded(this)" onerror="diagramFailed(this)"` // full already local - no thumb, no flash
     : `src="${thumbFor(src)}" data-full="${src}" onload="swapToFullImage(this)" onerror="swapToFullImage(this)"`;
 
 // Card loading indicator: 'thumb' spins until an image paints, 'full' bars along the bottom while the full loads behind the thumb
@@ -70,17 +70,328 @@ function setLoadState(img, state) {
 // A direct (cached or vector) image, or the swapped-in full, both mean done
 function diagramLoaded(img) {
     setLoadState(img, null);
+    retainTouch(img.getAttribute('src'));
+}
+
+// Both attempts dead (absent offline) - hide the broken-image glyph, fail quietly
+function diagramFailed(img) {
+    setLoadState(img, null);
+    img.classList.add('unavailable');
 }
 
 function swapToFullImage(img) {
     const full = img.dataset.full;
     if (!full) return; // already upgraded (swapping src re-fires onload)
     setLoadState(img, 'full'); // thumb painted - bar while the full loads
+    retainTouch(img.getAttribute('src'));
     const f = new Image();
-    f.onload = () => { img.src = full; delete img.dataset.full; loadedFulls.add(full); setLoadState(img, null); };
-    f.onerror = () => setLoadState(img, null);
+    f.onload = () => { img.src = full; delete img.dataset.full; loadedFulls.add(full); retainTouch(full); setLoadState(img, null); };
+    f.onerror = () => img.naturalWidth ? setLoadState(img, null) : diagramFailed(img); // a painted thumb stays up
     f.src = full;
 }
+
+/** Offline sets (view UI over the download core in offline.js) **/
+const currentPair = () => [discipline, activeImageSet(discipline, imageSet)];
+const offlineKey = () => pairKey(...currentPair());
+
+// Success toast, riding an install nudge while the app is installable but not installed
+function savedToast(msg) {
+    if (!installMode()) return showToast(msg);
+    appBytes().then(bytes => showToast(`${msg}. Install the app${bytes ? ` (${fmtMB(bytes)})` : ''} to open it offline`, true));
+}
+
+// Core hook: a watched menu list stays current mid-batch (art warmth flows from savedUrls)
+function pairingSaved() {
+    if (downloadMenu.open) renderDownloadMenu();
+}
+
+// Result toasts over the core run - also the reentry gate, every view entry routes here
+// (menu rows disable while a run is live, the banner's Update does not)
+function downloadAll(pairs, refresh = false) {
+    if (activeDownload || !pairs.length) return; // Empty = nothing left to cover (a lingering banner Update)
+    downloadPairs(pairs, refresh).then(({failed, cancelled}) => {
+        const single = pairs.length === 1;
+        if (cancelled) return showToast(refresh ? 'Update stopped' : 'Download stopped');
+        if (failed) return showToast(`${single ? (refresh ? 'Update' : 'Download') : 'Some sets'} failed - check your connection and retry`, true);
+        if (refresh) return showToast(single ? 'Offline set updated' : `${pairs.length} sets updated`);
+        savedToast(single ? 'Set saved for offline' : `${pairs.length} sets saved for offline`);
+    });
+}
+
+function downloadSet(disc, set) {
+    downloadAll([[disc, set]]);
+}
+
+// Batch candidates: every set of the current discipline (the everything batch lives in the core)
+const allSetPairs = () => imageSetsFor(discipline).map(set => [discipline, set]);
+
+function downloadAllSets() {
+    downloadAll(unsavedPairs(allSetPairs()));
+}
+
+function downloadEverything() {
+    downloadAll(unsavedPairs(allPairs()));
+}
+
+async function removeSet(key) {
+    const record = offlineData.sets[key];
+    recordRemoved([key]);
+    renderOfflineUI();
+    try { await reapUnclaimed(await caches.open(SET_CACHE), Object.keys(record.files)); } catch (e) {} // Storage may be unavailable
+    showToast('Offline set removed');
+}
+
+// Drop every saved set in one sweep - registry first, then the whole set cache
+async function removeEverything() {
+    recordRemoved(Object.keys(offlineData.sets));
+    renderOfflineUI();
+    try { await caches.delete(SET_CACHE); } catch (e) {} // Storage may be unavailable
+    showToast('All offline sets removed');
+}
+
+// Refresh one saved set through the run primitive (the manifest-diff lives in fetchPairing)
+function refreshSet(key) {
+    downloadAll([key.split('|')], true);
+}
+
+// A saved set is stale when the manifest disagrees with what was stored (changed, added, or
+// removed art) or bytes went missing behind our back (eviction) - doubles as integrity check
+async function checkSetFresh(key, cached) {
+    const [disc, set] = key.split('|');
+    const record = offlineData.sets[key];
+    const manifest = await manifestFor(disc);
+    if (!manifest || offlineData.sets[key] !== record) return; // Manifest gap, or a download replaced the record mid-await - judge next visit
+    const current = enumerateSetImages(disc, set);
+    const currentSet = new Set(current);
+    if (current.some(staleUrl(record, manifest, disc, cached))
+        || !Object.keys(record.files).every(url => currentSet.has(url))) staleSets.add(key);
+}
+
+// On-load staleness pass over every saved set, surfacing one banner prompt (lane C)
+async function checkSavedSets() {
+    if (!navigator.onLine) return;
+    try {
+        const cached = await cachedUrls(await caches.open(SET_CACHE));
+        await Promise.all(Object.keys(offlineData.sets).map(key => checkSetFresh(key, cached)));
+    } catch (e) {} // Storage may be unavailable
+    renderOfflineUI();
+    if (!staleSets.size) return;
+    fscBanner('Updated diagrams are available for your offline sets', [
+        {label: 'Review', act: b => {
+            // Land the user in the manage list, stale groups expanded
+            b.remove();
+            if (document.getElementById('settingsPanel').classList.contains('hidden')) toggleSettings();
+            toggleDownloadMenu(true);
+            renderDownloadMenu();
+            for (const group of document.querySelectorAll('#downloadList .setGroup'))
+                group.open ||= [...staleSets].some(key => key.startsWith(`${group.dataset.disc}|`));
+        }, subtle: true},
+        {label: 'Update', act: b => {
+            b.remove();
+            updateStaleSets();
+        }},
+    ], {key: 'fscards-stale-dismissed', value: '1'}, 'Diagrams updated');
+}
+
+// The banner's direct path: refresh every stale set without a detour through the manage list
+function updateStaleSets() {
+    downloadAll([...staleSets].map(key => key.split('|')), true);
+}
+
+/** Offline UI (the download split-control in the Diagram Set settings group) **/
+const displayName = (disc) => modeButtonFor(disc)?.textContent ?? disc;
+
+// Pill and menu-action icons (stroke follows currentColor)
+const btnIcon = (d) => `<svg class="btnIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${d}"/></svg>`;
+const downloadIcon = btnIcon('M12 3v11m0 0l-4-4m4 4l4-4M5 20h14');
+const savedIcon = btnIcon('M20 6L9 17l-5-5');
+const trashIcon = btnIcon('M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14');
+const stopIcon = btnIcon('M7 7h10v10H7z');
+const updateIcon = btnIcon('M20 11A8 8 0 1 0 18 16M20 5v6h-6'); // Not updateIcon, offline.js's banner icon owns that name
+const installIcon = btnIcon('M8 2h8a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zM12 18h.01');
+const caretIcon = btnIcon('M9 6l6 6-6 6');
+
+function renderOfflineUI() {
+    const split = document.getElementById('downloadSplit');
+    split.classList.toggle('hidden', !offlineReady);
+    if (!offlineReady) return;
+
+    const key = offlineKey();
+    const action = document.getElementById('downloadAction');
+    action.disabled = !!activeDownload;
+
+    // Saved and fresh: the main pill mirrors the caret, so the divider between them drops.
+    // A multi-pairing run shows its counter on every pill, a single-set run only on its own
+    const downloading = activeDownload && (activeDownload.pairs.length > 1 || pairKey(...activeDownload.pairs[0]) === key);
+    const saved = offlineData.sets[key] && !staleSets.has(key) && !downloading;
+    split.classList.toggle('unified', !!saved);
+
+    if (downloading) action.textContent = `${activeDownload.done} / ${activeDownload.total}`;
+    else if (staleSets.has(key)) action.innerHTML = `${updateIcon}<span>Update set</span>`;
+    else if (saved) action.innerHTML = `${savedIcon}<span>Saved offline</span>`;
+    else {
+        action.innerHTML = `${downloadIcon}<span>Download set</span>`;
+        // Size before commitment, filled in once the manifest answers
+        setBytes(...currentPair()).then(bytes => {
+            const span = action.querySelector('span');
+            if (bytes !== null && key === offlineKey() && span?.textContent === 'Download set')
+                span.textContent = `Download set · ${fmtMB(bytes)}`;
+        });
+    }
+
+    // Menu inputs only change at run boundaries - mid-run ticks leave it alone (the pill
+    // counter carries progress, recordSaved refreshes a watched list per pairing)
+    if (downloadMenu.open && !activeDownload?.done) renderDownloadMenu();
+}
+
+function offlineAction() {
+    const key = offlineKey();
+    if (staleSets.has(key)) return refreshSet(key);
+    if (offlineData.sets[key]) return toggleDownloadMenu(); // Saved: the main pill mirrors the caret
+    downloadSet(...currentPair());
+}
+
+// Saved sets ordered like the discipline menu, current pairing pinned first, headed by an action zone:
+// the current-pairing action (download, or remove + update), batch download-alls, and the install-app row (replacing the views' settings install group)
+function renderDownloadMenu() {
+    const order = Object.keys(DATA);
+    const [curDisc, curSet] = currentPair();
+    const current = pairKey(curDisc, curSet);
+    const busy = activeDownload ? ' disabled' : '';
+    // Optimistic action zone: while a run is live the rows reflect the state it ends on - covered pairings
+    // count as saved and fresh, and the stop row (the only enabled action) stands in for remove-current until it completes
+    const runningKeys = new Set((activeDownload?.pairs ?? []).map(([disc, set]) => pairKey(disc, set)));
+    const covered = (key) => offlineData.sets[key] || runningKeys.has(key);
+    const optimistic = (pairs) => unsavedPairs(pairs).filter(([disc, set]) => !runningKeys.has(pairKey(disc, set)));
+    // Pre-paint the last resolved size so a re-open doesn't flash blank while the fresh sum resolves
+    const sizeSpan = (key) => `<span class="rowSize" data-size="${key}">${lastSizes[key] ? fmtMB(lastSizes[key]) : ''}</span>`;
+    // One action-row shape: a size span implies the ellipsizing rowLabel, live rows stay enabled mid-run
+    const menuRow = (onclick, icon, label, {cls = '', size = '', live = false} = {}) =>
+        `<button type="button" class="menuAction${cls ? ` ${cls}` : ''}" onclick="${onclick}"${live ? '' : busy}>${icon}<span${size ? ' class="rowLabel"' : ''}>${label}</span>${size}</button>`;
+    const actions = [];
+    if (activeDownload) actions.push(menuRow('cancelDownload()', stopIcon, 'Stop download', {cls: 'remove', live: true}));
+    if (covered(current)) {
+        if (staleSets.has(current) && !runningKeys.has(current)) actions.push(menuRow(`refreshSet('${current}')`, updateIcon, 'Update set', {cls: 'update'}));
+        if (!activeDownload) actions.push(menuRow(`removeSet('${current}')`, trashIcon, `Remove ${curSet} ${displayName(curDisc)}`, {cls: 'remove', live: true}));
+    } else actions.push(menuRow(`downloadSet('${curDisc}', '${curSet}')`, downloadIcon, `Download ${curSet} ${displayName(curDisc)}`, {size: sizeSpan(`current:${current}`)}));
+
+    // Batch actions hide once everything they cover is saved or downloading (all-sets also on one-set disciplines).
+    // Labels read "all" untouched, "remaining" once part of the scope is covered
+    const install = installMode();
+    const allTotal = allPairs();
+    const discTotal = allSetPairs();
+    const everythingPairs = optimistic(allTotal);
+    const discPairs = optimistic(discTotal);
+    const batches = [
+        {fn: 'downloadAllSets', key: `downloadAllSets:${curDisc}`, label: `Download ${scopeWord(discPairs, discTotal)} ${displayName(curDisc)} sets`, pairs: discPairs, shown: imageSetsFor(curDisc).length > 1},
+        {fn: 'downloadEverything', key: 'downloadEverything', label: `Download ${scopeWord(everythingPairs, allTotal)} sets`, pairs: everythingPairs, shown: true},
+    ].filter(b => b.shown && b.pairs.length);
+    actions.push(...batches.map(b => menuRow(`${b.fn}()`, downloadIcon, b.label, {size: sizeSpan(b.key)})));
+    if (install) {
+        actions.push(menuRow('installAction()', installIcon, 'Install app', {size: sizeSpan('install'), live: true}));
+        if (everythingPairs.length) actions.push(menuRow('installAllAction()', installIcon, `Install app & ${scopeWord(everythingPairs, allTotal)} sets`, {size: sizeSpan(`installAll:${everythingPairs.length}`)}));
+    }
+    // Maintenance rows: batch update once several sets are stale (one has its own rows), batch remove last
+    if ([...staleSets].some(key => !runningKeys.has(key))) actions.push(menuRow('updateStaleSets()', updateIcon, 'Update all sets', {cls: 'update'}));
+    if (Object.keys(offlineData.sets).length || runningKeys.size) actions.push(menuRow('removeEverything()', trashIcon, 'Remove all sets', {cls: 'remove'}));
+
+    const savedRow = (key, text) => {
+        const [disc, set] = key.split('|');
+        const label = `${displayName(disc)} · ${set}`;
+        return `<div class="downloadRow">
+                    <span class="rowLabel">${text ?? label}</span>
+                    ${staleSets.has(key) ? `<button type="button" class="pill rowUpdate" onclick="refreshSet('${key}')"${busy}>Update</button>` : ''}
+                    <span class="rowSize">${fmtMB(offlineData.sets[key].bytes)}</span>
+                    <button type="button" class="iconBtn rowRemove" onclick="removeSet('${key}')" aria-label="Remove ${label}" title="Remove"${busy}>${dismissIcon}</button>
+                </div>`;
+    };
+
+    // Saved rows group by discipline: a lone set stays flat, several collapse into a closed <details>
+    // group (open state survives re-renders, the banner's Review expands stale groups), a badge marking a child needing an update
+    const openGroups = Object.fromEntries([...document.querySelectorAll('#downloadList .setGroup')].map(g => [g.dataset.disc, g.open]));
+    const byDisc = {};
+    for (const key of Object.keys(offlineData.sets)) (byDisc[key.split('|')[0]] ??= []).push(key);
+    const rows = Object.entries(byDisc).sort(([a], [b]) =>
+        (b === curDisc) - (a === curDisc) || order.indexOf(a) - order.indexOf(b)).map(([disc, keys]) => {
+        keys.sort((a, b) => (b === current) - (a === current) || a.localeCompare(b));
+        if (keys.length === 1) return savedRow(keys[0]);
+        const bytes = keys.reduce((sum, key) => sum + offlineData.sets[key].bytes, 0);
+        const hasStale = keys.some(key => staleSets.has(key));
+        return `<details class="setGroup" data-disc="${disc}"${openGroups[disc] ? ' open' : ''}>
+                    <summary>${caretIcon}<span class="rowLabel">${displayName(disc)} · ${keys.length} sets</span>${hasStale ? '<span class="staleBadge" title="Update available">!</span>' : ''}<span class="rowSize">${fmtMB(bytes)}</span></summary>
+                    ${keys.map(key => savedRow(key, key.split('|')[1])).join('')}
+                </details>`;
+    });
+    const total = Object.values(offlineData.sets).reduce((sum, record) => sum + record.bytes, 0);
+    document.getElementById('downloadList').innerHTML = actions.join('') + '<hr>' + rows.join('')
+        + (rows.length ? `<p class="menuTotal">Downloaded: ${fmtMB(total)}</p>` : '<p class="menuTotal">No sets saved yet</p>');
+
+    // Sizes fill each row's right-edge span once the manifests (and shell cache) answer, dropped on a gap.
+    // The everything sum and the shell sum each feed two rows, so computed once
+    const fillSize = (key, bytesPromise) => bytesPromise.then(bytes => {
+        if (bytes) lastSizes[key] = bytes;
+        const span = document.querySelector(`#downloadList span[data-size="${key}"]`);
+        if (span && bytes) span.textContent = fmtMB(bytes);
+    });
+    const everythingBytes = sumBytes(everythingPairs);
+    if (!covered(current)) fillSize(`current:${current}`, setBytes(curDisc, curSet));
+    for (const b of batches) fillSize(b.key, b.pairs === everythingPairs ? everythingBytes : sumBytes(b.pairs));
+    if (install) {
+        const app = menuAppBytes ??= appBytes(); // Shell sum reused across one open's re-renders
+        fillSize('install', app);
+        fillSize(`installAll:${everythingPairs.length}`, Promise.all([app, everythingBytes]).then(([shell, sets]) => sets === null ? null : shell + sets));
+    }
+}
+
+// Install row: Chromium prompts natively, iOS can only be pointed at the Share sheet
+function installAction() {
+    if (installMode() === 'ios') return showToast('Tap Share, then "Add to Home Screen" to install', true);
+    toggleDownloadMenu(false);
+    installApp();
+}
+
+// Combined row: grab everything, the batch running on behind the native prompt
+function installAllAction() {
+    downloadEverything();
+    installAction();
+}
+
+function toggleDownloadMenu(force) {
+    downloadMenu.open = force ?? !downloadMenu.open;
+}
+
+// Outside-click / Escape closers for a details popover. Detached targets don't count as
+// outside (a menu action re-rendering the list under the click), nor does anything in scope
+function popoverClosers(details, scope = details) {
+    document.addEventListener('click', e => {
+        if (details.open && e.target.isConnected && !scope.contains(e.target)) details.open = false;
+    });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && details.open) details.open = false;
+    });
+}
+
+// Scoped to the whole split control so the unified main pill's own toggle doesn't self-close
+const downloadMenu = document.getElementById('downloadMenu');
+let menuAppBytes = null; // Fresh per menu open (a permanent memo would freeze a first visit's mid-capture undercount)
+const lastSizes = {}; // Size-key -> last resolved bytes, pre-painted on the next open while the fresh sum resolves
+downloadMenu.addEventListener('toggle', () => {
+    if (!downloadMenu.open) return;
+    menuAppBytes = null;
+    renderDownloadMenu();
+});
+popoverClosers(downloadMenu, document.getElementById('downloadSplit'));
+
+// Shift the list left when the control sits close enough to the right edge to clip it (the
+// max-width cap keeps the shifted left edge on screen). RO fires on open and every size change, closed reports zero and no-ops
+function clampDownloadList() {
+    const list = document.getElementById('downloadList');
+    list.style.left = '';
+    const overflow = list.getBoundingClientRect().right + 8 - document.documentElement.clientWidth;
+    if (overflow > 0) list.style.left = `${-overflow}px`;
+}
+new ResizeObserver(clampDownloadList).observe(document.getElementById('downloadList'));
+window.addEventListener('resize', clampDownloadList);
 
 /** Image-set source button **/
 const sourceIcon = (vb, d) => `<svg viewBox="${vb}" fill="currentColor" fill-rule="evenodd" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -221,6 +532,7 @@ document.querySelectorAll('.infoTip').forEach(tip => {
 
 /** Mode bar **/
 const modeButtons = document.querySelectorAll('#modeBar button[data-mode]');
+const modeButtonFor = (mode) => [...modeButtons].find(button => button.dataset.mode === mode);
 // The collapsed-state dropdown: in the stats bar on cards/quiz, inline in the mode bar on the gallery
 const modeSelect = document.getElementById('statsModeSelect') ?? document.getElementById('modeSelect');
 
@@ -248,8 +560,7 @@ for (const button of modeButtons) {
 modeSelect.value = discipline;
 
 // Selecting from the dropdown routes through the matching pill's click handler
-modeSelect.addEventListener('change', () =>
-    [...modeButtons].find(button => button.dataset.mode === modeSelect.value)?.click());
+modeSelect.addEventListener('change', () => modeButtonFor(modeSelect.value)?.click());
 
 // Swap whenever the modes can't fit on one line
 const modeBar = document.getElementById('modeBar');
@@ -307,28 +618,25 @@ function renderImageSetButtons() {
     const sets = imageSetsFor(discipline);
     const active = activeImageSet(discipline, imageSet); // the set actually shown (default USPA)
 
-    // Only worth showing when there's an actual choice between sets
-    document.getElementById('imageSetGroup')
-        .classList.toggle('hidden', sets.length <= 1);
-
-    document.getElementById('imageSetSegment').innerHTML = sets.map(set =>
+    const segment = document.getElementById('imageSetSegment');
+    segment.innerHTML = sets.map(set =>
         `<button type="button" data-imageset="${set}" class="pill${set === active ? ' active' : ''}" onclick="selectImageSet(this)">${set}</button>`
     ).join('');
+    // Nothing to switch between on a single-set discipline, the download control still stands
+    segment.classList.toggle('hidden', sets.length < 2);
+    // Hide the whole group only when nothing under it shows (single set and no offline control)
+    document.getElementById('imageSetGroup').classList.toggle('hidden', sets.length < 2 && !offlineReady);
 
     updateSourceButton();
     updateDiagramMode();
+    renderOfflineUI();
 }
 
 /** View switch (the logo doubles as a menu) **/
 const viewSwitch = document.getElementById('viewSwitch');
 const viewMenu = viewSwitch.querySelector('.viewMenu');
 const logo = viewSwitch.querySelector('summary');
-document.addEventListener('click', e => {
-    if (viewSwitch.open && !viewSwitch.contains(e.target)) viewSwitch.open = false;
-});
-document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && viewSwitch.open) viewSwitch.open = false;
-});
+popoverClosers(viewSwitch);
 
 // Set the view dropdown width to match the logo
 viewSwitch.addEventListener('toggle', () => {
@@ -353,6 +661,7 @@ function buildIssueUrl() {
         '\n',
 
         '_Device info (auto-populated):_',
+        '- App version: ' + APP_VERSION,
         `- Light mode: ${themeToggle.checked}`,
         '- Viewport: ' + innerWidth + '×' + innerHeight,
         '- Screen: ' + screen.width + '×' + screen.height + ' @' + devicePixelRatio + 'x',
@@ -360,4 +669,12 @@ function buildIssueUrl() {
 
     ].filter(Boolean).join('\n');
     return 'https://github.com/Andrewvlad/FSCards/issues/new?' + new URLSearchParams({body}).toString();
+}
+
+/** Offline startup: housekeeping off the critical path **/
+if (offlineReady) {
+    (window.requestIdleCallback ?? setTimeout)(() => {
+        checkSavedSets();
+        pruneRetention();
+    });
 }

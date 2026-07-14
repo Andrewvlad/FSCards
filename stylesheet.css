@@ -98,6 +98,34 @@ button.pill:not(.active):hover {
     color: var(--accent);
 }
 
+/* Bare icon button (dismiss x's) */
+.iconBtn {
+    display: flex;
+    background: none;
+    border: none;
+    color: var(--muted);
+    cursor: pointer;
+}
+
+/* Every summary is a custom-styled toggle - hide the default details marker */
+summary {
+    list-style: none;
+    &::-webkit-details-marker {display: none}
+}
+
+/* Floating menu panel (view switch, download list) */
+.menuPanel {
+    position: absolute;
+    top: 100%;
+    margin-top: 0.4rem;
+    margin-bottom: 0.4rem; /* If list ever inverts */
+    z-index: 50;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: 0 10px 28px rgb(0 0 0 / 0.35);
+}
+
 /* Utility */
 .hidden {display: none !important}
 
@@ -108,6 +136,51 @@ button.pill:not(.active):hover {
     flex-wrap: wrap;
 
     button.active {pointer-events: none}
+}
+
+/* Slider toggle (settings panels, landing collegiate) */
+.toggleSetting {
+    font-size: 0.6rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    cursor: pointer;
+
+    input {display: none}
+
+    .toggle {
+        width: 36px;
+        height: 20px;
+        background: var(--border);
+        border-radius: 10px;
+        position: relative;
+        transition: background 0.2s;
+        flex-shrink: 0;
+
+        &::after {
+            content: "";
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 16px;
+            height: 16px;
+            background: var(--muted);
+            border-radius: 50%;
+            transition: all 0.2s;
+        }
+    }
+
+    input:checked + .toggle {
+        background: var(--accent);
+
+        &::after {
+            left: 18px;
+            background: var(--bg);
+        }
+    }
 }
 /* Override to show native title tooltip */
 #strategyRow button.active {pointer-events: auto}
@@ -144,12 +217,10 @@ header {
                 font-size: 1.8rem;
                 font-weight: 900;
                 color: var(--text);
-                list-style: none; /* Hide the default details marker */
                 width: fit-content;
                 cursor: pointer;
 
                 span {color: var(--accent)}
-                &::-webkit-details-marker {display: none}
 
                 /* FS wordmark links home */
                 a {
@@ -177,20 +248,12 @@ header {
             &[open] .switchCaret {transform: rotate(180deg)}
 
             .viewMenu {
-                /* Width is set in HTML script */
-                position: absolute;
-                top: 100%;
+                /* Width is set in HTML script, rest comes from .menuPanel */
                 left: 1rem;
-                margin-top: 0.4rem;
-                z-index: 50;
                 display: flex;
                 flex-direction: column;
                 gap: 0.15rem;
                 padding: 0.4rem;
-                background: var(--surface);
-                border: 1px solid var(--border);
-                border-radius: 8px;
-                box-shadow: 0 10px 28px rgb(0 0 0 / 0.35);
 
                 a {
                     display: flex;
@@ -276,7 +339,7 @@ header {
     border-color: var(--accent);
     color: var(--blackText);
     max-width: 100%;
-    padding-right: 2.2rem;
+    padding-right: 2.2rem; /* space for dropdown caret */
     /* dark caret to match text */
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='none' stroke='%230d0d0f' stroke-width='1.5' d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
@@ -345,14 +408,11 @@ header {
 
     .settingsGroup {flex: 1 1 220px}
 
-    .settingsLabel, .toggleSetting {
+    .settingsLabel {
         font-size: 0.6rem;
         text-transform: uppercase;
         letter-spacing: 0.12em;
         color: var(--muted);
-    }
-
-    .settingsLabel {
         display: flex;
         justify-content: space-between;
         margin-bottom: 0.75rem;
@@ -363,47 +423,6 @@ header {
         flex-direction: column;
         align-self: flex-end;
         gap: 0.85rem;
-    }
-
-    /* Toggle setting */
-    .toggleSetting {
-        display: flex;
-        align-items: center;
-        gap: 0.6rem;
-        cursor: pointer;
-
-        input {display: none}
-
-        .toggle {
-            width: 36px;
-            height: 20px;
-            background: var(--border);
-            border-radius: 10px;
-            position: relative;
-            transition: background 0.2s;
-            flex-shrink: 0;
-
-            &::after {
-                content: "";
-                position: absolute;
-                top: 2px;
-                left: 2px;
-                width: 16px;
-                height: 16px;
-                background: var(--muted);
-                border-radius: 50%;
-                transition: all 0.2s;
-            }
-        }
-
-        input:checked + .toggle {
-            background: var(--accent);
-
-            &::after {
-                left: 18px;
-                background: var(--bg);
-            }
-        }
     }
 
     /* For toggle info */
@@ -565,6 +584,7 @@ body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) 
             margin-top: 0.4rem;
 
             #progressFill {
+                width: 0;
                 height: 100%;
                 background: var(--accent);
                 border-radius: 2px;
@@ -620,17 +640,12 @@ body:not(.gallery):has(#settingsPanel:not(.hidden), #endlessDrawer:not(.hidden) 
         animation: slideDown 0.2s ease;
     }
 
-    /* Collapse x pinned to the panel's top-right corner */
+    /* Collapse x pinned to the panel's top-right corner (base recipe from .iconBtn) */
     #drawerClose {
         position: absolute;
         top: 0.5rem;
         right: 0.5rem;
-        display: flex;
         padding: 0.25rem;
-        background: transparent;
-        border: none;
-        color: var(--muted);
-        cursor: pointer;
         transition: color 0.2s;
 
         &:hover {color: var(--accent)}
@@ -1512,12 +1527,15 @@ body.quiz:has(#done) #reportIssue {
 /* Landing/404 Pages */
 /* ----------------- */
 
-/* Standalone menu pages (root index + 404): swap the app shell's column flow for a centered grid */
+/* Standalone menu pages (root index + 404): centered grid floored at the viewport with a
+   sticky footer - fills the screen when content fits, scrolls the whole page when too short */
+/* min-height 100% (via html) floors at the viewport, height auto overrides base body 100dvh - dvh overshoots an installed Android PWA, scrolling even when content fits */
+html:has(body.landing) {height: 100%}
 body.landing {
-    height: auto;
-    min-height: 100dvh;
+    min-height: 100%;
+    height: auto; /* Not the base body 100dvh */
     display: grid;
-    grid-template-rows: 1fr auto; /* Center main in the top space, pin the footer to the bottom */
+    grid-template-rows: 1fr auto; /* Push the footer to the bottom, or trailing the content when the page scrolls */
     place-items: center;
     padding: 2rem;
     text-align: center;
@@ -1548,8 +1566,24 @@ body.landing {
         color: var(--muted);
     }
 
+    #appVersion {
+        margin-top: 0.35rem;
+        font-size: 0.6rem;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--muted);
+        opacity: 0.55;
+
+        a {
+            color: inherit;
+            text-decoration: none;
+            &:hover {color: var(--accent)}
+        }
+    }
+
     nav {
         margin-top: 2.5rem;
+        margin-bottom: 1.5rem;
         display: flex;
         flex-direction: column;
         gap: 0.75rem;
@@ -1575,7 +1609,7 @@ body.landing {
     }
 
     /* Muted accessory controls: press feedback + pointer-only hover so a tap never sticks highlighted */
-    :is(#collegiate, #drawGen, footer a) {
+    :is(#collegiate, #drawGen, #installGroup button, footer a) {
         color: var(--muted);
         transition: color 0.2s;
 
@@ -1585,25 +1619,49 @@ body.landing {
         }
     }
 
-    /* Small-caps accessory rows under the nav */
-    #collegiate, #drawGen {
-        margin-top: 1.5rem;
-        display: inline-flex;
+    /* Install to home screen, third accessory row when installable */
+    #installGroup {
+        margin-bottom: 1.5rem;
+        display: flex;
+        flex-direction: column;
         align-items: center;
+        gap: 0.75rem;
+
+        button {
+            background: none;
+            border: none;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        #installHint {
+            font-size: 0.7rem;
+            letter-spacing: 0.05em;
+            color: var(--muted);
+            text-align: left; /* Landing centers text, list reads left */
+
+            ol {
+                margin-top: 0.25rem;
+                padding-left: 1.5em; /* Reset zeroes it, markers would clip */
+            }
+
+            li {
+                margin-top: 0.15rem;
+            }
+        }
+    }
+
+    /* Small-caps accessory rows under the nav */
+    #collegiate, #drawGen, #installGroup button {
         font-size: 0.7rem;
         letter-spacing: 0.15em;
         text-transform: uppercase;
     }
 
-    /* Reveal collegiate disciplines in the app views */
-    #collegiate {
-        gap: 0.5em;
-        cursor: pointer;
-
-        input {
-            accent-color: var(--accent);
-            cursor: pointer;
-        }
+    #collegiate, #drawGen {
+        margin-bottom: 1.5rem;
+        display: inline-flex;
+        align-items: center;
     }
 
     /* External companion-tool link */
@@ -1686,6 +1744,265 @@ body.landing {
     }
 
     a {color: var(--accent)}
+}
+
+/* ----------------- */
+/* Offline & Updates */
+/* ----------------- */
+
+/* Absent art (offline, bad link) fails quietly instead of a broken-image glyph */
+img.unavailable {visibility: hidden}
+
+/* Update banner (offline.js): non-modal, floats over the header. Inline layout for the
+   short update lanes, stacked (title + detail + action row) when given a title */
+#updateBanner {
+    position: fixed;
+    top: 0.75rem;
+    inset-inline: 0.75rem; /* Left 50% + translate caps shrink-to-fit at half the viewport, insets + auto margins don't */
+    margin-inline: auto;
+    width: fit-content;
+    max-width: 480px;
+    z-index: 1001; /* Above the card pop-out, a pending update outranks everything */
+    background: var(--card);
+    border: 1px solid var(--accent);
+    border-radius: 4px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.38);
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text);
+    animation: slideDown 0.3s ease;
+
+    .bannerActions {display: flex; align-items: center; gap: 0.5rem}
+
+    /* Buttons are pills (active = the primary action), just tighter */
+    .bannerAction {padding: 0.35rem 0.75rem}
+
+    .bannerDismiss {
+        padding: 0.35rem;
+
+        &:hover {color: var(--text)}
+    }
+
+    /* Major lane: short text + actions on one row */
+    &.inline {
+        display: flex;
+        flex-wrap: wrap; /* Actions drop below only if the text ever overflows */
+        align-items: center;
+        gap: 0.55rem 0.7rem;
+        padding: 0.5rem 0.5rem 0.5rem 0.8rem;
+
+        .bannerText {flex: 1 1 auto; min-width: 0}
+        .bannerActions {margin-left: auto}
+    }
+
+    /* Stale-sets lane: kicker title, detail, then the action row */
+    &.stacked {
+        display: flex;
+        flex-direction: column;
+        padding: 0.7rem 0.8rem;
+
+        .bannerTitle {
+            display: flex;
+            align-items: center;
+            gap: 0.45rem;
+            color: var(--accent);
+            padding-right: 1.4rem; /* Clear the corner dismiss */
+        }
+
+        .bannerText {
+            margin-top: 0.45rem;
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .bannerActions {
+            justify-content: flex-end;
+            margin-top: 0.7rem;
+            padding-top: 0.6rem;
+            border-top: 1px solid var(--border);
+        }
+
+        .bannerDismiss {position: absolute; top: 0.4rem; right: 0.4rem}
+    }
+}
+
+/* Download split-control: primary action + manage caret */
+#downloadSplit {
+    position: relative; /* Anchors the floating manage list */
+    display: flex;
+    width: fit-content; /* Hug content like every other pill */
+    margin-top: 0.5rem;
+
+    #downloadAction {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 0.4em;
+        border-radius: 4px 0 0 4px;
+    }
+
+    .btnIcon {width: 1.1em; height: 1.1em; flex-shrink: 0}
+
+    #downloadMenu {display: flex}
+
+    #downloadMenuToggle {
+        display: flex;
+        align-items: center;
+        border-radius: 0 4px 4px 0;
+        border-left: none;
+        padding: 0.5rem 0.6rem;
+
+        svg {transition: transform 0.2s}
+    }
+    #downloadMenu[open] #downloadMenuToggle svg {transform: rotate(180deg)}
+
+    /* Caret can't take disabled (summary), match the action's dim so the control fades as one */
+    &:has(#downloadAction:disabled) #downloadMenuToggle {opacity: 0.5}
+
+    /* Hover or press on either segment rings the whole control, divider included */
+    &:has(#downloadAction:is(:hover, :active), #downloadMenuToggle:is(:hover, :active)) .pill {
+        border-color: var(--accent);
+        color: var(--accent);
+    }
+
+    /* Saved state: the main pill mirrors the caret, so no divider */
+    &.unified #downloadAction {border-right: none}
+
+    /* Disabled controls dim the same in the split control and its menu list */
+    button:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+/* Saved-sets manage list, floating below the control (panel recipe from .menuPanel) */
+#downloadList {
+    left: 0;
+    width: max-content; /* Own width, the control now hugs its content */
+    max-width: min(360px, calc(100vw - 1rem)); /* Guarantees clampDownloadList's shift can always fit it */
+    overflow: hidden; /* Keep row hover fills inside the radius */
+
+    > :not(hr) + :not(hr) {border-top: 1px solid var(--border)}
+
+    /* Zone break between the action rows and the saved list */
+    hr {
+        border: none;
+        border-top: 1px solid var(--border);
+    }
+
+    /* Contextual current-set action rows heading the list */
+    .menuAction {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.45rem 0.6rem;
+        background: none;
+        border: none;
+        font-size: 0.72rem;
+        font-family: inherit;
+        color: var(--text);
+        text-align: left;
+        cursor: pointer;
+
+        span {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .btnIcon {color: var(--muted)}
+
+        &:hover {
+            background: var(--card);
+            .btnIcon {color: inherit}
+        }
+        &.remove:hover {color: var(--error)}
+        &.update:hover {color: var(--accent)}
+    }
+
+    /* Shared row parts (action rows, saved rows, group summaries) */
+    .rowLabel {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .rowSize {color: var(--muted)}
+
+    .downloadRow {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.45rem 0.6rem;
+        font-size: 0.72rem;
+
+        /* Full row height: negative margins cancel the row padding, side borders only */
+        .rowUpdate {
+            padding: 0.3rem 0.6rem;
+            margin: -0.3rem 0;
+        }
+
+        /* Negative margins cancel the button's padding so text sets the row height (matches summaries) */
+        .rowRemove {
+            padding: 0.3rem;
+            margin: -0.3rem 0;
+
+            &:hover {color: var(--error)}
+        }
+    }
+
+    /* Multi-set discipline collapsed into an expandable group of set rows */
+    .setGroup {
+        summary {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.45rem 0.6rem;
+            font-size: 0.72rem;
+            cursor: pointer;
+
+            .btnIcon {
+                color: var(--muted);
+                transition: rotate 0.15s;
+            }
+
+            /* Badge hugs the label text, the size takes over pushing right */
+            .rowLabel {flex: initial}
+            .rowSize {margin-left: auto}
+
+            /* A child needs an update */
+            .staleBadge {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+                width: 1.2em;
+                height: 1.2em;
+                border: 1px solid var(--accent);
+                border-radius: 50%;
+                color: var(--accent);
+                flex-shrink: 0;
+            }
+
+            &:hover {background: var(--card)}
+        }
+
+        &[open] summary .btnIcon {rotate: 90deg}
+
+        > * + * {border-top: 1px solid var(--border)}
+
+        .downloadRow {padding-left: 1.9rem} /* Align labels past the caret: 0.6 pad + 1.1em icon + 0.5 gap */
+    }
+
+    .menuTotal {
+        padding: 0.45rem 0.6rem;
+        font-size: 0.6rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted);
+    }
 }
 
 /* -------------- */

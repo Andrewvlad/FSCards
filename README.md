@@ -1,5 +1,6 @@
 # FSCards
 A fast, lightweight app to learn the Formation Skydiving dive pools through flashcards, quizzes, and gallery overview, with diagrams from every major source.
+[Play now!](https://andrewvlad.github.io/FSCards/)
 
 ## Disciplines
 
@@ -42,6 +43,11 @@ A fast, lightweight app to learn the Formation Skydiving dive pools through flas
   - Learn: Learn a handful of formations at a time
 - Video demonstrations (compiled by Axis)
 - Auto-saved session, stats, and settings to localStorage
+- Take it offline
+  - Loaded image sets continue to work, even with weak/dropped connection
+  - Download a discipline's image set ahead of time
+    - Manage/update/remove saved sets from the settings panel
+  - Installable as a lightweight app for any device
 - Dark mode
 - Keybindings and gesture controls
   - `[SPACE]` (or tap) - Flip card
@@ -66,34 +72,50 @@ A fast, lightweight app to learn the Formation Skydiving dive pools through flas
 - [x] Full mobile support
   - [x] Landscape support
 - [x] Adaptive (weighted) and learn modes to endless
+- [x] Downloadable app/diagrams (diagrams work; standalone app status below)
+  - [x] Chrome (Standalone app verified on Desktop and Android)
+  - [x] Safari (iPhone verified)
+  - [ ] Rest (Brave, Firefox, Edge, Opera)
 - [ ] 20-ways from TeXXas pool (first unofficial pool)
-- [ ] Rebuild Rhythm diagram sets
-- [ ] Downloadable app/image sets
+- [ ] Rebuild Rhythm diagrams
 
 ## Nerd Flex
 - Entirely clientside using legible HTML/CSS/JS. Clean, fast, and no dependencies/libraries/frameworks.
 - GitHub Actions pipeline to automatically update Axis and USPA image sets whenever a new PDF is automatically found online.
 - 404 hack to enable URL forwarding (shortens "anagrammatic" query param links, e.g. /mfs, /2waycf, /speed-6, /8, etc. all work).
 - Blocks get split horizontally on landscape devices (except Rhythm, which isn't a trifold).
+- Downloaded images are served from a unified on-device cache, so a browser tab and its installed app both use them (Chromium, whereas iOS keeps the app's storage separate).
+- Offline updates use three independent pathways:
+  - Silent shell updates on minor and patch version bumps.
+  - Opt-in consent banner on major version bumps.
+  - Diagram updates have individual hashes, preventing redundant updates and version bumps (image updates are also opt-in).
 - Filters are dynamic and hide when they don't apply.
 - Sourced images are of lossless, max quality.
 - UI scales at every size (down to ~200px wide, or ~300px tall, to be tested on ultrawide screens).
 
 ## FAQ
 - Why not use the Rhythm 101 app? 
-  - The Rhythm App only has flashcards of the 4-way randoms.
+  - You should! 
+    It's just that the Rhythm App only has flashcards of the 4-way randoms.
     This app is not a replacement, and I will never add any of the other flashcards from the Rhythm app.
     If you'd like to learn about body flight or study for a license exam, I highly recommend getting the Rhythm app on the [Android](https://play.google.com/store/apps/details?id=com.rhythm.android) or [Apple App Store](https://apps.apple.com/us/app/rhythm-skydiving-101/id1054896853).
 
 ## Code Walk
 - Core app is just your standard HTML/CSS/JS.
+  - `/index.js` contains the generic pool/deck logic.
+  - `/shared.js` contains shared, repeated elements such as filters, settings, image loading, and offline downloads.
+  - `/play.js` contains the "game" portions, that are specific to the Flashcards and Quiz modes (grading, saves, endless mode).
+  - The offline layer is broken into three parts: 
+    - `/version.js` is the basic versioning file that gets bumped.
+    - `/sw.js` is the service worker, which captures the whole app shell (pages, scripts, fonts, etc.) and serves it cache-first, so the app works offline.
+    - `/offline.js` is the page-side client, handling registration, update banner, and install.
 - `/assets/diagrams` contains the formations, categorized by discipline.
   - `/<discipline>/index.js` contains the per-discipline metadata.
   - `/<discipline>/<provider>/figures` are the diagrams with their labels and symbols stripped.
   - `/panel-cuts.js` contains the trifold cuts for each figure.
 - `/tools` contains the image extraction pipelines (mainly AI generated).
 - `/.github/workflows` contains the GitHub Actions pipeline that keeps the image sets up to date.
-  - `/update-axis-sources.yml` checks and fetches the latest Axis image set PDFs from the Axis website, and PRs per dicipline ([example](https://github.com/Andrewvlad/FSCards/pull/2)).
+  - `/update-axis-sources.yml` checks and fetches the latest Axis image set PDFs from the Axis website, and PRs per discipline ([example](https://github.com/Andrewvlad/FSCards/pull/2)).
   - `/extract-axis-images.yml` is triggered by an updated Axis PDF, and cuts out only updated images for PR ([example](https://github.com/Andrewvlad/FSCards/pull/5)).
   - `/update-uspa-sources.yml` and `/extract-uspa-images.yml` are equivalents for USPA.
   - `/extract-fai-images.yml` are equivalents for FAI (no fetch as the URL format is inconsistent).

@@ -9,6 +9,12 @@
     <title>FSCards - Flashcards</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
+    <meta name="theme-color" content="#0d0d0f">
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eeeeec">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FSCards">
     <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@700&family=Playfair+Display:wght@700;900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
     <link rel="stylesheet" type="text/css" href="stylesheet.css">
     <script>
@@ -40,7 +46,7 @@
         <!--The logo doubles as a view switcher-->
         <details id="viewSwitch">
             <summary id="logo"><a href="./" aria-label="FSCards home">FS</a><span>Cards</span><svg class="switchCaret" viewBox="0 0 12 12" width="13" height="13" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.5 6 8l3.5-3.5"/></svg></summary>
-            <nav class="viewMenu" aria-label="Switch view">
+            <nav class="viewMenu menuPanel" aria-label="Switch view">
                 <a href="cards/" aria-current="page"><strong>Flashcards</strong></a>
                 <a href="quiz/"><strong>Quiz</strong></a>
                 <a href="gallery/"><strong>Gallery</strong></a>
@@ -78,6 +84,16 @@
     <div class="settingsGroup" id="imageSetGroup">
         <div class="settingsLabel"><span>Diagram Set</span></div>
         <div class="segmented" id="imageSetSegment"></div>
+        <!--Offline download: action pill + manage caret whose menu floats like the view switch, states driven by renderOfflineUI-->
+        <div id="downloadSplit">
+            <button type="button" id="downloadAction" class="pill" onclick="offlineAction()">Download set</button>
+            <details id="downloadMenu">
+                <summary id="downloadMenuToggle" class="pill" aria-label="Manage offline sets" title="Manage offline sets">
+                    <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" d="M2.5 4.25 6 7.75l3.5-3.5"/></svg>
+                </summary>
+                <div id="downloadList" class="menuPanel" aria-label="Saved offline sets"></div>
+            </details>
+        </div>
     </div>
 
     <div class="toggleGroup">
@@ -131,7 +147,7 @@
 
 <div id="modeBar">
     <button data-mode="2-way" class="pill">2-Way</button>
-    <button data-mode="4-way" class="pill active">4-Way</button>
+    <button data-mode="4-way" class="pill">4-Way</button>
     <button data-mode="6-way-speed" class="pill">6-Way Speed</button>
     <button data-mode="8-way" class="pill">8-Way</button>
     <button data-mode="10-way-speed" class="pill">10-Way Speed</button>
@@ -185,7 +201,7 @@
             <button type="button" data-strategy="adaptive" class="pill" onclick="selectStrategy(this)" title="Draw missed cards more often">Adaptive</button>
             <button type="button" data-strategy="learn" class="pill" onclick="selectStrategy(this)" title="Smaller deck, unlocking more as you succeed">Learn</button>
         </div>
-        <button type="button" id="drawerClose" onclick="setDrawer(false)" aria-label="Collapse" title="Collapse">
+        <button type="button" id="drawerClose" class="iconBtn" onclick="setDrawer(false)" aria-label="Collapse" title="Collapse">
             <svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" d="M2.75 2.75l6.5 6.5M9.25 2.75l-6.5 6.5"/></svg>
         </button>
     </div>
@@ -213,6 +229,9 @@
 <script src="assets/diagrams/panel-cuts.js"></script>
 
 <script src="index.js"></script>
+<!--Offline: version + SW client + download core, ahead of shared.js's UI over it-->
+<script src="version.js"></script>
+<script src="offline.js"></script>
 <script src="shared.js"></script>
 <script src="play.js"></script>
 <!--Page state-->
@@ -274,7 +293,7 @@
 
         // Release in-flight mouse/touch interaction
         card.dispatchEvent(new MouseEvent('mouseup',  {bubbles: true}));
-        card.dispatchEvent(new TouchEvent('touchend', {bubbles: true}));
+        if (window.TouchEvent) card.dispatchEvent(new TouchEvent('touchend', {bubbles: true})); // Desktop Firefox lacks the constructor
 
         // Update action bar and keyboard hints (the watch link is per-card, set once in nextCard)
         document.getElementById('actionBar').innerHTML     = flipped ? backActionBar : frontActionBar;
@@ -327,6 +346,8 @@
     function grade(direction) {
         if (lock++) return; // Prevents multiple grades being queued up during timeout
 
+        const wasFlipped = flipped; // Capture now - a flip mid-animation must not switch the score branch
+
         swipeController?.abort(); // Release all card listeners
 
         const card = document.getElementById('card');
@@ -340,7 +361,7 @@
         card.style.transform  = `${flipped ? 'rotateY(180deg)' : ''} translateX(${flyX}px) rotate(${rot}deg)`;
 
         setTimeout(() => {
-            if (flipped) applyGrade(direction);
+            if (wasFlipped) applyGrade(direction);
             else if (!endless) deck.push(...deck.splice(getIndex(), 1)); // Skip
             saveSession();
             nextCard();

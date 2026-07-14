@@ -8,8 +8,12 @@
     <title>FSCards</title>
     <link rel="icon" href="favicon.ico">
     <link rel="apple-touch-icon" href="apple-touch-icon.png">
+    <link rel="manifest" href="manifest.webmanifest">
     <meta name="theme-color" content="#0d0d0f">
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#eeeeec">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FSCards">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=DM+Mono:wght@400&display=swap" rel="stylesheet">
     <script>
         // Resolve the active theme before first paint
@@ -34,15 +38,31 @@
 <main>
     <h1>FS<span>Cards</span></h1>
     <p id="tagline">Learn the skydiving formation dive pool</p>
+    <p id="appVersion"><a href="https://github.com/Andrewvlad/FSCards/commits/main" target="_blank" rel="noopener"></a></p>
     <nav aria-label="Choose a view">
         <a href="cards/" data-word="Cards">Flashcards</a>
         <a href="gallery/" data-word="Gallery">Gallery</a>
         <a href="quiz/" data-word="Quiz">Quiz</a>
     </nav>
-    <label id="collegiate">
-        <input type="checkbox" onchange="setCollegiate(this.checked)">
-        Show collegiate
+    <label id="collegiate" class="toggleSetting">
+        <input type="checkbox" onchange="setCollegiate(this.checked); sizeInstallAll()">
+        <span class="toggle"></span>
+        Include collegiate
     </label>
+    <!--Install app: unhidden by offline.js (Chromium install prompt or iOS Share hint)-->
+    <div id="installGroup" class="hidden">
+        <button type="button" id="installApp" class="hidden" onclick="installApp()">Install app without images</button>
+        <button type="button" id="installAll" class="hidden" onclick="installAllApp()">Install app with all image sets</button>
+        <div id="installHint" class="hidden">
+            To install:
+            <ol>
+                <li>Open in your browser (how else did you arrive here?)</li>
+                <li>Share → Add to Home Screen</li>
+                <li>Open app (must do this once while online)</li>
+                <li>Install image sets you want offline (see FSCard settings)</li>
+            </ol>
+        </div>
+    </div>
     <a id="drawGen" href="https://andrewvlad.github.io/draw_generator" target="_blank" rel="noopener">
         Draw Generator
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
@@ -145,15 +165,75 @@
 </script>
 <!--Toggle collegiate disciplines (read by the app views)-->
 <script>
-    // Own key, mirrors index.js COLLEGIATE_KEY - this standalone page loads no shared JS
-    const COLLEGIATE_KEY = 'fscards-collegiate';
+    // Bare key, mirrors index.js COLLEGIATE_KEY - that const loads after this block runs
     function setCollegiate(on) {
-        try { localStorage.setItem(COLLEGIATE_KEY, on ? '1' : '0'); } catch (e) {} // Storage may be unavailable
+        try { localStorage.setItem('fscards-collegiate', on ? '1' : '0'); } catch (e) {} // Storage may be unavailable
     }
     // Reflect the saved choice on load
     try {
-        document.querySelector('#collegiate input').checked = localStorage.getItem(COLLEGIATE_KEY) === '1';
+        document.querySelector('#collegiate input').checked = localStorage.getItem('fscards-collegiate') === '1';
     } catch (e) {} // Storage may be unavailable
+</script>
+<!--Offline: version + service worker client + download core (pool data feeds install-all)-->
+<script src="assets/diagrams/2-way/index.js"></script>
+<script src="assets/diagrams/4-way/index.js"></script>
+<script src="assets/diagrams/6-way-speed/index.js"></script>
+<script src="assets/diagrams/8-way/index.js"></script>
+<script src="assets/diagrams/10-way-speed/index.js"></script>
+<script src="assets/diagrams/16-way/index.js"></script>
+<script src="assets/diagrams/2-way-vfs/index.js"></script>
+<script src="assets/diagrams/4-way-vfs/index.js"></script>
+<script src="assets/diagrams/2-way-mfs/index.js"></script>
+<script src="assets/diagrams/2-way-cf/index.js"></script>
+<script src="assets/diagrams/4-way-cf/index.js"></script>
+<script src="assets/diagrams/cp-freestyle/index.js"></script>
+<script src="index.js"></script>
+<script src="version.js"></script>
+<script src="offline.js"></script>
+<!--Stamp the deployed version under the tagline, links to the commit changelog-->
+<script>document.querySelector('#appVersion a').textContent = 'v' + APP_VERSION;</script>
+<!--Install-all: batch image download + install prompt, sizes filled on both buttons-->
+<script>
+    const installAllBtn = document.getElementById('installAll');
+    let sizeToken = 0; // Guards the async size write against a newer toggle
+
+    // Size and reveal install-all for the current pool, re-run on the collegiate toggle since allPairs() tracks it
+    function sizeInstallAll() {
+        if (!installPrompt) return; // Prompt not captured yet or already spent
+        const token = ++sizeToken;
+        const all = allPairs();
+        const pairs = unsavedPairs(all);
+        if (!pairs.length) { installAllBtn.classList.add('hidden'); return; } // Plain install covers it
+        const label = `Install app with ${scopeWord(pairs, all)} image sets`;
+        installAllBtn.textContent = label;
+        installAllBtn.classList.remove('hidden');
+        Promise.all([appBytes(), sumBytes(pairs)]).then(([shell, sets]) => {
+            if (token === sizeToken && sets !== null) installAllBtn.textContent = `${label} (${fmtMB(shell + sets)})`;
+        });
+    }
+
+    // Reveal and size the buttons off the same event offline.js captures the prompt from
+    window.addEventListener('beforeinstallprompt', () => {
+        appBytes().then(bytes => {
+            if (bytes) document.getElementById('installApp').textContent = `Install app without images (${fmtMB(bytes)})`;
+        });
+        sizeInstallAll();
+    });
+
+    // Download-core progress hook (the views' equivalent lives in shared.js)
+    function renderOfflineUI() {
+        if (activeDownload) installAllBtn.textContent = `Downloading images (${activeDownload.done}/${activeDownload.total})`;
+    }
+
+    function installAllApp() {
+        installAllBtn.disabled = true;
+        downloadPairs(unsavedPairs(allPairs())).then(({failed}) => {
+            installAllBtn.disabled = false;
+            if (failed) installAllBtn.textContent = 'Some sets failed - tap to retry';
+            else document.getElementById('installGroup').classList.add('hidden');
+        });
+        installApp(); // Consumed on the first click, a retry only downloads
+    }
 </script>
 </body>
 </html>

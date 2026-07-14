@@ -97,6 +97,10 @@ jobs:
               if: steps.commit.outputs.changed == 'true'
               run: python3 tools/thumbnails/generate.py ${{ steps.commit.outputs.images }}
 
+            - name: Regenerate image manifests
+              if: steps.commit.outputs.changed == 'true'
+              run: python3 tools/manifest/generate.py ${{ steps.commit.outputs.images }}
+
             - name: Compose PR body
               if: steps.commit.outputs.changed == 'true'
               env:
