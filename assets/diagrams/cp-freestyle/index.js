@@ -31,11 +31,13 @@ const _CpFreestyle = {
         23: "Wingover",
     },
     classes: [
-        {key: '1', label: 'Class 1', blocks: [1, 2, 3, 4, 5, 6, 7]},
-        {key: '2', label: 'Class 2', blocks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]},
-        {key: '3', label: 'Class 3', blocks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]},
-        {key: '4', label: 'Class 4', blocks: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]},
-        {key: '5', label: 'Class 5'},
+        // Technically called moves, rather than blocks
+        {key: '1', label: 'Group 1', blocks: [1, 2, 3, 4, 5, 6, 7]},
+        {key: '2', label: 'Group 2', blocks: [8, 9, 10, 11]},
+        {key: '3', label: 'Group 3', blocks: [12, 13]},
+        {key: '4', label: 'Group 4', blocks: [14, 15, 16, 17, 18, 19, 20]},
+        {key: '5', label: 'Group 5', blocks: [21, 22, 23]},
+        {key: 'all', label: 'All'},
     ],
     sets: { USPA: null },
     includeCaption: true,

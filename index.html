@@ -38,7 +38,7 @@
 <main>
     <h1>FS<span>Cards</span></h1>
     <p id="tagline">Learn the skydiving formation dive pool</p>
-    <p id="appVersion"><a href="https://github.com/Andrewvlad/FSCards/commits/main" target="_blank" rel="noopener"></a></p>
+    <p id="appVersion"><a href="https://github.com/Andrewvlad/FSCards/commits/main" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg></a></p>
     <nav aria-label="Choose a view">
         <a href="cards/" data-word="Cards">Flashcards</a>
         <a href="gallery/" data-word="Gallery">Gallery</a>
@@ -58,6 +58,7 @@
             <ol>
                 <li>Open in your browser (how else did you arrive here?)</li>
                 <li>Share → Add to Home Screen</li>
+                <!--Had to be done this way for the service worker to be able to update the app in the future-->
                 <li>Open app (must do this once while online)</li>
                 <li>Install image sets you want offline (see FSCard settings)</li>
             </ol>
@@ -65,8 +66,7 @@
     </div>
     <a id="drawGen" href="https://andrewvlad.github.io/draw_generator" target="_blank" rel="noopener">
         Draw Generator
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>
-    </a>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="20" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/></svg>    </a>
 </main>
 <footer aria-label="Social and website links">
     <a href="https://andrewv.com" target="_blank" rel="noopener" aria-label="Website">
@@ -191,7 +191,7 @@
 <script src="version.js"></script>
 <script src="offline.js"></script>
 <!--Stamp the deployed version under the tagline, links to the commit changelog-->
-<script>document.querySelector('#appVersion a').textContent = 'v' + APP_VERSION;</script>
+<script>document.querySelector('#appVersion a').prepend('v' + APP_VERSION);</script>
 <!--Install-all: batch image download + install prompt, sizes filled on both buttons-->
 <script>
     const installAllBtn = document.getElementById('installAll');

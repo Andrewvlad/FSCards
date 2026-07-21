@@ -7,7 +7,7 @@ Updates:
     - Patch: Minor fixes and adjustments, automatically installed (CSS changes)
     - Image changes do not bump the version, rather bump their respective manifest
 */
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 
 // Major updates require banner consent (offline.js), while smaller updates apply silently (sw.js)
 const majorOf = (version) => version.split('.')[0];

@@ -1577,7 +1577,15 @@ body.landing {
         a {
             color: inherit;
             text-decoration: none;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5em;
             &:hover {color: var(--accent)}
+
+            svg {
+                width: 0.9em;
+                height: 0.9em;
+            }
         }
     }
 
