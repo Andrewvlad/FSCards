@@ -62,7 +62,7 @@ rejected by keeping only a page that names exactly one annex. This is the robust
 
 **Keys are read from the art, never assigned by position.** Each detected cell's baked top-left
 key glyph (`keyglyph`, isolated by the same top-left zone + size caps `erase_key` uses — FAI art is
-solid black like the key, so position and size separate them, not colour) is matched (`glyph_dist`,
+solid black like the key, so position and size separate them, not color) is matched (`glyph_dist`,
 size-gated mismatch fraction) against a template library harvested from the installed FAI set
 (`key_templates`: the filename is the key, the baked art is the glyph), and the cell takes its
 best match. This is the approach `axis-extract` uses on its identical no-text-layer PDFs, so a pool
@@ -87,7 +87,7 @@ so geometry and text removal are pixel-based:
   contiguous-run test misses three fringe shapes the outer edges carry, so
   `edge_fringe` finishes the walk there: partial-height fringe (line beside
   some panels, white beside others — 8-way 14/21), full-height fringe broken
-  by stray white px (8-way 6/22, a ~234-grey line the split-panel view showed
+  by stray white px (8-way 6/22, a ~234-gray line the split-panel view showed
   as border bleed), and faint 248–253 fringe above `shrink`'s 245 threshold
   entirely. A line goes when it is **mostly pale** (< 254 over ≥ 0.25 of its
   length — art at an edge measures ≤ 0.11, white 0) or blank while directly
@@ -95,7 +95,7 @@ so geometry and text removal are pixel-based:
   only case where a border's own internal 1px white gap goes with it); a white
   margin row still stops the walk before any caption or art. Gapped
   block-row seams keep both lines — the earlier midpoint-merge bled each row's
-  border into its neighbour (stray line at a cell's top/bottom). Only
+  border into its neighbor (stray line at a cell's top/bottom). Only
   near-duplicates (< 0.1 pitch) merge. Randoms rows anchor on the detected
   H-lines at the rows' own pitch (their median spacing, **not** the column
   width: cells are square on recent editions but ~3% shorter than wide on 2018,

@@ -82,5 +82,5 @@ standardized top-view) and revised again in the 2026 redraw; `M` carries two ver
 
 - **2021-03 crop artifacts** (same diagram + inflated top-row crop, now **fixed** in
   `regular_edges`): 16-way A, 10-way-speed 1, 4-way A-D. A re-run no longer flags these.
-- **Visually unchanged** (metric noise on grey/colored fills): 4-way-vfs B (Gulley),
+- **Visually unchanged** (metric noise on gray/colored fills): 4-way-vfs B (Gulley),
   4-way-vfs J, 2-way-mfs J.

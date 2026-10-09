@@ -78,7 +78,7 @@ fits, so the band-window shape is genuine; CF4 fills paint solider than
 CF2's (slider-detail whites go black, only the window stays white), and
 half-fills cover their side of the window when the source draws it dark.
 Striped canopies all paint one canonical pair, mirrored about the arc
-centre (survey medians over every striped canopy) — the source stripes
+center (survey medians over every striped canopy) — the source stripes
 vary canopy to canopy and lean wider on the right, so the measured spans
 only classify.
 Block cards compose **preserve-and-replace**: the old trace survives verbatim

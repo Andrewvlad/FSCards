@@ -16,7 +16,7 @@ reorder or addition is picked up from the art itself. Cells are
 cropped between the full extents of the detected grid lines, shedding only the
 lines' own pixels and anti-alias fringe -- no original white space is removed
 (gapped block-row seams keep both lines -- midpoint-merging them bled each row's
-border into its neighbour). The figure variant erases the key and per-panel caption by connected
+border into its neighbor). The figure variant erases the key and per-panel caption by connected
 component: glyph components sit fully inside their corner/bottom zone and are
 small, art dipping beside a caption belongs to a large component and survives,
 and rotation arrows / 360-labels higher in the panel are never touched."""
@@ -31,7 +31,7 @@ REPO = f"{ROOT}/assets/diagrams"   # installed sets, harvested for key-glyph tem
 INK = 120
 
 # Top-left key location, as (H-frac, W-frac) - shared by erase_key (erases it) and keyglyph
-# (reads it). FAI art is solid black like the key, so position + size isolate it, not colour.
+# (reads it). FAI art is solid black like the key, so position + size isolate it, not color.
 KEY_ZONE = (0.22, 0.28)   # corner the key sits in
 KEY_CAP = (0.16, 0.12)    # max single key-glyph component size
 
@@ -80,7 +80,7 @@ def line_spans(dark, axis, frac):
         else: spans.append([int(i), int(i)])
     return spans
 
-centre = lambda s: (s[0] + s[1]) / 2
+center = lambda s: (s[0] + s[1]) / 2
 
 def runlen(b):
     """Longest run of True in a 1-d bool vector."""
@@ -182,7 +182,7 @@ def columns(spans):
     stays under the width threshold) and contiguous shared-border grids (2018/22: one line
     per boundary, equal gaps, 5 lines -> 4 cells). The earlier skip-ahead-by-two paired
     (0,1)(2,3) and dropped every other column on the contiguous grid."""
-    xs = [centre(s) for s in spans]
+    xs = [center(s) for s in spans]
     diffs = [b - a for a, b in zip(xs, xs[1:])]
     interior = np.median([d for d in diffs if d > 0.10 * (xs[-1] - xs[0])]) if diffs else 0
     return [(spans[i], spans[i + 1]) for i in range(len(spans) - 1)
@@ -293,7 +293,7 @@ def keyglyph(panel):
     """Binary crop of the baked top-left key (a letter A-Q, or a 1-2 digit block number),
     or None when the corner holds no glyph. Isolated by the same top-left zone + size caps
     erase_key uses: FAI art is solid black like the key, so position and size separate them,
-    not colour (the trick axis-extract leans on with its grey art). Two-digit keys land as two
+    not color (the trick axis-extract leans on with its gray art). Two-digit keys land as two
     components inside the zone - their union is cropped to one mask so '10'..'22' read whole."""
     H, W = panel.shape[:2]
     lab, _ = ndimage.label(panel.mean(2) < INK)
@@ -313,7 +313,7 @@ def keyglyph(panel):
     return np.isin(lab[y0:y1, x0:x1], [b[4] for b in boxes])
 
 def glyph_dist(a, b):
-    """Mismatch fraction of two key crops, centre-padded to a common box. Every cell of one
+    """Mismatch fraction of two key crops, center-padded to a common box. Every cell of one
     edition bakes its key at one pixel size, so no rescale -- a size gate rejects a different
     key-string length (a 1-digit vs a 2-digit block) outright."""
     if abs(a.shape[0] - b.shape[0]) > 5 or abs(a.shape[1] - b.shape[1]) > 7:
@@ -411,8 +411,8 @@ def extract_randoms(page):
     arr = native(page); H = arr.shape[0]; dark = arr.mean(2) < INK
     vs = line_spans(dark, 1, 0.45)
     hs = line_spans(dark, 0, 0.40)
-    w = float(np.median([centre(b) - centre(a) for a, b in zip(vs, vs[1:])]))
-    ph = float(np.median([centre(b) - centre(a) for a, b in zip(hs, hs[1:])])) if len(hs) > 1 else w
+    w = float(np.median([center(b) - center(a) for a, b in zip(vs, vs[1:])]))
+    ph = float(np.median([center(b) - center(a) for a, b in zip(hs, hs[1:])])) if len(hs) > 1 else w
     # prefer the highest score, then the TOPMOST grid (weak top borders on some pages tie a correct
     # top-anchored grid with a wrong one built into blank space). Track the best grid that FITS the
     # raster and the best overall - the fit guard can reject every anchor (over-estimated pitch), so
@@ -420,9 +420,9 @@ def extract_randoms(page):
     best = fitted = None
     for ln in hs:
         for k in range(4):
-            y0 = centre(ln) - k * ph
+            y0 = center(ln) - k * ph
             edges = [y0 + j * ph for j in range(5)]
-            score = sum(1 for e in edges if any(abs(e - centre(l)) < 0.10 * ph for l in hs))
+            score = sum(1 for e in edges if any(abs(e - center(l)) < 0.10 * ph for l in hs))
             if best is None or score > best[0] or (score == best[0] and y0 < best[1]):
                 best = (score, y0)
             if -0.02 * ph <= edges[0] and edges[-1] <= H + 0.02 * ph and (   # grid fits the raster
@@ -432,7 +432,7 @@ def extract_randoms(page):
     rows = []
     for j in range(5):
         e = best[1] + j * ph
-        snap = next((l for l in hs if abs(centre(l) - e) < 0.10 * ph), None)
+        snap = next((l for l in hs if abs(center(l) - e) < 0.10 * ph), None)
         rows.append(snap if snap else [min(max(round(e), 0), H - 1)] * 2)
     return arr, vs, rows
 
@@ -445,18 +445,18 @@ def extract_blocks(page):
     dark = arr.mean(2) < INK
     cols = columns(line_spans(dark, 1, 0.28))
     hs = line_spans(dark, 0, 0.10)
-    cents = [centre(s) for s in hs]
+    cents = [center(s) for s in hs]
     pitch = float(np.median([d for d in (b - a for a, b in zip(cents, cents[1:])) if d > 0.05 * H]))
     merged = [hs[0]]
     for s in hs[1:]:
-        if centre(s) - centre(merged[-1]) < 0.1 * pitch: merged[-1] = [merged[-1][0], s[1]]
+        if center(s) - center(merged[-1]) < 0.1 * pitch: merged[-1] = [merged[-1][0], s[1]]
         else: merged.append(s)
     boxes, i = [], 0
     while i + 3 < len(merged):
         boxes.append(tuple(merged[i:i + 4]))
         i += 3
         # gapped seam: the next row's top border is its own line just below this bottom
-        if i + 1 < len(merged) and centre(merged[i + 1]) - centre(merged[i]) < 0.5 * pitch:
+        if i + 1 < len(merged) and center(merged[i + 1]) - center(merged[i]) < 0.5 * pitch:
             i += 1
     return arr, cols, boxes
 

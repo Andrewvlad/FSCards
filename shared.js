@@ -109,9 +109,9 @@ function pairingSaved() {
 // (menu rows disable while a run is live, the banner's Update does not)
 function downloadAll(pairs, refresh = false) {
     if (activeDownload || !pairs.length) return; // Empty = nothing left to cover (a lingering banner Update)
-    downloadPairs(pairs, refresh).then(({failed, cancelled}) => {
+    downloadPairs(pairs, refresh).then(({failed, canceled}) => {
         const single = pairs.length === 1;
-        if (cancelled) return showToast(refresh ? 'Update stopped' : 'Download stopped');
+        if (canceled) return showToast(refresh ? 'Update stopped' : 'Download stopped');
         if (failed) return showToast(`${single ? (refresh ? 'Update' : 'Download') : 'Some sets'} failed - check your connection and retry`, true);
         if (refresh) return showToast(single ? 'Offline set updated' : `${pairs.length} sets updated`);
         savedToast(single ? 'Set saved for offline' : `${pairs.length} sets saved for offline`);

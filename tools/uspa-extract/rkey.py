@@ -11,7 +11,7 @@ from PIL import Image
 from scipy import ndimage
 
 PATH = "../../assets/diagrams/4-way/USPA/R.webp"
-TY, TCX = 53, 73.5   # target glyph top / x-centre, the sibling randoms' cluster
+TY, TCX = 53, 73.5   # target glyph top / x-center, the sibling randoms' cluster
 PAD = 4              # margin around the glyph bbox taking its AA fringe along
 
 arr = np.array(Image.open(PATH).convert("RGB"))
@@ -20,7 +20,7 @@ ys, xs = np.where(zone)
 y0, y1, x0, x1 = ys.min(), ys.max() + 1, xs.min(), xs.max() + 1
 dy, dx = TY - y0, round(TCX - (x0 + x1) / 2)
 if abs(dy) <= 1 and abs(dx) <= 1:
-    print(f"key already at y{y0} x-centre {(x0 + x1) / 2}; nothing to do")
+    print(f"key already at y{y0} x-center {(x0 + x1) / 2}; nothing to do")
     raise SystemExit
 src = (slice(y0 - PAD, y1 + PAD), slice(x0 - PAD, x1 + PAD))
 dst = (slice(y0 - PAD + dy, y1 + PAD + dy), slice(x0 - PAD + dx, x1 + PAD + dx))
@@ -30,4 +30,4 @@ arr[src] = 255
 assert (arr[dst].mean(2) > 245).all(), "destination not empty white; re-measure"
 arr[dst] = glyph
 Image.fromarray(arr).save(PATH, "WEBP", lossless=True, quality=100, method=6)
-print(f"key moved by dy {dy} dx {dx} -> top y{y0 + dy}, x-centre {(x0 + x1) / 2 + dx}")
+print(f"key moved by dy {dy} dx {dx} -> top y{y0 + dy}, x-center {(x0 + x1) / 2 + dx}")

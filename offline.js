@@ -231,7 +231,7 @@ const staleSets = new Set(); // Saved sets whose art the current manifest supers
 // Stop the in-flight run, aborting its live fetches (pairings already recorded stay saved)
 function cancelDownload() {
     if (!activeDownload) return;
-    activeDownload.cancelled = true;
+    activeDownload.canceled = true;
     activeDownload.controller.abort();
 }
 
@@ -255,6 +255,7 @@ function retainTouch(url) {
 }
 
 // Registry removal: the records, their staleness, and the derived index move together
+// TODO: Find what else removes sets, since one vanished along with its fsc-sets files
 function recordRemoved(keys) {
     saveOffline(true, data => keys.forEach(key => delete data.sets[key]));
     keys.forEach(key => staleSets.delete(key));
@@ -292,7 +293,7 @@ function scheduleOfflineUI() {
 async function fetchInto(cache, urls, init) {
     const run = activeDownload; // Captured - a late sibling fetch must not touch a nulled or superseded run
     for (let i = 0; i < urls.length; i += FETCH_LANES) {
-        if (run.cancelled) throw new Error('cancelled');
+        if (run.canceled) throw new Error('canceled');
         await Promise.all(urls.slice(i, i + FETCH_LANES).map(async url => {
             const res = await fetch(url, init);
             if (!res.ok) throw new Error(url);
@@ -362,10 +363,10 @@ async function fetchPairing(disc, set, stored, refresh) {
 }
 
 // The run primitive: fetch pairings under one aggregate counter, each recorded as it completes
-// so a failure or cancel mid-run keeps what landed. Refresh updates saved sets in place. Resolves to {failed, cancelled}
+// so a failure or cancel mid-run keeps what landed. Refresh updates saved sets in place. Resolves to {failed, canceled}
 async function downloadPairs(pairs, refresh) {
-    if (activeDownload) return {failed: 0, cancelled: true}; // One run at a time, refused here so no entry point can corrupt a live run
-    if (!pairs.length) return {failed: 0, cancelled: false}; // Nothing to cover - never set an empty run the UI reads pairs[0] from
+    if (activeDownload) return {failed: 0, canceled: true}; // One run at a time, refused here so no entry point can corrupt a live run
+    if (!pairs.length) return {failed: 0, canceled: false}; // Nothing to cover - never set an empty run the UI reads pairs[0] from
     activeDownload = {pairs, done: 0, total: pairs.reduce((sum, [disc, set]) => sum + setImages(disc, set).length, 0), controller: new AbortController()};
     renderOfflineUI();
     navigator.storage?.persist?.()?.catch(() => {}); // Durable storage is best-effort, never blocks the run
@@ -373,13 +374,13 @@ async function downloadPairs(pairs, refresh) {
     const stored = await caches.open(SET_CACHE).then(cachedUrls).catch(() => new Set()); // Storage may be unavailable
     let failed = 0;
     for (const [disc, set] of pairs) {
-        if (activeDownload.cancelled) break;
-        try { await fetchPairing(disc, set, stored, refresh); } catch (e) { if (!activeDownload.cancelled) failed++; }
+        if (activeDownload.canceled) break;
+        try { await fetchPairing(disc, set, stored, refresh); } catch (e) { if (!activeDownload.canceled) failed++; }
     }
-    const cancelled = !!activeDownload.cancelled;
+    const canceled = !!activeDownload.canceled;
     // Reap set-cache art no record claims (a past failed download's stragglers) - this run's own
     // stragglers stay for a retry, so skip on cancel where the user may resume at once
-    if (!cancelled) {
+    if (!canceled) {
         const runUrls = new Set(pairs.flatMap(([disc, set]) => setImages(disc, set)).map(absUrl));
         try {
             const cache = await caches.open(SET_CACHE);
@@ -389,7 +390,7 @@ async function downloadPairs(pairs, refresh) {
     pruneRetention(); // Downloaded copies supersede their browse-retention duplicates
     activeDownload = null;
     renderOfflineUI();
-    return {failed, cancelled};
+    return {failed, canceled};
 }
 
 // Batch candidates: everything in the app (the current-discipline batch stays view-side)

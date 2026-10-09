@@ -147,7 +147,7 @@ def _wipe_text_preserve(region, tbox, ink=INK):
     is ENCLOSED by its bbox; figure ink crosses the bbox boundary, so it stays connected to
     dark ink in the pad margin OUTSIDE the bbox. So flood dark pixels from that outside margin
     (8-way): whatever the flood reaches is figure ink (kept); the enclosed remainder is the
-    glyph (erased, plus a 2px dilation to take its grey anti-aliased halo, so no ghost is left).
+    glyph (erased, plus a 2px dilation to take its gray anti-aliased halo, so no ghost is left).
     Keying off the BBOX — not the region/crop border — is what lets a long name's end letters
     that touch the crop edge still be erased (e.g. the 'C'/'s' of 8-way 22's 'Compressed …
     Diamonds'); a border-seeded flood wrongly kept them. Limbs/loops are still preserved (e.g.
@@ -187,7 +187,7 @@ def erase_names(arr, words, cx0, cy0, cx1, cy1, panels):
     keyc=[w for w in incrop if re.fullmatch(r'[A-HJ-Qa-q]|\d{1,2}', w[4].strip())]
     if keyc: wipe_word(crop,min(keyc, key=lambda w:(w[1]-cy0)*2+(w[0]-cx0)),cx0,cy0)
     # each panel's name = its bottom-most text line (anchor = lowest word; include words on
-    # the same line by y-centre, so the line above — a rotation label — is left untouched)
+    # the same line by y-center, so the line above — a rotation label — is left untouched)
     for (ptop,pbot) in panels:
         inp=[w for w in incrop if w[1]>=ptop-3 and w[3]<=pbot+3]
         if not inp: continue

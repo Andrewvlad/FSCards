@@ -4,7 +4,7 @@
 A repo file is replaced only when the staged card's decoded pixels differ by more
 than RECUT_TOLERANCE. Byte comparison would re-install every card whenever the
 runner's libwebp encodes identical art to different bytes, and a regenerated source
-PDF re-rasterizes unchanged cards (anti-alias greys drift, no ink flips): both bury
+PDF re-rasterizes unchanged cards (anti-alias grays drift, no ink flips): both bury
 a real re-cut under hundreds of phantom diffs. Axis line art carries hard black ink,
 so a real edit flips pixels to a 255 delta, far above the re-render drift (well under
 130 across 2-way's 14 unchanged blocks, vs 255 for the one that changed). Repo files

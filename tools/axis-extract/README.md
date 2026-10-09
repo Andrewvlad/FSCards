@@ -91,13 +91,13 @@ under a `CHECK` flag, and self-heals once an extracted card is accepted.
   entry panel into the installed set (manual tool, unwired from the
   workflows, reproduces the legacy R pixel-identically from block 12).
 - **`figures/`**: geometric, component-precise erase — the top-left key and each
-  panel's bottom centred name line only (plus the wrapped first line directly
-  above it when one exists, recognised by text-tight leading and matching glyph
+  panel's bottom centered name line only (plus the wrapped first line directly
+  above it when one exists, recognized by text-tight leading and matching glyph
   height: 8-way 22 'Compressed / Stairstep Diamond'), keeping the © AXIS tag,
   dividers, rotation arrows/labels, instructional notes (VFS block 2),
   annotations ('foot grip', 'must use same arm' — they float higher and smaller
-  than a wrap) and all art. Solid black components only (grey/coloured art never
-  qualifies); a black comp attached to a mostly-grey ink region is anti-alias of
+  than a wrap) and all art. Solid black components only (gray/colored art never
+  qualifies); a black comp attached to a mostly-gray ink region is anti-alias of
   art, not a glyph, and is preserved — but one that lines up with the erased name
   is a glyph touching art ('Ritz', whose z meets a leg) and is reclaimed. The
   divider rows are masked out of the component pass so a descender touching a
@@ -106,7 +106,7 @@ under a `CHECK` flag, and self-heals once an extracted card is accepted.
   are absorbed into their line's band before clustering, or they derail the wrap
   pass. Erased glyphs take a ≤2px anti-alias ring along, never surviving ink.
 - **Hand mend — CF 4-way `figures/H`**: in the source card the 'O' of the
-  bottom-centred name 'Step Off' overlaps the bottom canopy's triangle tip, so
+  bottom-centered name 'Step Off' overlaps the bottom canopy's triangle tip, so
   the erase pass spares the glyph (touching art) and the tip itself is occluded
   in the source raster. The shipped figure carries a hand graft: the 'O' erased
   and the tip rebuilt from `figures/K`'s clean free-hanging bottom tip (same

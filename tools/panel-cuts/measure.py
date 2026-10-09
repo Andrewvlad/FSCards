@@ -71,7 +71,7 @@ def divider_bands(g):
     for b in picked:
         top, bot = b[0], b[-1]
         # a fringe row is full-width pale, like the core is full-width dark — a row-mean
-        # test instead bleeds the band through adjacent art on the grey-realistic sets
+        # test instead bleeds the band through adjacent art on the gray-realistic sets
         while top > 0 and (g[top - 1] < FRINGE).mean() > FULL: top -= 1
         while bot < H - 1 and (g[bot + 1] < FRINGE).mean() > FULL: bot += 1
         out.append((top, bot))

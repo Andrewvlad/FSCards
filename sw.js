@@ -98,7 +98,7 @@ function bounded(promise, ms) {
 // else is network-first so online users see current art, falling back to browse retention offline or past the slow bound
 async function serveImage(request, event) {
     // A page-side download/refresh bypasses local copies to pull current bytes
-    const bypass = request.cache === 'reload' || request.cache === 'no-cache';
+    const bypass = request.cache === 'reload' || request.cache === 'no-cache'; // A normal reload's <img> requests stay 'default', and a hard reload skips the worker
 
     if (!bypass) {
         const saved = await caches.match(request, {cacheName: SET_CACHE});

@@ -17,7 +17,7 @@ sets, so the pipeline is embed-driven: a pool revision's new keys stage
 themselves, art revisions land under their stable key, and keys missing from
 the staging are pool drops for install.py to delete. The figures/ erasure is
 geometric: connected components of solid-black ink, killing only the top-left
-key and each panel's bottom centred name line, keeping the (c) AXIS tag, panel
+key and each panel's bottom centered name line, keeping the (c) AXIS tag, panel
 dividers, rotation arrows/labels and all art.
 
 Sources (committed under assets/sources/axis/; originally downloaded via
@@ -41,7 +41,7 @@ OUT = "/tmp/axis_out"
 REPO = f"{ROOT}/assets/diagrams"
 
 CARD_SIZES = {(300, 300), (300, 900)}  # anything else (header banners, legend pages) is not a card
-INK_BLACK = 110   # max(rgb) below this = solid black ink; grey art is ~179, colours have one high channel
+INK_BLACK = 110   # max(rgb) below this = solid black ink; gray art is ~179, colors have one high channel
 HALO = 2          # px ring of anti-alias residue whited around an erased glyph
 MIN_STAGED_RATIO = 0.5   # staged/installed floor - a resolution bump stages 0 cards, must fail loud not open an empty PR
 
@@ -70,7 +70,7 @@ def keyglyph(arr):
     """Binary crop of the baked top-left key, or None when the card has none.
 
     Solid-black comps confined to the first panel's top-left corner, tall
-    enough to be key glyphs: art specks and vfs2's camera-dart centre dot are
+    enough to be key glyphs: art specks and vfs2's camera-dart center dot are
     shorter, the (c) AXIS tag sits right of 0.32W, annotations float lower."""
     H, W = arr.shape[:2]
     black = arr[..., :3].max(2) < INK_BLACK
@@ -90,7 +90,7 @@ def keyglyph(arr):
 
 
 def glyph_dist(a, b):
-    """Mismatch fraction of two key crops, centre-padded to a common box.
+    """Mismatch fraction of two key crops, center-padded to a common box.
 
     All AXIS cards bake keys at the same pixel size, so no rescaling: a size
     gate rejects different-length key strings outright."""
@@ -134,10 +134,10 @@ def read_key(arr, lib):
 def erase(arr, names=True):
     """Figure variant: white out the key + each panel's bottom name line, glyph-precisely.
 
-    Solid-black connected components only — grey/red/yellow/blue art never qualifies.
-    The name line = the bottom-most centred row of text-sized components of a panel,
+    Solid-black connected components only — gray/red/yellow/blue art never qualifies.
+    The name line = the bottom-most centered row of text-sized components of a panel,
     plus the wrapped first line directly above it when one exists ('Compressed /
-    Stairstep Diamond') — recognised by text-tight leading and matching glyph height,
+    Stairstep Diamond') — recognized by text-tight leading and matching glyph height,
     which annotations (MFS's 'foot grip'), rotation labels and art specks never show.
     Erased glyphs take their <=HALO px anti-alias ring along, but never pixels of
     surviving ink."""
@@ -157,21 +157,21 @@ def erase(arr, names=True):
     # ('Jelly Roll', 'Opposed Stairstep') must stay a glyph-sized comp, not merge
     # into a full-width structural one and evade the erase. Its pixels inside the
     # solid black line are left behind, invisibly. The union pass masks a dilated
-    # band, or the divider's grey anti-alias fringe would bridge art into glyphs.
+    # band, or the divider's gray anti-alias fringe would bridge art into glyphs.
     glyph = black.copy()
     nofringe = np.ones(H, bool)
     for grp in seps:
         glyph[grp[0]:grp[-1] + 1] = False
         nofringe[max(0, grp[0] - HALO):grp[-1] + 1 + HALO] = False
     lab, n = ndimage.label(glyph, structure=np.ones((3, 3)))
-    # a black comp embedded in a large grey structure (badge box edges, art strokes) is
-    # anti-alias of that art, not a glyph: glyphs sit on white, so their grey halo is at
-    # most perimeter-sized, while art-attached specks join a mostly-grey region
+    # a black comp embedded in a large gray structure (badge box edges, art strokes) is
+    # anti-alias of that art, not a glyph: glyphs sit on white, so their gray halo is at
+    # most perimeter-sized, while art-attached specks join a mostly-gray region
     g3 = a[..., :3]
-    greyish = (g3.max(2) >= INK_BLACK) & (g3.max(2) <= 210) & (g3.max(2) - g3.min(2) < 60)
-    ulab, un = ndimage.label((black | greyish) & nofringe[:, None], structure=np.ones((3, 3)))
+    grayish = (g3.max(2) >= INK_BLACK) & (g3.max(2) <= 210) & (g3.max(2) - g3.min(2) < 60)
+    ulab, un = ndimage.label((black | grayish) & nofringe[:, None], structure=np.ones((3, 3)))
     ublack = np.bincount(ulab[black].ravel(), minlength=un + 1)
-    ugrey = np.bincount(ulab[greyish].ravel(), minlength=un + 1)
+    ugray = np.bincount(ulab[grayish].ravel(), minlength=un + 1)
     comps, greyskip = [], []
     for i, sl in enumerate(ndimage.find_objects(lab), 1):
         y0, y1, x0, x1 = sl[0].start, sl[0].stop, sl[1].start, sl[1].stop
@@ -179,7 +179,7 @@ def erase(arr, names=True):
             continue
         m = lab[sl] == i
         u = ulab[sl][m][0]
-        if ugrey[u] > 2.0 * ublack[u]:
+        if ugray[u] > 2.0 * ublack[u]:
             greyskip.append((i, y0, y1, x0, x1))
             continue
         comps.append((i, y0, y1, x0, x1))
@@ -212,9 +212,9 @@ def erase(arr, names=True):
             if prev and (prev[0] - ly1 > 0.3 * prev[1] or ly1 - ly0 < 0.7 * prev[1]):
                 break                     # above the name at more than text leading, or in smaller
                                           # glyphs: an annotation ('foot grip') or art, not a wrap
-            # the name is the centred x-run(s) of the line; art sharing its rows (loop
+            # the name is the centered x-run(s) of the line; art sharing its rows (loop
             # arcs, badge slivers) sits far off to a side and must not drag the
-            # extent off-centre and reject — or get killed with — the name
+            # extent off-center and reject — or get killed with — the name
             line.sort(key=lambda c: c[3])
             runs, cur = [], [line[0]]
             for c in line[1:]:
@@ -223,12 +223,12 @@ def erase(arr, names=True):
             runs.append(cur)
             runs = [r for r in runs if 0.25 * W < (r[0][3] + r[-1][4]) / 2 < 0.75 * W]
             if not runs:
-                continue                  # nothing centred on these rows — skip, keep looking
+                continue                  # nothing centered on these rows — skip, keep looking
             killed = [c for r in runs for c in r]
             lx0, lx1 = min(c[3] for c in killed), max(c[4] for c in killed)
             for c in killed: kill |= lab == c[0]
-            # a name glyph touching grey art ('Ritz', whose z meets the leg above it)
-            # was grey-skipped; reclaim it if it is glyph-like and sits on this line —
+            # a name glyph touching gray art ('Ritz', whose z meets the leg above it)
+            # was gray-skipped; reclaim it if it is glyph-like and sits on this line —
             # bottom-aligned, near the line's median glyph height (art specks beside a
             # name are much shorter), within a glyph's reach of the line's extent
             lh = ay1 - ay0
@@ -250,7 +250,7 @@ def erase(arr, names=True):
     # hugging thick surviving ink (a glyph's own anti-alias is a thin film on white).
     # The divider band is exempt — anti-alias of an erased glyph that reached the
     # divider must still be whited, or it lingers as a ghost along the line
-    core = ndimage.binary_erosion((black | greyish) & ~kill, np.ones((3, 3)))
+    core = ndimage.binary_erosion((black | grayish) & ~kill, np.ones((3, 3)))
     spare = ndimage.binary_dilation(core, np.ones((2 * HALO + 1,) * 2)) & nofringe[:, None]
     a[kill | (ring & faint & ~spare)] = 255
     return a
@@ -260,7 +260,7 @@ def remove_badges(arr):
     """White out the baked 'video courtesy of …' YouTube badges (8-way, 16-way and all
     VFS blocks but the revised 12 carry one; newer-template PDFs are badge-free).
 
-    A badge = a solid bright-red play button (the suits' red is darker) inside a grey
+    A badge = a solid bright-red play button (the suits' red is darker) inside a gray
     rounded-rect box with team-credit text. The box bounds come from flooding the
     near-white box INTERIOR from just above the button — the closed stroke seals the
     flood, so art outside the box can never be reached — then the whole box (+stroke)

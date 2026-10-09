@@ -2,7 +2,7 @@
 """Extract the USPA 6-Way Speed formation cells from SCM Ch.7 (page located via find_pages).
 The cells form a left-justified grid (the pool has run 3 formations in one row up to 5 across
 two), found by scanning the WHOLE page for its border lines - never hardcoded page positions or
-a fixed cell count. Each cell: number top-left, vector formation diagram, name centred at bottom,
+a fixed cell count. Each cell: number top-left, vector formation diagram, name centered at bottom,
 black border. Output mirrors the 10-way-speed USPA style: named = number+diagram+name on white
 (border removed); figure = diagram only (number+name erased glyph-precisely via ext_rand's
 erase_names from the PDF text layer)."""
@@ -39,13 +39,13 @@ def group(hits, gap):
     return [int(np.mean(g)) for g in groups]
 
 def vlines(ink, y0, y1, min_len, gap=20):
-    """x-centres of vertical border lines within the y-band [y0,y1]."""
+    """x-centers of vertical border lines within the y-band [y0,y1]."""
     sub = ink[y0:y1, :]
     hits = [x for x in range(sub.shape[1]) if longest_run(sub[:, x]) >= min_len]
     return group(hits, gap)
 
 def hlines(ink, x0, x1, min_len, gap=20):
-    """y-centres of horizontal border lines within the x-band [x0,x1]."""
+    """y-centers of horizontal border lines within the x-band [x0,x1]."""
     sub = ink[:, x0:x1]
     hits = [y for y in range(sub.shape[0]) if longest_run(sub[y, :]) >= min_len]
     return group(hits, gap)
@@ -105,7 +105,7 @@ def boxes_from(vx, hy, ink):
 
 def band_inner(g, coord, p0, p1, axis, step, thr=245, frac=0.80):
     """Inner edge of a border line (grayscale twin of ext_rand.band_inner): walk inward from
-    the detected line centre past every band row/col, so the crop excludes ONLY border pixels
+    the detected line center past every band row/col, so the crop excludes ONLY border pixels
     (line + anti-alias halo) and keeps every interior white pixel — a fixed inset over-cropped
     because border thickness varies."""
     line = lambda i: g[i, p0:p1] if axis == 0 else g[p0:p1, i]

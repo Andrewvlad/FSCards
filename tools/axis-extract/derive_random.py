@@ -32,9 +32,9 @@ def derive_random(arr, key):
     panel = arr[:sep].copy()
     # the derived card is a random: shed the block iconage — blocks suit a
     # reference pair in red (239,0,0) / blue (0,176,240) to track across panels,
-    # while randoms are all greyscale. Un-mix the tint per pixel keeping the
+    # while randoms are all grayscale. Un-mix the tint per pixel keeping the
     # black-ink alpha: the flat fill maps to the white suit, black-line AA to
-    # the grey ramp, white-edge AA back to white.
+    # the gray ramp, white-edge AA back to white.
     f = panel[..., :3].astype(float)
     sat = f.max(2) - f.min(2) > 8
     for mask, dom, off, fill in ((sat & (f[..., 0] >= f[..., 2]), 0, 1, 239),

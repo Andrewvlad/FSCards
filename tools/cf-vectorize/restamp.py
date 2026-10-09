@@ -166,16 +166,16 @@ def to_donor(p, X, Y):
     return rx / s + cx, ry / (s * SQUASH) + cy
 
 
-# canopy fills (blocks): the block pools colour canopies to mark the
+# canopy fills (blocks): the block pools color canopies to mark the
 # groupings — clear, full black, half black, or two stripes — all painted
 # inside the dome (the arc-band ring and the corner pockets, v<=360; below
 # is the V interior)
 INTERIOR = ndimage.binary_fill_holes(_dk) & ~_dk
 DOME = INTERIOR.copy()
 DOME[360:] = False
-RING_C = 170  # ring (arc-band cell) centre row in donor px
+RING_C = 170  # ring (arc-band cell) center row in donor px
 # ownership zone: the filled glyph silhouette's top — fills overlap the arc
-# stroke itself at off-centre columns, so strict interior misses them. The
+# stroke itself at off-center columns, so strict interior misses them. The
 # top rows open to the full arc span: pose error can map a fill slightly
 # above the silhouette (only the bump lives there)
 OWN_ZONE = ndimage.binary_fill_holes(_dk)
@@ -242,7 +242,7 @@ WINDOW = (_lab_int == _c2) & ~_F_RAW
 WINDOW[420:] = False
 FILL_AUTH = INTERIOR & ~WINDOW
 FILL_AUTH[420:] = False
-# canonical stripe geometry, donor px from the arc centre: the source art's
+# canonical stripe geometry, donor px from the arc center: the source art's
 # stripes vary canopy to canopy (and lean wider on the right), so every
 # striped canopy paints this symmetric pair — the medians over all 24
 # striped canopies' measured spans (inner |u| 125-153, outer 396-409)
@@ -481,7 +481,7 @@ def _sample(p, img):
 def assign_blobs(poses, nat, scale):
     """label the native erosion cores (strokes gone, fills survive) and give
     each blob to the pose whose zone holds its centroid most centrally —
-    overlapping stairstep domes otherwise borrow their neighbour's fill"""
+    overlapping stairstep domes otherwise borrow their neighbor's fill"""
     er = ndimage.binary_erosion(nat, np.ones((5, 5)))
     lab, n = ndimage.label(er, np.ones((3, 3)))
     owned = {i: [] for i in range(len(poses))}
@@ -494,8 +494,8 @@ def assign_blobs(poses, nat, scale):
         best, bestkey = None, (0, 0)
         for i, p in enumerate(poses):
             # the owner's zone contains the whole blob, an overlapping
-            # stairstep neighbour's only part of it; ties (both zones hold
-            # it fully) break toward the pose seeing it nearer its centre
+            # stairstep neighbor's only part of it; ties (both zones hold
+            # it fully) break toward the pose seeing it nearer its center
             hits = 0
             uc = []
             for Y, X in zip(Ys[::2], Xs[::2]):

@@ -27,7 +27,7 @@ from extract import (ROOT, locate, runmax0, runmax1, line_spans, shrink, edge_fr
                      erase_caption, sliced_components, save, montage)
 
 def clusters(idx, gap):
-    """Cluster near-adjacent indices (a grid line's rows/cols) to their centres."""
+    """Cluster near-adjacent indices (a grid line's rows/cols) to their centers."""
     out = []
     for i in idx:
         if out and i - out[-1][1] <= gap: out[-1][1] = int(i)
@@ -73,7 +73,7 @@ def line_runs(b, minlen):
     return out
 
 def column_pairs(xs):
-    """Cell columns from sorted vertical border centres: every adjacent pair whose gap is
+    """Cell columns from sorted vertical border centers: every adjacent pair whose gap is
     near the median cell width. Handles gutter-separated strips and contiguous shared-border
     grids alike (older editions), the same fix extract.columns carries."""
     diffs = [b - a for a, b in zip(xs, xs[1:])]
