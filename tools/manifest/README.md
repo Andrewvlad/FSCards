@@ -19,11 +19,12 @@ python3 tools/manifest/generate.py assets/diagrams/4-way/Axis/13.webp  # paths m
 A manifest must be regenerated whenever its discipline's images change, or saved offline sets
 mis-judge staleness until the next regen:
 
-- The three extract workflows run it on the staged image paths inside each re-cut PR, so art
-  and manifest deploy atomically.
-- `update-image-manifest.yml` backstops everything else that lands on main (hand edits,
-  `/reject` reverts): regenerates on any `assets/diagrams/**` push and commits the drift.
-  Idempotent, so its own commit cannot loop it.
+- The three extract workflows run it on the staged image paths inside each re-cut PR, and
+  `reject-extracted-images.yml` reruns it on what a `/reject` reverts, so art and manifest
+  deploy atomically.
+- `update-image-manifest.yml` backstops everything else that lands on main (hand edits):
+  regenerates on any `assets/diagrams/**` push and commits the drift. Idempotent, so its own
+  commit cannot loop it.
 - A manual image add (new discipline, hand-managed set) should run it alongside
   `tools/thumbnails/generate.py`, the backstop covers a forgotten run after push.
 

@@ -41,7 +41,8 @@ workflow, which reverts those images to main, re-measures panel cuts,
 and pushes onto the PR branch. A rejected image resurfaces on that PDF's next
 revision PR, by design, for re-review against the new source. Closing the PR
 unmerged rejects the whole re-cut, and the same workflow then deletes its
-branch (merged branches are covered by the repo's auto-delete setting).
+branch (merged branches are covered by the repo's auto-delete setting). A
+`/reject` that leaves nothing to merge closes the PR and deletes its branch itself.
 
 On a re-cut `install.py` also parks the outgoing art of every changed or dropped
 key (the named diagram only) under `assets/sources/axis/legacy/deprecated/<disc>/<key>_dep-<year>.webp`

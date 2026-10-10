@@ -1,6 +1,6 @@
-# Backstop for the offline image-identity manifests (lane C): the extract workflows
-# regenerate them inside their PRs, this catches everything else that lands on main
-# (hand edits, /reject reverts) and commits the regen. Idempotent - a manifest-only
+# Backstop for the offline image-identity manifests (lane C): the extract and reject
+# workflows regenerate them inside their PRs, this catches everything else that lands
+# on main (hand edits) and commits the regen
 # push regenerates to no diff and stops, so it cannot loop.
 name: Update image manifests
 

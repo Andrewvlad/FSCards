@@ -4,7 +4,8 @@ name: Review extracted images
 #   /reject <keys>    revert bad cards to main (and drop the deprecation archive the re-cut added)
 #   /upscale <keys>   keep the cards, drop only their deprecation archive (a same-art quality bump,
 #                     so the old version is a duplicate not worth keeping)
-# Closing a PR unmerged rejects the whole re-cut (cleanup job below).
+# Closing a PR unmerged rejects the whole re-cut (cleanup job below), and a /reject that leaves
+# nothing to merge closes it too.
 
 on:
     issue_comment:
@@ -105,6 +106,8 @@ jobs:
                           git rm -q --ignore-unmatch -- "$p" # New in this PR (a _dep- archive, or a new key): drop it
                       fi
                   done <<<"$TARGETS"
+                  # Re-hash the touched disciplines so the PR's manifest matches its art
+                  grep '^assets/diagrams/' <<<"$TARGETS" | xargs -r python3 tools/manifest/generate.py
                   echo "changed=$(git status --porcelain | grep -q . && echo true || echo false)" >> "$GITHUB_OUTPUT"
                   # Only block (numbered) shipped images feed panel cuts (/upscale touches none, so this is empty there)
                   # anchored to assets/diagrams so deprecated archives don't pose as disciplines
@@ -164,6 +167,18 @@ jobs:
                   fi
                   gh pr comment "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --body "$body"
                   gh api "repos/$GITHUB_REPOSITORY/issues/comments/$COMMENT_ID/reactions" -f content='+1'
+
+            - name: Close the PR once nothing is left
+              if: steps.revert.outputs.changed == 'true'
+              env:
+                  GH_TOKEN: ${{ github.token }}
+                  PR_NUMBER: ${{ github.event.issue.number }}
+              run: |
+                  # Manifests mirror the art, so one still differing only means main has moved on
+                  if git diff --quiet origin/main HEAD -- $(cat "$RUNNER_TEMP/changed.txt") ':!assets/diagrams/*/manifest.json'; then
+                      # A GITHUB_TOKEN close fires no pull_request event, so the cleanup job never deletes this branch
+                      gh pr close "$PR_NUMBER" -R "$GITHUB_REPOSITORY" --delete-branch --comment 'Nothing left to merge, closing.'
+                  fi
 
     cleanup:
         # Repo auto-delete only covers merged PRs. Closing (rejecting) leaves a stale branch
