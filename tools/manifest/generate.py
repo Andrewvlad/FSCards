@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[2]
 DIAGRAMS = ROOT / "assets" / "diagrams"
 
 THUMB_DIR = "thumbs"
+BASE_FIGURE_DIR = "solo"
 HASH_LEN = 16  # sha256 hex prefix - collision-safe at this corpus size, keeps manifests lean
 
 
@@ -59,7 +60,7 @@ def main():
 
     total = 0
     for discipline in sorted(DIAGRAMS.iterdir()):
-        if not discipline.is_dir() or (names and discipline.name not in names):
+        if not discipline.is_dir() or discipline.name == BASE_FIGURE_DIR or (names and discipline.name not in names):
             continue
         total += write_manifest(discipline)
         print(f"{discipline.name}/manifest.json")
