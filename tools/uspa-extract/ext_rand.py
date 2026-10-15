@@ -2,7 +2,7 @@
 """Extract RANDOM-formation cells from a USPA SCM appendix page (Ch.9 FS / Ch.7 Collegiate).
 Crops each bordered box's interior (border pixels only — every interior white pixel kept),
 reads its key+name from the text layer, and emits a named crop + a figure crop with the
-key and bottom name line erased glyph-precisely.
+key and bottom name line erased glyph-precisely, plus the cell's table row for canvas.py.
 Drivers point PDF at the right SCM chapter and give CACHE a per-chapter prefix (same page
 numbers exist in both chapters — a shared cache would silently serve the wrong render)."""
 import re, sys, os, subprocess, glob
@@ -116,7 +116,7 @@ def extract(page,dpi):
             named=arr[cy0:cy1,cx0:cx1].copy()
             # single full-cell band: erase the key + the bottom name line only, so a
             # mid-cell description (MFS A 'Two-handed grip' / B 'Same Arm') is kept
-            out[key]=(named, erase_names(arr,ws,cx0,cy0,cx1,cy1,[(cy0,cy1)]))
+            out[key]=(named, erase_names(arr,ws,cx0,cy0,cx1,cy1,[(cy0,cy1)]), (page,Y0))
     return out
 
 def wipe_word(crop, w, cx0, cy0, pad=10):
@@ -200,5 +200,5 @@ if __name__=="__main__":
     page=int(sys.argv[1]); dpi=int(sys.argv[2])
     res=extract(page,dpi)
     print("keys:",sorted(res.keys(),key=lambda k:(len(k),k)))
-    for k,(n,f) in res.items():
+    for k,(n,f,_) in res.items():
         print(f"  {k}: {n.shape[1]}x{n.shape[0]}")

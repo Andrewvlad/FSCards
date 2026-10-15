@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Extract the six USPA FS sets from the vector SCM Ch.9 "Formation Skydiving" PDF
 (committed at assets/sources/uspa/fs.pdf - originally uspa.org/scm) into a staging dir.
-Lossless band-edge crops resized to 1100px wide; figures erased glyph-precisely.
-install.py copies the staged files over assets/diagrams/<d>/USPA/. 4-way R/Bundy is
-CISM-only (absent from the SCM) and is never extracted, so install.py leaves its
-preserved legacy pair untouched."""
+Lossless band-edge crops resized to 1100px wide, then padded to each set's canvas
+(canvas.py), with figures erased glyph-precisely. install.py copies the staged files over
+assets/diagrams/<d>/USPA/. 4-way R/Bundy is CISM-only (absent from the SCM) and is never
+extracted, so install.py keeps its preserved legacy pair, only padding it to a grown canvas."""
 import os, glob
+import numpy as np
 from PIL import Image
-import ext_rand, ext_block, find_pages
+import canvas, ext_rand, ext_block, find_pages
 
 ext_rand.PDF=f"{ext_rand.ROOT}/assets/sources/uspa/fs.pdf"
 ext_rand.CACHE="/tmp/fsx_ch9"
@@ -27,10 +28,12 @@ JOBS={
  "2-way-mfs":    ("MFS", 2, "block"),
 }
 
-def save(arr, path):
+def resize(arr):
     im=Image.fromarray(arr)
-    w=TARGET_W; h=round(im.height*w/im.width)
-    im.resize((w,h),Image.LANCZOS).save(path,"WEBP",lossless=True,quality=100,method=6)
+    return np.asarray(im.resize((TARGET_W,round(im.height*TARGET_W/im.width)),Image.LANCZOS))
+
+def save(arr, path):
+    Image.fromarray(arr).save(path,"WEBP",lossless=True,quality=100,method=6)
 
 def repo_keys(d):
     return set(os.path.basename(f)[:-5] for f in glob.glob(f"{REPO}/{d}/USPA/*.webp"))
@@ -44,7 +47,8 @@ if __name__=="__main__":
         for op in opgs:
             cells.update((ext_block if other=="block" else ext_rand).extract(op,DPI))
         od=f"{OUT}/{d}"; os.makedirs(f"{od}/figures",exist_ok=True)
-        for k,(named,fig) in cells.items():
+        resized={k:(resize(named),resize(fig),row) for k,(named,fig,row) in cells.items()}
+        for k,(named,fig) in canvas.fit(d,resized).items():
             save(named,f"{od}/{k}.webp"); save(fig,f"{od}/figures/{k}.webp")
         got=set(cells.keys()); want=repo_keys(d)
         missing=sorted(want-got, key=lambda k:(len(k),k)); extra=sorted(got-want,key=lambda k:(len(k),k))

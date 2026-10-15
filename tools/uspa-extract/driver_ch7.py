@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """Extract the collegiate 2-way + VFS 2-way USPA sets from the vector SCM Ch.7
 "Collegiate" PDF (committed at assets/sources/uspa/collegiate.pdf - originally
-uspa.org/scm) into a staging dir — native crop size, lossless, glyph-precise figures.
+uspa.org/scm) into a staging dir — native crop size padded to each set's canvas
+(canvas.py), lossless, glyph-precise figures.
 Pages are located per edition from the appendix headers (find_pages), never hardcoded.
 This driver cuts 2-way blocks and both halves of VFS-2 - the 2-way randoms come from
 p16fix.py (the 1x4 table is too short for detect_grid) and 6-way-speed from extract6.py."""
 import os, glob
 from PIL import Image
-import ext_rand, ext_block, find_pages
+import canvas, ext_rand, ext_block, find_pages
 
 ext_rand.PDF=f"{ext_rand.ROOT}/assets/sources/uspa/collegiate.pdf"
 ext_rand.CACHE="/tmp/fsx_ch7"
@@ -33,7 +34,7 @@ if __name__=="__main__":
         for op in opgs:
             cells.update((ext_block if other == "block" else ext_rand).extract(op, DPI))
         od = f"{OUT}/{d}"; os.makedirs(f"{od}/figures", exist_ok=True)
-        for k, (named, fig) in cells.items():
+        for k, (named, fig) in canvas.fit(d, cells).items():
             save(named, f"{od}/{k}.webp"); save(fig, f"{od}/figures/{k}.webp")
         want = set(os.path.basename(f)[:-5] for f in glob.glob(f"{REPO}/{d}/USPA/*.webp"))
         got = set(cells.keys())

@@ -5,7 +5,7 @@ verticals within the band, then reuse ext_rand's key/crop/erase verbatim."""
 import os, sys
 import numpy as np
 from PIL import Image
-import ext_rand, find_pages
+import canvas, ext_rand, find_pages
 from ext_rand import render, words, find_key, erase_names, max_run, clusters, INK
 
 ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/collegiate.pdf"
@@ -47,11 +47,11 @@ for c in range(4):
     inside = [w for w in ws if w[0] >= X0 - 2 and w[2] <= X1 + 2 and w[1] >= Y0 - 2 and w[3] <= Y1 + 2]
     key = find_key(inside, X0, Y0, W)
     cx0, cy0, cx1, cy1 = ext_rand.cell_inner(arr, X0, Y0, X1, Y1)
-    out[key] = (arr[cy0:cy1, cx0:cx1].copy(), erase_names(arr, ws, cx0, cy0, cx1, cy1, [(cy0, cy1)]))
+    out[key] = (arr[cy0:cy1, cx0:cx1].copy(), erase_names(arr, ws, cx0, cy0, cx1, cy1, [(cy0, cy1)]), top)
     print(key, out[key][0].shape)
 
 os.makedirs(f"{OUT}/figures", exist_ok=True)
-for k, (named, fig) in out.items():
+for k, (named, fig) in canvas.fit("2-way", out).items():
     Image.fromarray(named).save(f"{OUT}/{k}.webp", "WEBP", lossless=True, quality=100, method=6)
     Image.fromarray(fig).save(f"{OUT}/figures/{k}.webp", "WEBP", lossless=True, quality=100, method=6)
 print("saved", sorted(out))

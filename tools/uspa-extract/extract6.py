@@ -5,11 +5,11 @@ two), found by scanning the WHOLE page for its border lines - never hardcoded pa
 a fixed cell count. Each cell: number top-left, vector formation diagram, name centered at bottom,
 black border. Output mirrors the 10-way-speed USPA style: named = number+diagram+name on white
 (border removed); figure = diagram only (number+name erased glyph-precisely via ext_rand's
-erase_names from the PDF text layer)."""
+erase_names from the PDF text layer), both padded to the set's canvas (canvas.py)."""
 import os, sys
 import numpy as np
 from PIL import Image
-import ext_rand, find_pages
+import canvas, ext_rand, find_pages
 
 ext_rand.PDF = f"{ext_rand.ROOT}/assets/sources/uspa/collegiate.pdf"
 ext_rand.CACHE = "/tmp/fsx_ch7"
@@ -151,11 +151,13 @@ if __name__ == "__main__":
         os.makedirs(f"{OUTDIR}/figures", exist_ok=True)
         ws = ext_rand.words(PAGE, DPI)
         rgb = np.repeat(g[..., None], 3, 2)   # ext_rand erasure expects RGB; channels identical
+        cells = {}
         for k, x0, x1, y0, y1 in boxes:
             cx0, cy0, cx1, cy1 = interior_bounds(g, x0, x1, y0, y1)
-            named = g[cy0:cy1, cx0:cx1].copy()
-            save_webp(named, f"{OUTDIR}/{k}.webp")
             fig = ext_rand.erase_names(rgb, ws, cx0, cy0, cx1, cy1, [(cy0, cy1)])[..., 0]
+            cells[str(k)] = (g[cy0:cy1, cx0:cx1].copy(), fig, y0)
+        for k, (named, fig) in canvas.fit("6-way-speed", cells).items():
+            save_webp(named, f"{OUTDIR}/{k}.webp")
             save_webp(fig, f"{OUTDIR}/figures/{k}.webp")
             print(f"key {k}: {named.shape[1]}x{named.shape[0]}")
         print("extracted", len(boxes), "->", OUTDIR)

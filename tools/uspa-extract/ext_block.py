@@ -77,7 +77,7 @@ def extract(page,dpi):
         # keeping the mid-panel rotation labels so figure erasure never clips a limb
         Peff=(cell_bot-cell_top)/3.0
         panels=[(cell_top+i*Peff, cell_top+(i+1)*Peff) for i in range(3)]
-        out[key]=(named, ext_rand.erase_names(arr,ws,cx0,cy0,cx1,cy1,panels))
+        out[key]=(named, ext_rand.erase_names(arr,ws,cx0,cy0,cx1,cy1,panels), (page,cell_top))
     return out
 
 if __name__=="__main__":

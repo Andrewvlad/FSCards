@@ -121,8 +121,16 @@ jobs:
                       echo '```'
                       grep '\[ordering\]' "$RUNNER_TEMP/ordering.log" || echo '(ordering-check output unavailable)'
                       echo '```'
+                      if grep -q '^\[canvas\]' "$RUNNER_TEMP/extract.log"; then
+                          echo
+                          echo '### Canvas'
+                          echo 'A set canvas only grows when a whole table row does. A card that outgrew its row is worth a look.'
+                          echo '```'
+                          grep '^\[canvas\]' "$RUNNER_TEMP/extract.log"
+                          echo '```'
+                      fi
                       echo
-                      echo 'The 4-way `R`/Bundy card is CISM-only, absent from the SCM, so it is never re-cut and stays as shipped. The 8-way `D`/Hope Diamond hand graft re-proposes on a re-cut - `/reject D` to keep it. The re-cut is **not** auto-merged: verify the diagrams, reject what you do not want, or re-run `driver_ch9.py` / `driver_ch7.py` by hand for a deeper re-cut.'
+                      echo 'The 4-way `R`/Bundy card is CISM-only, absent from the SCM, so it is never re-cut and only gets padded when its canvas grows. The 8-way `D`/Hope Diamond hand graft re-proposes on a re-cut - `/reject D` to keep it, which also pads it to a grown canvas. The re-cut is **not** auto-merged: verify the diagrams, reject what you do not want, or re-run `driver_ch9.py` / `driver_ch7.py` by hand for a deeper re-cut.'
                       if [ "$CUTS_CHANGED" = 'true' ]; then
                           echo
                           echo "Panel cuts updated, review the [audit sheet]($AUDIT_URL)."

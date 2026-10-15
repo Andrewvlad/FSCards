@@ -11,7 +11,9 @@ exact-thirds ticks in blue) for eyeball QA.
 
 Each entry is [width/height, d1_top, d1_bot, d2_top, d2_bot] — the aspect ratio lets the
 client size the panel row without waiting for the image to load; dividers are fractions
-of image height, panels are [0, d1_top], [d1_bot, d2_top], [d2_bot, 1].
+of image height, panels are [0, d1_top], [d1_bot, d2_top], [d2_bot, 1]. A USPA set whose
+blocks share one size and overlapping dividers (uspa-extract's canvas lines them up) takes
+each divider's outermost band edges across the set, so it ships one shared tuple.
 
 Writes assets/diagrams/panel-cuts.js (the PANEL_CUTS global consumed by diagramFace).
 
@@ -93,6 +95,19 @@ def clearance(g, bands, ink=245):
     return min(runs) / H
 
 
+def share_coinciding(results, ink):
+    """Blocks of one size whose dividers overlap all take the outermost band edges."""
+    sizes = {im.size for _, im, _, _ in results.values()}
+    bands = [b for _, _, b, _ in results.values()]
+    if len(sizes) != 1 or any(max(b[i][0] for b in bands) > min(b[i][1] for b in bands) for i in (0, 1)):
+        return results
+    (width, height), = sizes
+    (t1, b1), (t2, b2) = union = [(min(b[i][0] for b in bands), max(b[i][1] for b in bands)) for i in (0, 1)]
+    cuts = (width / height, t1 / height, (b1 + 1) / height, t2 / height, (b2 + 1) / height)
+    return {key: (cuts, im, union, clearance(np.asarray(im).astype(float).mean(2), union, ink))
+            for key, (_, im, _, _) in results.items()}
+
+
 def measure_set(discipline, imageset, srcdir=None):
     setdir = ROOT / srcdir if srcdir else ROOT / 'assets' / 'diagrams' / discipline / imageset
     ink = 128 if srcdir else 245  # Trace input: residue paler than trace.py's threshold never reaches the SVG
@@ -113,7 +128,7 @@ def measure_set(discipline, imageset, srcdir=None):
         H = g.shape[0]
         (t1, b1), (t2, b2) = bands
         results[f.stem] = ((im.width / im.height, t1 / H, (b1 + 1) / H, t2 / H, (b2 + 1) / H), im, bands, clearance(g, bands, ink))
-    return results, extras
+    return (share_coinciding(results, ink) if imageset == 'USPA' else results), extras
 
 
 def audit_sheet(discipline, imageset, results, path):

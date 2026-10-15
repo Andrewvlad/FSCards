@@ -15,7 +15,8 @@ source PDFs" below):
 `extract.py` is the workflow entry point: given the changed source basename(s) it runs the
 right cutters in order; `install.py` then installs the staging (next section), and the shared
 `tools/validate_ordering.py` cross-checks the result (below). `find_pages.py` is the page
-locator they all share.
+locator they all share, and `canvas.py` pads each cut set to one size before it stages
+("One canvas per set" below).
 
 **Ordering cross-check (`tools/validate_ordering.py`).** Shared across all extract pipelines
 (Axis as well as USPA), run as a post-install step in each workflow so it sees exactly the
@@ -76,11 +77,33 @@ untouched, self-noops if re-run). Every card that IS in the source — including
 Diamond's graft (below) — re-proposes on each re-cut and is kept by rejecting it in the review PR,
 not by code.
 
+**One canvas per set (`canvas.py`).** Every cutter hands its cells to `canvas.fit` before
+staging, so a set's randoms, and its blocks or formations, all stage at one size. Raw crops
+differ by a few pixels: the SCM template's first table row runs short at the top, a block
+page's lower table can carry a taller middle panel, and render rounding (Ch.9's 1100px resize
+turns its 1108/1109px native widths into a pixel or two of height). Randoms and formations pad
+white rows at the top, keeping every name the same distance above its bottom rule, and blocks
+pad in the white gap at the top of each panel, so both dividers sit on the same rows in every
+block (aligned on each divider's first core row) and `tools/panel-cuts/measure.py` ships one
+shared tuple per set. Ch.9 pads after the resize, so no art pixel changes, and a Ch.7 crop that
+a column's sub-pixel phase leaves a pixel narrow pads evenly on both sides.
+
+The canvas is each table row's most common size, the largest row winning, never below what
+the set already ships at. Cutting every legacy edition, plus sub-pixel page shifts of the
+current one, showed rows moving as a unit, so this grow-only ratchet keeps an edition's
+phase from resizing a set back and forth. A card that outgrows its row still grows the
+canvas, and gets a `[canvas]` line in the review PR, as does every canvas that moves.
+`extract.py --reset-canvas` (by hand only) drops the shipped floor, for an edition that
+tightens its tables. It leaves `R` at its old height, so trim `R`'s top rows by hand after
+one. A change that is only canvas padding installs without a `deprecated/` copy,
+`install.py` pads the cards it keeps (`R`) to a grown canvas, and the reject workflow pads
+the cards a `/reject` restores (`D`) the same way.
+
 **Never re-install 8-way `D`/Hope Diamond without re-applying its graft.** The
 bottom jumper's feet are flat-sliced **in the source art itself** (ink stops
 mid-cell, well above the name text — nothing for the crop to recover), so the
 shipped `D.webp` + `figures/D.webp` carry a hand graft of C/Hourglass's intact
-feet (same template pose; rect `[690:767, 440:660]` copied from C at offset
+feet (same template pose; rect `[700:777, 440:660]` copied from C at offset
 dy −129 / dx +1, seam verified AA-level identical). The **top** jumper's feet sit
 exactly ON the cell border (zero ink above the line); the band-edge crop keeps
 them automatically — the old fixed-inset crop amputated them, which is why `D`
@@ -95,6 +118,7 @@ Output contract:
   are removed; every interior white pixel survives. (A fixed inset can't do this:
   border thickness varies, and art can hug a thin border — 8-way `P`/Venus, `D`'s
   top feet.) Ch.9 resizes to 1100px wide (lossless webp); Ch.7 keeps native crop size.
+  Both then pad with white to the set's canvas.
 - **`figures/`**: same crop with the corner key and each panel's bottom name line
   erased glyph-precisely (text-layer bboxes + connected-component preserve), keeping
   rotation/description labels, divider rules, inter arrows, and any art that crosses

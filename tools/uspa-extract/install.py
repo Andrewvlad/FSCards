@@ -7,6 +7,8 @@ re-encode (or the anti-alias jitter of a re-exported source vector) never floods
 with phantom re-cuts - a real formation edit flips hard ink to a 255 delta, far above that.
 Repo keys absent from staging are pool drops and get deleted, refused wholesale when the
 staging holds under half the installed set (a botched extraction must not wipe a set).
+A change that only adds white rows or columns (a grown canvas, see canvas.py) installs without an
+archive copy, and the cards left in place (R) are then padded to their set's canvas.
 
 The drivers stage per chapter (/tmp/fsx_out/ch9/<d>, /tmp/fsx_out/ch7/<d>) - we install
 whichever chapters are present, so a Ch.9-only run never touches the Collegiate sets.
@@ -23,6 +25,7 @@ from PIL import Image
 ROOT = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../.."))
 sys.path.insert(0, f"{ROOT}/tools")
 import legacy_archive as la
+import canvas
 SRC = f"{ROOT}/assets/sources/uspa"
 DEP_ROOT = f"{SRC}/legacy/deprecated"    # superseded art parked as <disc>/<key>_dep-<year> on a re-cut
 OUT = "/tmp/fsx_out"
@@ -33,6 +36,8 @@ PROTECT = {              # (discipline, repo-relative path) exempt from the orph
 }
 
 pixels = lambda f: np.asarray(Image.open(f).convert("RGB"))
+# Pixels minus every pure-white row and column, so a canvas pad compares equal to its source
+unpadded = lambda a: a[~(a == 255).all(axis=(1, 2))][:, ~(a == 255).all(axis=(0, 2))]
 # Pool order: randoms A-Z first, then blocks numerically (10 after 2)
 pool_order = lambda k: (k[0].isdigit(), int("".join(filter(str.isdigit, k)) or "0"), k)
 # Card/figure rel paths -> pool keys, deduped (a card and its derived figure share one key)
@@ -47,7 +52,7 @@ for chap in ("ch9", "ch7"):
             staged_dirs[d] = f"{base}/{d}"
 
 total = 0
-all_installed, all_deleted, all_tolerated, all_refused, all_archived = [], [], [], [], []
+all_installed, all_padded, all_fitted, all_deleted, all_tolerated, all_refused, all_archived = [], [], [], [], [], [], []
 for d in sorted(staged_dirs):
     od = staged_dirs[d]
     repo_dir = f"{ROOT}/assets/diagrams/{d}/USPA"
@@ -56,7 +61,7 @@ for d in sorted(staged_dirs):
     staged_rels = {os.path.relpath(s, od) for s in staged}
     repo_rels = {os.path.relpath(f, repo_dir)
                  for f in glob.glob(f"{repo_dir}/*.webp") + glob.glob(f"{repo_dir}/figures/*.webp")}
-    installed, tolerated, archived, identical = [], [], [], 0
+    installed, padded, tolerated, archived, identical = [], [], [], [], 0
     for src in staged:
         rel = os.path.relpath(src, od)
         dst = os.path.join(repo_dir, rel)
@@ -72,6 +77,10 @@ for d in sorted(staged_dirs):
                 if md < RECUT_TOLERANCE:
                     tolerated.append((rel, md))
                     continue
+            if np.array_equal(unpadded(sp), unpadded(dp)):
+                shutil.copyfile(src, dst)
+                padded.append(rel)
+                continue
         if exists and not rel.startswith("figures/"):  # real change: archive the outgoing diagram (figures are derived)
             archived.append(la.archive_image(DEP_ROOT, d, rel, dst))
         os.makedirs(os.path.dirname(dst), exist_ok=True)
@@ -86,13 +95,21 @@ for d in sorted(staged_dirs):
             archived.append(la.archive_image(DEP_ROOT, d, rel, os.path.join(repo_dir, rel)))
         os.remove(os.path.join(repo_dir, rel))
         deleted.append(rel)
-    total += len(installed) + len(deleted)
+    fitted = [os.path.relpath(path, repo_dir) for path in
+              canvas.fit_files([os.path.join(repo_dir, rel) for rel in sorted(repo_rels - staged_rels - set(deleted))])]
+    total += len(installed) + len(padded) + len(fitted) + len(deleted)
     # Per-discipline detail to stderr: shown live in the action log, kept out of install.log (PR body)
     print(f"{d}: {identical} identical, {len(installed)} installed, {len(deleted)} deleted"
+          + (f", {len(padded)} padded" if padded else "")
+          + (f", {len(fitted)} fitted" if fitted else "")
           + (f", {len(tolerated)} re-render" if tolerated else "")
           + (f", {len(archived)} archived" if archived else ""), file=sys.stderr)
     for rel in installed:
         print(f"    installed {rel}", file=sys.stderr)
+    for rel in padded:
+        print(f"    padded {rel} (white rows/columns only, not archived)", file=sys.stderr)
+    for rel in fitted:
+        print(f"    fitted {rel} to the set's canvas", file=sys.stderr)
     for rel in deleted:
         print(f"    deleted {rel} (key left the pool)", file=sys.stderr)
     for rel, md in tolerated:
@@ -102,6 +119,8 @@ for d in sorted(staged_dirs):
     if refused:
         print(f"    !! refusing {len(refused)} deletion(s), staging holds under half the installed set", file=sys.stderr)
     all_installed += to_keys(installed)
+    all_padded    += [k for k in to_keys(padded) if k not in to_keys(installed)]
+    all_fitted    += to_keys(fitted)
     all_deleted   += to_keys(deleted)
     all_archived  += archived
     all_tolerated += to_keys(r for r, _ in tolerated)
@@ -111,6 +130,10 @@ for d in sorted(staged_dirs):
 print(f"Total: {total} file(s) changed (including figures)")
 if all_installed:
     print(f"- New/updated ({len(all_installed)}): {', '.join(all_installed)}")
+if all_padded:
+    print(f"- Padded ({len(all_padded)}): {', '.join(all_padded)} (white padding only, art unchanged)")
+if all_fitted:
+    print(f"- Fitted ({len(all_fitted)}): {', '.join(all_fitted)} (kept card padded to the grown canvas)")
 if all_deleted:
     print(f"- Deleted ({len(all_deleted)}): {', '.join(all_deleted)} (key left the pool)")
 if all_tolerated:

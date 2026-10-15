@@ -4,14 +4,15 @@ randoms' key geometry. R is CISM-only and never extracted (see the README), and
 its prior-pair key sat up-left of every SCM-cut sibling (top y33/x-center 48.5
 vs the siblings' y53-55/x-center ~73.5 at the same ~66-70px cap height). Pure
 translation of the existing glyph -- the weight and cap already match -- so the
-art stays byte-untouched. Self-noops when the key is already in place; the
-figure variant carries no key. Operates on the installed file in place."""
+art stays byte-untouched. Padding R to the set's canvas (install.py) pushed the
+key 20 rows down, so the target is the padded siblings' flat-topped key row 55.
+Self-noops when the key is already in place; the figure variant carries no key.
+Operates on the installed file in place."""
 import numpy as np
 from PIL import Image
-from scipy import ndimage
 
 PATH = "../../assets/diagrams/4-way/USPA/R.webp"
-TY, TCX = 53, 73.5   # target glyph top / x-center, the sibling randoms' cluster
+TY, TCX = 55, 73.5   # target glyph top / x-center, the sibling randoms' cluster
 PAD = 4              # margin around the glyph bbox taking its AA fringe along
 
 arr = np.array(Image.open(PATH).convert("RGB"))

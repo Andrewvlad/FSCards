@@ -106,23 +106,38 @@ jobs:
                           git rm -q --ignore-unmatch -- "$p" # New in this PR (a _dep- archive, or a new key): drop it
                       fi
                   done <<<"$TARGETS"
-                  # Re-hash the touched disciplines so the PR's manifest matches its art
-                  grep '^assets/diagrams/' <<<"$TARGETS" | xargs -r python3 tools/manifest/generate.py
                   echo "changed=$(git status --porcelain | grep -q . && echo true || echo false)" >> "$GITHUB_OUTPUT"
                   # Only block (numbered) shipped images feed panel cuts (/upscale touches none, so this is empty there)
                   # anchored to assets/diagrams so deprecated archives don't pose as disciplines
                   echo "disciplines=$(grep -E '^assets/diagrams/.*/(figures/)?[0-9][^/]*\.webp$' <<<"$TARGETS" | cut -d/ -f3 | sort -u | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
+                  # Restored USPA cards, which may sit under a canvas the re-cut grew
+                  echo "uspa=$(grep -E '^assets/diagrams/[^/]+/USPA/(figures/)?[^/]+\.webp$' <<<"$TARGETS" | tr '\n' ' ')" >> "$GITHUB_OUTPUT"
 
             - uses: actions/setup-python@v6
-              if: steps.revert.outputs.changed == 'true' && steps.revert.outputs.disciplines != ''
+              if: steps.revert.outputs.changed == 'true' && (steps.revert.outputs.disciplines != '' || steps.revert.outputs.uspa != '')
               with:
                   python-version: '3.12'
+
+            - name: Fit restored USPA cards to their set's canvas
+              if: steps.revert.outputs.changed == 'true' && steps.revert.outputs.uspa != ''
+              run: |
+                  pip install numpy pillow
+                  # canvas.py prints each card it padded, whose thumb then follows it
+                  python3 tools/uspa-extract/canvas.py ${{ steps.revert.outputs.uspa }} | xargs -r python3 tools/thumbnails/generate.py
 
             - name: Re-measure panel cuts
               if: steps.revert.outputs.changed == 'true' && steps.revert.outputs.disciplines != ''
               run: |
                   pip install numpy pillow
                   python3 tools/panel-cuts/measure.py ${{ steps.revert.outputs.disciplines }}
+
+            - name: Re-hash manifests
+              if: steps.revert.outputs.changed == 'true'
+              env:
+                  TARGETS: ${{ steps.resolve.outputs.targets }}
+              run: |
+                  # Re-hash the touched disciplines so the PR's manifest matches its art
+                  grep '^assets/diagrams/' <<<"$TARGETS" | xargs -r python3 tools/manifest/generate.py
 
             - name: Commit and push
               if: steps.revert.outputs.changed == 'true'
