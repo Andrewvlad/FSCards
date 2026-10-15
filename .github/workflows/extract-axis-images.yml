@@ -38,9 +38,10 @@ jobs:
                   PDFS: ${{ github.event.inputs.pdfs }}
               run: |
                   # merge commit's HEAD^ is pre-merge main, so the diff is the whole PR.
+                  # :(glob) keeps * out of subfolders, so legacy/ archive copies don't count
                   # Manual dispatch re-cuts the PDFs input (blank = everything)
                   if [ "$GITHUB_EVENT_NAME" = "push" ]; then
-                      changed=$(git diff --name-only HEAD^ HEAD -- 'assets/sources/axis/*.pdf' | xargs -rn1 basename)
+                      changed=$(git diff --name-only HEAD^ HEAD -- ':(glob)assets/sources/axis/*.pdf' | xargs -rn1 basename)
                   else
                       changed="$PDFS"
                   fi
