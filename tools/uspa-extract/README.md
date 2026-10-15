@@ -99,18 +99,21 @@ one. A change that is only canvas padding installs without a `deprecated/` copy,
 `install.py` pads the cards it keeps (`R`) to a grown canvas, and the reject workflow pads
 the cards a `/reject` restores (`D`) the same way.
 
-**Never re-install 8-way `D`/Hope Diamond without re-applying its graft.** The
+**Never re-install 8-way `D`/Hope Diamond without re-applying its feet.** The
 bottom jumper's feet are flat-sliced **in the source art itself** (ink stops
-mid-cell, well above the name text — nothing for the crop to recover), so the
+mid-cell, well above the name text - nothing for the crop to recover), so the
 shipped `D.webp` + `figures/D.webp` carry a hand graft of C/Hourglass's intact
-feet (same template pose; rect `[700:777, 440:660]` copied from C at offset
-dy −129 / dx +1, seam verified AA-level identical). The **top** jumper's feet sit
-exactly ON the cell border (zero ink above the line); the band-edge crop keeps
-them automatically — the old fixed-inset crop amputated them, which is why `D`
-once needed a hand-healed "skip D" rule. No skip is needed now, only the graft. `install.py` no
-longer freezes `D`: a re-cut re-proposes the flat-sliced source `D`, so keep the graft by
-**rejecting `D` in the review PR** (`/reject D`), or re-apply the graft if a deliberate re-cut
-should carry it forward.
+feet (same template pose, rect `[700:777, 440:660]` copied from C at offset
+dy −129 / dx +1, seam verified AA-level identical). The **top** jumper's shoes run
+past the cell's top border, and the SCM clips them at the border's top edge (2026:
+`498.965 668.054 17.56 24.486 re W n` in page 21's content stream), so a crop's first
+row slices them flat. The pair carries their tips in the canvas's top padding:
+page 21 re-rendered at 600 DPI with that clip rect raised and the border's stroke
+dropped, resized on the shipped grid (Lanczos `box` starting 10 rows above the crop),
+and spliced into rows 0-11, cols 460-624 of the 874-row canvas. `install.py` no longer
+freezes `D`: a re-cut re-proposes the flat-sliced source `D`, so keep both fixes by
+**rejecting `D` in the review PR** (`/reject D`), or re-apply them if a deliberate re-cut
+should carry them forward.
 
 Output contract:
 
