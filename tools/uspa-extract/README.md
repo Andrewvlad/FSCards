@@ -151,13 +151,17 @@ swap, a new file id, or a rotated token are all re-discovered, never hardcoded.
 (The LinkClick token has in fact stayed stable across editions, verified against
 the Internet Archive's history of these URLs, but the script does not rely on it.)
 
-`tools/uspa_sources.json` is the config: committed path to `{folder, file, slug}`.
+`tools/uspa_sources.json` is the config: committed path to `{folder, file, slug, title}`.
 `.github/workflows/update-uspa-sources.yml` runs the fetcher monthly (and on
-dispatch), and opens one PR per changed chapter updating the source PDF, mirroring
-the Axis source workflow.
+dispatch) and opens one PR per run carrying every changed chapter. `log_revision.py`
+lists each chapter's renamed, removed, added and moved formations, read by key from the
+pool pages' text layer (`find_pages.py` locates them), then diffs the rest of its text
+against the edition it replaces. It puts the result at the top of
+`assets/sources/uspa/legacy/README.md` and in the PR body, headed by the footer's printed
+date (or the fetch month when that date didn't move).
 
 Merging a source-PDF PR triggers `.github/workflows/extract-uspa-images.yml`, which re-cuts
-the changed chapter (`extract.py` → `install.py`) and opens a **review** PR carrying an
+the changed chapters (`extract.py` → `install.py`) and opens a **review** PR carrying an
 old-vs-new image table, mirroring the Axis pipeline. It never auto-merges — the cut is for
 eyeball review. 4-way `R`/Bundy is the one card kept by code (`install.py` exempts it from the
 orphan sweep, since it is absent from the SCM and would otherwise be dropped). 8-way `D`'s graft
@@ -170,5 +174,4 @@ On a re-cut `install.py` also parks the outgoing art of every changed or dropped
 diagram only) under `assets/sources/uspa/legacy/deprecated/<disc>/<key>_dep-<year>.webp` (year = the
 re-cut day), and `update-uspa-sources` archives each fetched edition under
 `assets/sources/uspa/legacy/<year>/` (shared `legacy_archive.py`); a `/reject` drops the matching
-`_dep-` copy, `/upscale` keeps the card and drops only its archive. See
-`assets/sources/uspa/legacy/README.md`.
+`_dep-` copy, `/upscale` keeps the card and drops only its archive.

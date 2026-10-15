@@ -13,7 +13,6 @@ jobs:
         outputs:
             changed: ${{ steps.fetch.outputs.changed }}
             failed: ${{ steps.fetch.outputs.failed }}
-            artifact_url: ${{ steps.stash.outputs['artifact-url'] }}
         steps:
             - uses: actions/checkout@v5
 
@@ -47,7 +46,6 @@ jobs:
                   path: ${{ runner.temp }}/report.json
 
             - name: Stash changed PDFs for the pr job
-              id: stash
               if: steps.fetch.outputs.changed != '[]'
               uses: actions/upload-artifact@v7
               with:
@@ -61,60 +59,66 @@ jobs:
         permissions:
             contents: write # for PR
             pull-requests: write # for PR
-        strategy:
-            fail-fast: false
-            matrix:
-                path: ${{ fromJSON(needs.check.outputs.changed) }}
         steps:
             - uses: actions/checkout@v5
 
-            - name: Restore the changed PDF and report
+            - name: Restore the changed PDFs and report
               uses: actions/download-artifact@v7
               with:
                   merge-multiple: true # changed-pdfs + uspa-report into one dir
                   path: ${{ runner.temp }}/staged
 
-            - name: Place PDF, archive the edition, compose PR
+            - name: Install poppler
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y --no-install-recommends poppler-utils
+
+            - name: Archive the editions, log the revision, place the PDFs
               id: meta
               env:
-                  PDF_PATH: ${{ matrix.path }}
-                  ARTIFACT_URL: ${{ needs.check.outputs.artifact_url }}
+                  CHANGED: ${{ needs.check.outputs.changed }}
               run: |
-                  # The check job already fetched and compared these exact bytes, just place them
-                  cp "$RUNNER_TEMP/staged/$(basename "$PDF_PATH")" "$PDF_PATH"
+                  mapfile -t paths < <(jq -r '.[]' <<<"$CHANGED")
 
                   # Archive the fetched edition into legacy/<fetch year>/, so the archive keeps one
                   # copy per edition (this current one included) - a same-year re-revision nests by
                   # fetch month (<year>/<Month>/) beside the flat copy - legacy/** captures both
-                  archive=$(python3 tools/legacy_archive.py archive-pdf "$PDF_PATH" assets/sources/uspa/legacy)
+                  pairs=()
+                  for path in "${paths[@]}"; do
+                      pairs+=("$path" "$(python3 tools/legacy_archive.py archive-pdf "$RUNNER_TEMP/staged/$(basename "$path")" assets/sources/uspa/legacy)")
+                  done
 
-                  slug=$(jq -r --arg p "$PDF_PATH" '.chapters[$p].slug' tools/uspa_sources.json)
-                  detail=$(jq -c --arg p "$PDF_PATH" '.details[$p]' "$RUNNER_TEMP/staged/report.json")
+                  # Log runs while the committed PDFs are still the editions being replaced
                   {
-                      echo "Upstream revision detected for [\`$PDF_PATH\`]($ARTIFACT_URL)."
+                      echo "Upstream revision of the watched USPA SCM chapters, also logged at the top of \`assets/sources/uspa/legacy/README.md\`. Merging starts the automatic image re-cut, which opens a review PR."
                       echo
-                      echo "Also archived this edition at \`$archive\` (labeled by its fetch year)."
+                      python3 tools/uspa-extract/log_revision.py "${pairs[@]}"
                       echo
-                      echo "Discovered from the live USPA SCM file library:"
+                      echo '<details>'
+                      echo '<summary>Discovered from the live USPA SCM file library</summary>'
+                      echo
                       echo '```json'
-                      echo "$detail" | jq .
+                      jq .details "$RUNNER_TEMP/staged/report.json"
                       echo '```'
-                      echo "Re-cut its USPA image set after merge: \`tools/uspa-extract/driver_ch9.py\` (Ch.9) / \`driver_ch7.py\` (Ch.7), then install over \`assets/diagrams/\` - mind the hand-managed exceptions in the README."
+                      echo
+                      echo '</details>'
                   } > "$RUNNER_TEMP/pr-body.md"
-                  {
-                      echo "slug=$slug"
-                      echo "archive=$archive"
-                  } >> "$GITHUB_OUTPUT"
+                  echo "month=$(grep -m1 '^## ' "$RUNNER_TEMP/pr-body.md" | cut -c4-)" >> "$GITHUB_OUTPUT"
 
-            - name: Open PR for updated PDF
+                  # The check job already fetched and compared these exact bytes, just place them
+                  for path in "${paths[@]}"; do
+                      cp "$RUNNER_TEMP/staged/$(basename "$path")" "$path"
+                  done
+
+            - name: Open PR for the updated PDFs
               uses: peter-evans/create-pull-request@v8
               with:
                   add-paths: |
-                      ${{ matrix.path }}
+                      assets/sources/uspa/*.pdf
                       assets/sources/uspa/legacy/**
-                  commit-message: 'chore: Update USPA ${{ steps.meta.outputs.slug }} PDF'
-                  branch: update-source-pdf/uspa/${{ steps.meta.outputs.slug }}
-                  title: 'Update USPA ${{ steps.meta.outputs.slug }} PDF'
+                  commit-message: 'chore: Update USPA SCM PDFs to ${{ steps.meta.outputs.month }}'
+                  branch: update-source-pdf/uspa
+                  title: 'Update USPA SCM PDFs to ${{ steps.meta.outputs.month }}'
                   body-path: ${{ runner.temp }}/pr-body.md
                   reviewers: Andrewvlad
                   delete-branch: true

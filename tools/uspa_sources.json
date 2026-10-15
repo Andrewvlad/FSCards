@@ -4,12 +4,14 @@
         "assets/sources/uspa/fs.pdf": {
             "folder": "Individual Chapters",
             "file": "SCM_Ch09.pdf",
-            "slug": "ch9-fs"
+            "slug": "ch9-fs",
+            "title": "Ch.9 Formation Skydiving"
         },
         "assets/sources/uspa/collegiate.pdf": {
             "folder": "Individual Chapters",
             "file": "SCM_Ch07.pdf",
-            "slug": "ch7-collegiate"
+            "slug": "ch7-collegiate",
+            "title": "Ch.7 Collegiate"
         }
     }
 }
